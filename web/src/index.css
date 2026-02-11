@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: Verdana, Geneva, sans-serif;
+    background-color: #f6f6ef;
+}

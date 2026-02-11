@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    network_mode: "host"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: 8080
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    network_mode: "host"
+    command: [ "/app/ingest" ]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    # Using profiles or manual start if needed, but keeping it running for now as requested previously
