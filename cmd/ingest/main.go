@@ -58,8 +58,8 @@ func main() {
 	// Run initially
 	runIngestion(ctx, client, store)
 
-	// Ticker for periodic updates (every 15 minutes)
-	ticker := time.NewTicker(15 * time.Minute)
+	// Ticker for periodic updates (every 1 minute)
+	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
 	for {
@@ -76,20 +76,30 @@ func main() {
 func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) {
 	log.Println("Fetching stories...")
 
-	// Fetch Top Stories
+	// Fetch Top Stories (Ranked)
 	topIDs, err := client.GetTopStories(ctx)
 	if err != nil {
 		log.Printf("Failed to fetch top stories: %v", err)
 	} else {
 		log.Printf("Fetched %d top stories", len(topIDs))
+		// Clear ranks for stories that are no longer in the top list
+		if err := store.ClearRanksNotIn(ctx, topIDs); err != nil {
+			log.Printf("Failed to clear old ranks: %v", err)
+		}
 	}
 
-	// Fetch New Stories
+	// Fetch New Stories (Unranked, effectively)
 	newIDs, err := client.GetNewStories(ctx)
 	if err != nil {
 		log.Printf("Failed to fetch new stories: %v", err)
 	} else {
 		log.Printf("Fetched %d new stories", len(newIDs))
+	}
+
+	// Map IDs to their Rank (only for Top Stories)
+	rankMap := make(map[int]int)
+	for i, id := range topIDs {
+		rankMap[id] = i + 1 // 1-based rank
 	}
 
 	// Combine and Deduplicate
@@ -122,7 +132,13 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 				case <-ctx.Done():
 					return
 				default:
-					if err := processStory(ctx, client, store, id); err != nil {
+					rank, hasRank := rankMap[id]
+					var rankPtr *int
+					if hasRank {
+						rankPtr = &rank
+					}
+
+					if err := processStory(ctx, client, store, id, rankPtr); err != nil {
 						log.Printf("Worker %d: Failed to process story %d: %v", workerID, id, err)
 					}
 				}
@@ -141,7 +157,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 	log.Println("Ingestion run completed.")
 }
 
-func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int) error {
+func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int, rank *int) error {
 	item, err := client.GetItem(ctx, id)
 	if err != nil {
 		return err
@@ -161,6 +177,7 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 		By:          item.By,
 		Descendants: item.Descendants,
 		PostedAt:    time.Unix(item.Time, 0),
+		HNRank:      rank,
 	}
 
 	if err := store.UpsertStory(ctx, story); err != nil {

@@ -49,6 +49,7 @@ func (s *Server) middlewares() {
 func (s *Server) routes() {
 	s.router.Get("/healthc", s.handleHealthCheck)
 	s.router.Get("/api/stories", s.handleGetStories)
+	s.router.Get("/api/stories/{id}", s.handleGetStoryDetails)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -79,11 +80,19 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sortParam := r.URL.Query().Get("sort")
-	if sortParam != "new" {
-		sortParam = "top"
+	// Map "new" to "latest" for backward compatibility if needed, or just use "latest"
+	if sortParam == "new" {
+		sortParam = "latest"
 	}
 
-	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam)
+	// Default to "default" (HN Rank) if not specified or invalid
+	if sortParam != "latest" && sortParam != "votes" && sortParam != "default" {
+		sortParam = "default"
+	}
+
+	topicParam := r.URL.Query().Get("topic")
+
+	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topicParam)
 	if err != nil {
 		http.Error(w, "Failed to fetch stories", http.StatusInternalServerError)
 		return
@@ -96,4 +105,42 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stories)
+}
+
+func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	story, err := s.store.GetStory(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Story not found", http.StatusNotFound)
+		return
+	}
+
+	comments, err := s.store.GetComments(r.Context(), id)
+	if err != nil {
+		// Log error but maybe return story without comments?
+		// For now, fail.
+		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
+		return
+	}
+
+	if comments == nil {
+		comments = []storage.Comment{}
+	}
+
+	response := struct {
+		Story    *storage.Story    `json:"story"`
+		Comments []storage.Comment `json:"comments"`
+	}{
+		Story:    story,
+		Comments: comments,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
