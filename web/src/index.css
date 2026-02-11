@@ -5,5 +5,27 @@
 body {
     margin: 0;
     font-family: Verdana, Geneva, sans-serif;
-    background-color: #f6f6ef;
+    background-color: #111827;
+}
+
+/* Custom Scrollbar for Chrome/Safari/Edge */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #1f2937;
+    /* gray-800 */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    /* gray-600 */
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+    /* gray-500 */
 }

@@ -12,9 +12,10 @@ export interface Story {
 
 interface StoryCardProps {
     story: Story;
+    onSelect?: (id: number) => void;
 }
 
-export function StoryCard({ story }: StoryCardProps) {
+export function StoryCard({ story, onSelect }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -28,26 +29,43 @@ export function StoryCard({ story }: StoryCardProps) {
     const timeAgo = getTimeAgo(date);
 
     return (
-        <li className="mb-1 text-[14px] marker:text-gray-500 marker:font-mono">
-            <div className="inline-block align-top leading-tight">
+        <div className="mb-2 text-gray-300">
+            <div className="inline-block align-top leading-snug">
                 <a
                     href={story.url || `https://news.ycombinator.com/item?id=${story.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-black visited:text-[#828282] hover:underline mr-1"
+                    className="text-gray-100 hover:text-[#ff6600] visited:text-gray-400 font-medium mr-2 transition-colors"
                 >
                     {story.title}
                 </a>
                 {domain && (
-                    <span className="text-[10px] text-[#828282]">
-                        (<a href={`#`} className="hover:underline">{domain}</a>)
+                    <span className="text-xs text-gray-500">
+                        (<a href={`#`} className="hover:text-gray-300 transition-colors">{domain}</a>)
                     </span>
                 )}
             </div>
-            <div className="text-[10px] text-[#828282] leading-tight ml-0">
-                {story.score} points by <a href={`https://news.ycombinator.com/user?id=${story.by}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{story.by}</a> <span className="hover:underline cursor-pointer" title={date.toLocaleString()}>{timeAgo}</span> | <a href="#" className="hover:underline">hide</a> | <a href="#" className="hover:underline">past</a> | <a href={`https://news.ycombinator.com/item?id=${story.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{story.descendants > 0 ? `${story.descendants} comments` : 'discuss'}</a>
+            <div className="text-xs text-gray-500 mt-1 flex items-center gap-1 flex-wrap">
+                <span className="text-[#ff6600] font-medium">{story.score} points</span>
+                <span>by</span>
+                <a href={`https://news.ycombinator.com/user?id=${story.by}`} target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors">{story.by}</a>
+                <span className="text-gray-600">•</span>
+                <span className="hover:text-gray-300 cursor-pointer transition-colors" title={date.toLocaleString()}>{timeAgo}</span>
+                <span className="text-gray-600">•</span>
+                <button
+                    onClick={() => onSelect && onSelect(story.id)}
+                    className="hover:text-gray-300 transition-colors flex items-center gap-1 text-gray-500 hover:underline"
+                >
+                    {story.descendants > 0 ? (
+                        <>
+                            {/* Comment Icon */}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                            {story.descendants}
+                        </>
+                    ) : 'discuss'}
+                </button>
             </div>
-        </li>
+        </div>
     );
 }
 

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +17,7 @@ type Story struct {
 	Descendants int       `json:"descendants"`
 	PostedAt    time.Time `json:"time"`
 	CreatedAt   time.Time `json:"created_at"`
+	HNRank      *int      `json:"hn_rank,omitempty"`
 }
 
 type Store struct {
@@ -28,33 +30,45 @@ func New(db *pgxpool.Pool) *Store {
 
 func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 	query := `
-		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, hn_rank, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
 		ON CONFLICT (id) DO UPDATE
 		SET title = EXCLUDED.title,
 			url = EXCLUDED.url,
 			score = EXCLUDED.score,
 			by = EXCLUDED.by,
 			descendants = EXCLUDED.descendants,
-			posted_at = EXCLUDED.posted_at;
+			posted_at = EXCLUDED.posted_at,
+			hn_rank = EXCLUDED.hn_rank;
 	`
-	_, err := s.db.Exec(ctx, query, story.ID, story.Title, story.URL, story.Score, story.By, story.Descendants, story.PostedAt)
+	_, err := s.db.Exec(ctx, query, story.ID, story.Title, story.URL, story.Score, story.By, story.Descendants, story.PostedAt, story.HNRank)
 	return err
 }
 
-func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string) ([]Story, error) {
-	orderBy := "score DESC"
-	if sortStrategy == "new" {
-		orderBy = "posted_at DESC"
+func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topic string) ([]Story, error) {
+	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank FROM stories WHERE 1=1`
+	var args []interface{}
+	argID := 1
+
+	if topic != "" {
+		query += fmt.Sprintf(` AND search_vector @@ plainto_tsquery('english', $%d)`, argID)
+		args = append(args, topic)
+		argID++
 	}
 
-	query := `
-		SELECT id, title, url, score, by, descendants, posted_at, created_at
-		FROM stories
-		ORDER BY ` + orderBy + `
-		LIMIT $1 OFFSET $2
-	`
-	rows, err := s.db.Query(ctx, query, limit, offset)
+	orderBy := "hn_rank ASC NULLS LAST"
+	switch sortStrategy {
+	case "votes":
+		orderBy = "score DESC"
+	case "latest":
+		orderBy = "posted_at DESC"
+	}
+	query += ` ORDER BY ` + orderBy
+
+	query += fmt.Sprintf(` LIMIT $%d OFFSET $%d`, argID, argID+1)
+	args = append(args, limit, offset)
+
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,12 +77,41 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	var stories []Story
 	for rows.Next() {
 		var story Story
-		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt); err != nil {
+		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank); err != nil {
 			return nil, err
 		}
 		stories = append(stories, story)
 	}
 	return stories, nil
+}
+
+func (s *Store) GetStory(ctx context.Context, id int) (*Story, error) {
+	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank FROM stories WHERE id = $1`
+	var story Story
+	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank)
+	if err != nil {
+		return nil, err
+	}
+	return &story, nil
+}
+
+func (s *Store) GetComments(ctx context.Context, storyID int) ([]Comment, error) {
+	query := `SELECT id, story_id, parent_id, text, by, posted_at FROM comments WHERE story_id = $1 ORDER BY posted_at ASC`
+	rows, err := s.db.Query(ctx, query, storyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []Comment
+	for rows.Next() {
+		var c Comment
+		if err := rows.Scan(&c.ID, &c.StoryID, &c.ParentID, &c.Text, &c.By, &c.PostedAt); err != nil {
+			return nil, err
+		}
+		comments = append(comments, c)
+	}
+	return comments, nil
 }
 
 type Comment struct {
@@ -111,5 +154,14 @@ func (s *Store) UpsertUser(ctx context.Context, user User) error {
 			updated_at = NOW();
 	`
 	_, err := s.db.Exec(ctx, query, user.ID, user.Created, user.Karma, user.About, user.Submitted)
+	return err
+}
+
+func (s *Store) ClearRanksNotIn(ctx context.Context, ids []int) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	query := `UPDATE stories SET hn_rank = NULL WHERE hn_rank IS NOT NULL AND id != ALL($1)`
+	_, err := s.db.Exec(ctx, query, ids)
 	return err
 }
