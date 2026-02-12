@@ -44,6 +44,7 @@ docker-compose up --build
 
 ## Recent Updates
 
+- **Phase 18**: Resizable 3-pane IDE layout with `react-resizable-panels`, persistent sizing, and Space/Esc keyboard shortcuts.
 - **Phase 17**: Header redesign, simplified navigation, and data cleanup.
 - **Phase 16**: Visual polish (bold selection) and full keyboard accessibility (Tab/Enter).
 - **Phase 15**: Layout density, centered header, and arrow-key navigation.
