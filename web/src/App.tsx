@@ -53,7 +53,8 @@ function App() {
     setLoading(true);
     setError(null);
 
-    let url = `http://localhost:8080/api/stories?limit=50&sort=${mode}`;
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    let url = `${baseUrl}/api/stories?limit=50&sort=${mode}`;
     if (activeTopic) {
       url += `&topic=${encodeURIComponent(activeTopic)}`;
     }
@@ -91,7 +92,8 @@ function App() {
     }
 
     setCommentsLoading(true);
-    fetch(`http://localhost:8080/api/stories/${selectedStoryId}`)
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    fetch(`${baseUrl}/api/stories/${selectedStoryId}`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch comments');
         return res.json();

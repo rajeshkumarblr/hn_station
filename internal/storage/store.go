@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -164,4 +165,23 @@ func (s *Store) ClearRanksNotIn(ctx context.Context, ids []int) error {
 	query := `UPDATE stories SET hn_rank = NULL WHERE hn_rank IS NOT NULL AND id != ALL($1)`
 	_, err := s.db.Exec(ctx, query, ids)
 	return err
+}
+
+func (s *Store) UpdateRanks(ctx context.Context, rankMap map[int]int) error {
+	batch := &pgx.Batch{}
+	for id, rank := range rankMap {
+		// Only update existing stories. If a story doesn't exist, it will be inserted with the correct rank by the worker.
+		batch.Queue("UPDATE stories SET hn_rank = $1 WHERE id = $2", rank, id)
+	}
+
+	br := s.db.SendBatch(ctx, batch)
+	defer br.Close()
+
+	for range rankMap {
+		_, err := br.Exec()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

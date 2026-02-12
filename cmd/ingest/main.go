@@ -102,6 +102,12 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 		rankMap[id] = i + 1 // 1-based rank
 	}
 
+	// IMMEDIATE UPDATE: Update ranks for existing stories
+	log.Println("Updating ranks for existing stories...")
+	if err := store.UpdateRanks(ctx, rankMap); err != nil {
+		log.Printf("Failed to update ranks: %v", err)
+	}
+
 	// Combine and Deduplicate
 	uniqueIDs := make(map[int]struct{})
 	for _, id := range topIDs {
@@ -138,6 +144,9 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 						rankPtr = &rank
 					}
 
+					// Pass rankPtr to processStory, which will handle upsert.
+					// For existing stories, this is redundant but harmless (idempotent).
+					// For new stories, this sets the initial rank correctly.
 					if err := processStory(ctx, client, store, id, rankPtr); err != nil {
 						log.Printf("Worker %d: Failed to process story %d: %v", workerID, id, err)
 					}

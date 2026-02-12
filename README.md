@@ -44,6 +44,6 @@ docker-compose up --build
 
 ## Recent Updates
 
+- **Phase 9**: Production Ingress with Let's Encrypt TLS (https://hnstation.dev).
+- **Phase 8**: AKS Deployment, Ranking Consistency Fixes (Atomic Updates), and Ingestion improvements.
 - **Phase 7**: Sidebar visual enhancements (contrast) and custom topic management.
-- **Phase 6**: Inline comments sidebar, ranking fixes, and visual polish.
-- **Phase 5**: Dark mode overhaul and real-time ingestion tuning.
