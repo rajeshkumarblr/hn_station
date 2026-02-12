@@ -44,6 +44,7 @@ docker-compose up --build
 
 ## Recent Updates
 
+- **Phase 10**: Enterprise Security with Azure Key Vault & Managed Identity (Secrets Store CSI).
 - **Phase 9**: Production Ingress with Let's Encrypt TLS (https://hnstation.dev).
 - **Phase 8**: AKS Deployment, Ranking Consistency Fixes (Atomic Updates), and Ingestion improvements.
 - **Phase 7**: Sidebar visual enhancements (contrast) and custom topic management.
