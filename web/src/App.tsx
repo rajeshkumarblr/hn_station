@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import './App.css';
 import { StoryCard } from './components/StoryCard';
 import { ReaderPane } from './components/ReaderPane';
-import { RefreshCw, Search, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark } from 'lucide-react';
+import { RefreshCw, Search, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github } from 'lucide-react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, useDefaultLayout } from 'react-resizable-panels';
 
 interface Story {
@@ -135,6 +135,7 @@ function App() {
 
   // Keyboard Nav
   const [focusMode, setFocusMode] = useState<'stories' | 'reader' | 'header'>('stories');
+  const [isZenMode, setIsZenMode] = useState(false);
   const readerContainerRef = useRef<HTMLElement>(null);
   const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const topicInputRef = useRef<HTMLInputElement>(null);
@@ -261,12 +262,46 @@ function App() {
       } else if (e.key === '/') {
         e.preventDefault();
         topicInputRef.current?.focus();
+      } else if (e.key === 'z' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setIsZenMode(prev => !prev);
+      } else if (e.key === 'n' && focusMode === 'reader' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const container = readerContainerRef.current;
+        if (!container) return;
+        const roots = container.querySelectorAll('[data-root-comment]');
+        const scrollTop = container.scrollTop;
+        for (const el of roots) {
+          const rect = el.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const offset = rect.top - containerRect.top + scrollTop;
+          if (offset > scrollTop + 10) {
+            container.scrollTo({ top: offset - 80, behavior: 'smooth' });
+            break;
+          }
+        }
+      } else if (e.key === 'p' && focusMode === 'reader' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const container = readerContainerRef.current;
+        if (!container) return;
+        const roots = Array.from(container.querySelectorAll('[data-root-comment]'));
+        const scrollTop = container.scrollTop;
+        for (let i = roots.length - 1; i >= 0; i--) {
+          const el = roots[i];
+          const rect = el.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const offset = rect.top - containerRect.top + scrollTop;
+          if (offset < scrollTop - 10) {
+            container.scrollTo({ top: offset - 80, behavior: 'smooth' });
+            break;
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stories, selectedStoryId, focusMode]);
+  }, [stories, selectedStoryId, focusMode, isZenMode]);
 
   // Build API URL
   const buildUrl = useCallback((currentOffset: number) => {
@@ -561,6 +596,15 @@ function App() {
             >
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
+            <a
+              href="https://github.com/rajeshkumarblr/my_hn"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors active:scale-95"
+              title="View Source Code"
+            >
+              <Github size={16} />
+            </a>
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-all active:scale-95"
@@ -609,85 +653,87 @@ function App() {
       >
 
         {/* Story Feed */}
-        <Panel defaultSize={35} minSize={25} id="feed">
-          <div className="h-full flex flex-col bg-slate-950">
-            <main
-              className={`flex-1 overflow-y-auto custom-scrollbar p-3 transition-all ${focusMode === 'stories' ? 'shadow-[inset_0_0_0_2px_rgba(59,130,246,0.3)]' : ''}`}
-            >
-              {loading && (
-                <div className="p-20 text-center text-gray-400 dark:text-slate-500 flex flex-col items-center gap-4">
-                  <div className="animate-spin text-blue-500"><RefreshCw size={32} /></div>
-                  <p className="font-medium animate-pulse">Loading stories...</p>
-                </div>
-              )}
+        {!isZenMode && (
+          <Panel defaultSize={35} minSize={25} id="feed">
+            <div className="h-full flex flex-col bg-slate-950">
+              <main
+                className={`flex-1 overflow-y-auto custom-scrollbar p-3 transition-all ${focusMode === 'stories' ? 'shadow-[inset_0_0_0_2px_rgba(59,130,246,0.3)]' : ''}`}
+              >
+                {loading && (
+                  <div className="p-20 text-center text-gray-400 dark:text-slate-500 flex flex-col items-center gap-4">
+                    <div className="animate-spin text-blue-500"><RefreshCw size={32} /></div>
+                    <p className="font-medium animate-pulse">Loading stories...</p>
+                  </div>
+                )}
 
-              {error && (
-                <div className="p-6 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-xl flex items-center gap-3 shadow-sm">
-                  <X size={20} />
-                  <p>{error}</p>
-                </div>
-              )}
+                {error && (
+                  <div className="p-6 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-xl flex items-center gap-3 shadow-sm">
+                    <X size={20} />
+                    <p>{error}</p>
+                  </div>
+                )}
 
-              {!loading && !error && (
-                <div className="space-y-3">
-                  {stories.map((story, index) => {
-                    const isSelected = selectedStoryId === story.id;
-                    const isRead = readIds.has(story.id) || story.is_read;
-                    const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
-                    const topicAccent = matchedTopic ? getTopicColor(matchedTopic).accent : null;
-                    return (
-                      <div
-                        key={story.id}
-                        ref={el => storyRefs.current[index] = el}
-                        tabIndex={0}
-                        role="button"
-                        aria-selected={isSelected}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleStorySelect(story.id);
-                            const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
-                            window.open(url, '_blank', 'noopener,noreferrer');
-                          }
-                        }}
-                        onClick={() => handleStorySelect(story.id)}
-                        className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
-                        style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
-                      >
-                        <StoryCard
-                          story={story}
-                          index={index}
-                          isSelected={isSelected}
-                          isRead={isRead}
-                          onSelect={(id) => handleStorySelect(id)}
-                          onToggleSave={user ? handleToggleSave : undefined}
-                        />
+                {!loading && !error && (
+                  <div className="space-y-3">
+                    {stories.map((story, index) => {
+                      const isSelected = selectedStoryId === story.id;
+                      const isRead = readIds.has(story.id) || story.is_read;
+                      const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
+                      const topicAccent = matchedTopic ? getTopicColor(matchedTopic).accent : null;
+                      return (
+                        <div
+                          key={story.id}
+                          ref={el => storyRefs.current[index] = el}
+                          tabIndex={0}
+                          role="button"
+                          aria-selected={isSelected}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleStorySelect(story.id);
+                              const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                          onClick={() => handleStorySelect(story.id)}
+                          className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
+                          style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
+                        >
+                          <StoryCard
+                            story={story}
+                            index={index}
+                            isSelected={isSelected}
+                            isRead={isRead}
+                            onSelect={(id) => handleStorySelect(id)}
+                            onToggleSave={user ? handleToggleSave : undefined}
+                          />
+                        </div>
+                      );
+                    })}
+
+                    {/* Infinite Scroll Sentinel */}
+                    <div ref={sentinelRef} className="h-4" />
+                    {loadingMore && (
+                      <div className="flex items-center justify-center py-6 gap-2 text-gray-400 dark:text-slate-500">
+                        <RefreshCw size={16} className="animate-spin" />
+                        <span className="text-sm">Loading more...</span>
                       </div>
-                    );
-                  })}
+                    )}
+                    {!hasMore && stories.length > 0 && (
+                      <div className="text-center py-4 text-xs text-gray-400 dark:text-slate-600">
+                        All stories loaded
+                      </div>
+                    )}
+                  </div>
+                )}
+              </main>
+            </div>
+          </Panel>
+        )}
 
-                  {/* Infinite Scroll Sentinel */}
-                  <div ref={sentinelRef} className="h-4" />
-                  {loadingMore && (
-                    <div className="flex items-center justify-center py-6 gap-2 text-gray-400 dark:text-slate-500">
-                      <RefreshCw size={16} className="animate-spin" />
-                      <span className="text-sm">Loading more...</span>
-                    </div>
-                  )}
-                  {!hasMore && stories.length > 0 && (
-                    <div className="text-center py-4 text-xs text-gray-400 dark:text-slate-600">
-                      All stories loaded
-                    </div>
-                  )}
-                </div>
-              )}
-            </main>
-          </div>
-        </Panel>
-
-        <ResizeHandle />
+        {!isZenMode && <ResizeHandle />}
 
         {/* Reader Pane */}
-        <Panel defaultSize={65} minSize={30} id="reader">
+        <Panel defaultSize={isZenMode ? 100 : 65} minSize={30} id="reader">
           <aside
             ref={readerContainerRef}
             tabIndex={-1}
