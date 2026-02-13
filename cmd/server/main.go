@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/rajeshkumarblr/my_hn/internal/api"
+	"github.com/rajeshkumarblr/my_hn/internal/auth"
 	"github.com/rajeshkumarblr/my_hn/internal/storage"
 )
 
@@ -41,8 +42,12 @@ func main() {
 	}
 	defer dbpool.Close()
 
+	// Initialize auth
+	authCfg := auth.NewConfig()
+	log.Printf("OAuth2 callback URL: %s", authCfg.OAuth2Config.RedirectURL)
+
 	store := storage.New(dbpool)
-	server := api.NewServer(store)
+	server := api.NewServer(store, authCfg)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
