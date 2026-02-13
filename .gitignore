@@ -31,3 +31,6 @@ go.work.sum
 # .idea/
 # .vscode/
 .env
+client_secret.json
+client_secret.json
+google-oauth-secret.yaml

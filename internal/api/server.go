@@ -1,26 +1,34 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/rajeshkumarblr/my_hn/internal/auth"
 	"github.com/rajeshkumarblr/my_hn/internal/storage"
+	"golang.org/x/oauth2"
 )
 
 type Server struct {
 	store  *storage.Store
 	router *chi.Mux
+	auth   *auth.Config
 }
 
-func NewServer(store *storage.Store) *Server {
+func NewServer(store *storage.Store, authCfg *auth.Config) *Server {
 	s := &Server{
 		store:  store,
 		router: chi.NewRouter(),
+		auth:   authCfg,
 	}
 
 	s.middlewares()
@@ -36,8 +44,9 @@ func (s *Server) middlewares() {
 	s.router.Use(middleware.Recoverer)
 	s.router.Use(middleware.Timeout(60 * time.Second))
 
+	allowedOrigins := []string{"http://localhost:5173", "https://hnstation.dev"}
 	s.router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"}, // Adjust for production
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -47,9 +56,18 @@ func (s *Server) middlewares() {
 }
 
 func (s *Server) routes() {
+	// Health check
 	s.router.Get("/healthc", s.handleHealthCheck)
+
+	// API routes
 	s.router.Get("/api/stories", s.handleGetStories)
 	s.router.Get("/api/stories/{id}", s.handleGetStoryDetails)
+	s.router.Get("/api/me", s.handleGetMe)
+
+	// Auth routes
+	s.router.Get("/auth/google", s.handleGoogleLogin)
+	s.router.Get("/auth/google/callback", s.handleGoogleCallback)
+	s.router.Get("/auth/logout", s.handleLogout)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +78,142 @@ func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
+
+// isSecureRequest determines if the request came over HTTPS.
+func isSecureRequest(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	// Behind a proxy (K8s ingress)
+	return r.Header.Get("X-Forwarded-Proto") == "https"
+}
+
+// ─── Auth Handlers ───
+
+func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	state := auth.GenerateStateToken()
+
+	// Store state in a short-lived cookie for verification on callback
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    state,
+		Path:     "/",
+		MaxAge:   300, // 5 minutes
+		HttpOnly: true,
+		Secure:   isSecureRequest(r),
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	url := s.auth.OAuth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+	// Verify state for CSRF protection
+	stateCookie, err := r.Cookie("oauth_state")
+	if err != nil || stateCookie.Value != r.URL.Query().Get("state") {
+		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Clear state cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:   "oauth_state",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+
+	// Exchange code for token
+	code := r.URL.Query().Get("code")
+	token, err := s.auth.OAuth2Config.Exchange(context.Background(), code)
+	if err != nil {
+		log.Printf("Error exchanging code for token: %v", err)
+		http.Error(w, "Failed to exchange token", http.StatusInternalServerError)
+		return
+	}
+
+	// Get user info from Google
+	client := s.auth.OAuth2Config.Client(context.Background(), token)
+	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	if err != nil {
+		log.Printf("Error fetching user info: %v", err)
+		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	var googleUser struct {
+		ID      string `json:"id"`
+		Email   string `json:"email"`
+		Name    string `json:"name"`
+		Picture string `json:"picture"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&googleUser); err != nil {
+		log.Printf("Error decoding user info: %v", err)
+		http.Error(w, "Failed to parse user info", http.StatusInternalServerError)
+		return
+	}
+
+	// Upsert user in database
+	user, err := s.store.UpsertAuthUser(r.Context(), googleUser.ID, googleUser.Email, googleUser.Name, googleUser.Picture)
+	if err != nil {
+		log.Printf("Error upserting user: %v", err)
+		http.Error(w, "Failed to save user", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate JWT
+	jwtToken, err := s.auth.GenerateToken(user.ID, user.Email)
+	if err != nil {
+		log.Printf("Error generating JWT: %v", err)
+		http.Error(w, "Failed to create session", http.StatusInternalServerError)
+		return
+	}
+
+	// Set session cookie
+	auth.SetSessionCookie(w, jwtToken, isSecureRequest(r))
+
+	// Redirect to frontend
+	redirectURL := os.Getenv("FRONTEND_URL")
+	if redirectURL == "" {
+		redirectURL = "/"
+	}
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	auth.ClearSessionCookie(w, isSecureRequest(r))
+
+	redirectURL := os.Getenv("FRONTEND_URL")
+	if redirectURL == "" {
+		redirectURL = "/"
+	}
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+}
+
+func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "not authenticated"})
+		return
+	}
+
+	user, err := s.store.GetAuthUser(r.Context(), userID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "user not found"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
+}
+
+// ─── Story Handlers ───
 
 func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")
@@ -80,25 +234,28 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sortParam := r.URL.Query().Get("sort")
-	// Map "new" to "latest" for backward compatibility if needed, or just use "latest"
 	if sortParam == "new" {
 		sortParam = "latest"
 	}
 
-	// Default to "default" (HN Rank) if not specified or invalid
-	if sortParam != "latest" && sortParam != "votes" && sortParam != "default" {
+	if sortParam != "latest" && sortParam != "votes" && sortParam != "default" && sortParam != "show" {
 		sortParam = "default"
 	}
 
-	topicParam := r.URL.Query().Get("topic")
+	topicParams := r.URL.Query()["topic"]
+	var topics []string
+	for _, t := range topicParams {
+		if strings.TrimSpace(t) != "" {
+			topics = append(topics, t)
+		}
+	}
 
-	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topicParam)
+	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics)
 	if err != nil {
 		http.Error(w, "Failed to fetch stories", http.StatusInternalServerError)
 		return
 	}
 
-	// Return empty array instead of null
 	if stories == nil {
 		stories = []storage.Story{}
 	}
@@ -123,8 +280,6 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 
 	comments, err := s.store.GetComments(r.Context(), id)
 	if err != nil {
-		// Log error but maybe return story without comments?
-		// For now, fail.
 		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
 		return
 	}

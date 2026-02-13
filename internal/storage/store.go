@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,6 +20,16 @@ type Story struct {
 	PostedAt    time.Time `json:"time"`
 	CreatedAt   time.Time `json:"created_at"`
 	HNRank      *int      `json:"hn_rank,omitempty"`
+}
+
+type AuthUser struct {
+	ID        string    `json:"id"`
+	GoogleID  string    `json:"google_id"`
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
+	AvatarURL string    `json:"avatar_url"`
+	IsAdmin   bool      `json:"is_admin"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Store struct {
@@ -46,15 +57,25 @@ func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 	return err
 }
 
-func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topic string) ([]Story, error) {
+func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string) ([]Story, error) {
 	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank FROM stories WHERE 1=1`
 	var args []interface{}
 	argID := 1
 
-	if topic != "" {
-		query += fmt.Sprintf(` AND search_vector @@ plainto_tsquery('english', $%d)`, argID)
-		args = append(args, topic)
-		argID++
+	// Multi-topic OR filter
+	if len(topics) > 0 {
+		tsqueryParts := make([]string, len(topics))
+		for i, t := range topics {
+			tsqueryParts[i] = fmt.Sprintf("plainto_tsquery('english', $%d)", argID)
+			args = append(args, t)
+			argID++
+		}
+		query += ` AND search_vector @@ (` + strings.Join(tsqueryParts, " || ") + `)`
+	}
+
+	// Show HN filter
+	if sortStrategy == "show" {
+		query += ` AND title ILIKE 'Show HN:%'`
 	}
 
 	orderBy := "hn_rank ASC NULLS LAST"
@@ -62,6 +83,8 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	case "votes":
 		orderBy = "score DESC"
 	case "latest":
+		orderBy = "posted_at DESC"
+	case "show":
 		orderBy = "posted_at DESC"
 	}
 	query += ` ORDER BY ` + orderBy
@@ -184,4 +207,39 @@ func (s *Store) UpdateRanks(ctx context.Context, rankMap map[int]int) error {
 		}
 	}
 	return nil
+}
+
+// UpsertAuthUser creates or updates a user based on their Google ID.
+// Returns the user (with ID) after upsert.
+func (s *Store) UpsertAuthUser(ctx context.Context, googleID, email, name, avatarURL string) (*AuthUser, error) {
+	query := `
+		INSERT INTO auth_users (google_id, email, name, avatar_url)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (google_id) DO UPDATE
+		SET email = EXCLUDED.email,
+			name = EXCLUDED.name,
+			avatar_url = EXCLUDED.avatar_url
+		RETURNING id, google_id, email, name, avatar_url, is_admin, created_at
+	`
+	var user AuthUser
+	err := s.db.QueryRow(ctx, query, googleID, email, name, avatarURL).Scan(
+		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// GetAuthUser fetches a user by their UUID.
+func (s *Store) GetAuthUser(ctx context.Context, userID string) (*AuthUser, error) {
+	query := `SELECT id, google_id, email, name, avatar_url, is_admin, created_at FROM auth_users WHERE id = $1`
+	var user AuthUser
+	err := s.db.QueryRow(ctx, query, userID).Scan(
+		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }

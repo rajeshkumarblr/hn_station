@@ -44,6 +44,9 @@ docker-compose up --build
 
 ## Recent Updates
 
+- **Phase 21**: Google OAuth login with JWT sessions, user avatars, `is_admin` column for future admin panel. Site fully usable without login.
+- **Phase 20**: Multi-topic inline chips with color-coded tags, "Show HN" mode, read story dimming, infinite scroll, and localStorage persistence.
+- **Phase 19**: Zen Mode 2-pane layout (feed + reader), Article/Discussion tabs with iframe preview.
 - **Phase 18**: Resizable 3-pane IDE layout with `react-resizable-panels`, persistent sizing, and Space/Esc keyboard shortcuts.
 - **Phase 17**: Header redesign, simplified navigation, and data cleanup.
 - **Phase 16**: Visual polish (bold selection) and full keyboard accessibility (Tab/Enter).
