@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import './App.css';
 import { StoryCard } from './components/StoryCard';
-import { CommentList } from './components/CommentList';
-import { RefreshCw, Search, X, MessageSquare, Moon, Sun, ExternalLink, Star, FileText, LogIn, LogOut } from 'lucide-react';
+import { ReaderPane } from './components/ReaderPane';
+import { RefreshCw, Search, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark } from 'lucide-react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, useDefaultLayout } from 'react-resizable-panels';
 
 interface Story {
@@ -15,6 +15,8 @@ interface Story {
   time: string;
   created_at: string;
   hn_rank?: number;
+  is_read?: boolean;
+  is_saved?: boolean;
 }
 
 interface User {
@@ -26,11 +28,14 @@ interface User {
 }
 
 const MODES = [
-  { key: 'default', label: 'Top' },
-  { key: 'latest', label: 'New' },
-  { key: 'votes', label: 'Best' },
-  { key: 'show', label: 'Show' },
+  { key: 'default', label: 'Top', icon: TrendingUp },
+  { key: 'latest', label: 'New', icon: Clock },
+  { key: 'votes', label: 'Best', icon: Trophy },
+  { key: 'show', label: 'Show HN', icon: Monitor },
+  { key: 'saved', label: 'Bookmarks', icon: Bookmark },
 ] as const;
+
+const QUICK_FILTERS = ['Postgres', 'Rust', 'AI', 'LLM', 'Go'];
 
 type ModeKey = typeof MODES[number]['key'];
 
@@ -129,13 +134,13 @@ function App() {
   const [commentsLoading, setCommentsLoading] = useState(false);
 
   // Keyboard Nav
-  const [focusMode, setFocusMode] = useState<'stories' | 'reader'>('stories');
+  const [focusMode, setFocusMode] = useState<'stories' | 'reader' | 'header'>('stories');
   const readerContainerRef = useRef<HTMLElement>(null);
   const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const topicInputRef = useRef<HTMLInputElement>(null);
+  const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Reader tab state
-  const [readerTab, setReaderTab] = useState<'article' | 'discussion'>('discussion');
+
 
   // User auth state (optional — site works without login)
   const [user, setUser] = useState<User | null>(null);
@@ -205,15 +210,54 @@ function App() {
       } else if (e.key === 'ArrowUp' && focusMode === 'stories' && stories.length > 0) {
         e.preventDefault();
         const idx = stories.findIndex(s => s.id === selectedStoryId);
-        const prev = Math.max(0, idx - 1);
-        setSelectedStoryId(stories[prev].id);
-        storyRefs.current[prev]?.focus();
+        if (idx <= 0) {
+          // At first story — move focus to header mode pills
+          setFocusMode('header');
+          const modeIdx = MODES.findIndex(m => m.key === mode);
+          setTimeout(() => modeButtonRefs.current[modeIdx]?.focus(), 50);
+        } else {
+          const prev = idx - 1;
+          setSelectedStoryId(stories[prev].id);
+          storyRefs.current[prev]?.focus();
+        }
+      } else if (e.key === 'ArrowDown' && focusMode === 'header') {
+        // From header pills, go back to first story
+        e.preventDefault();
+        setFocusMode('stories');
+        if (stories.length > 0) {
+          setSelectedStoryId(stories[0].id);
+          setTimeout(() => storyRefs.current[0]?.focus(), 50);
+        }
+      } else if (e.key === 'ArrowLeft' && focusMode === 'header') {
+        e.preventDefault();
+        const modeIdx = MODES.findIndex(m => m.key === mode);
+        const prev = Math.max(0, modeIdx - 1);
+        setMode(MODES[prev].key);
+        setTimeout(() => modeButtonRefs.current[prev]?.focus(), 50);
+      } else if (e.key === 'ArrowRight' && focusMode === 'header') {
+        e.preventDefault();
+        const modeIdx = MODES.findIndex(m => m.key === mode);
+        const next = Math.min(MODES.length - 1, modeIdx + 1);
+        setMode(MODES[next].key);
+        setTimeout(() => modeButtonRefs.current[next]?.focus(), 50);
       } else if (e.key === 'ArrowDown' && focusMode === 'stories' && stories.length > 0) {
         e.preventDefault();
         const idx = stories.findIndex(s => s.id === selectedStoryId);
         const next = Math.min(stories.length - 1, idx + 1);
         setSelectedStoryId(stories[next].id);
         storyRefs.current[next]?.focus();
+      } else if (e.key === 'PageDown' && focusMode === 'stories' && stories.length > 0) {
+        e.preventDefault();
+        const idx = stories.findIndex(s => s.id === selectedStoryId);
+        const next = Math.min(stories.length - 1, idx + 5);
+        setSelectedStoryId(stories[next].id);
+        storyRefs.current[next]?.focus();
+      } else if (e.key === 'PageUp' && focusMode === 'stories' && stories.length > 0) {
+        e.preventDefault();
+        const idx = stories.findIndex(s => s.id === selectedStoryId);
+        const prev = Math.max(0, idx - 5);
+        setSelectedStoryId(stories[prev].id);
+        storyRefs.current[prev]?.focus();
       } else if (e.key === '/') {
         e.preventDefault();
         topicInputRef.current?.focus();
@@ -227,6 +271,9 @@ function App() {
   // Build API URL
   const buildUrl = useCallback((currentOffset: number) => {
     const baseUrl = import.meta.env.VITE_API_URL || '';
+    if (mode === 'saved') {
+      return `${baseUrl}/api/stories/saved?limit=${PAGE_SIZE}&offset=${currentOffset}&_t=${Date.now()}`;
+    }
     let url = `${baseUrl}/api/stories?limit=${PAGE_SIZE}&offset=${currentOffset}&sort=${mode}`;
     activeTopics.forEach(t => {
       url += `&topic=${encodeURIComponent(t)}`;
@@ -335,12 +382,42 @@ function App() {
   const handleStorySelect = (id: number) => {
     setSelectedStoryId(id);
     setFocusMode('stories');
-    // Mark as read
+    // Mark as read (local)
     setReadIds(prev => {
       const next = new Set(prev);
       next.add(id);
       saveReadIds(next);
       return next;
+    });
+    // Mark as read (server, if logged in)
+    if (user) {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const t = true;
+      fetch(`${baseUrl}/api/stories/${id}/interact`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ read: t }),
+      }).catch(() => { });
+      // Update local story state
+      setStories(prev => prev.map(s => s.id === id ? { ...s, is_read: true } : s));
+    }
+  };
+
+  // Toggle save/unsave a story
+  const handleToggleSave = (id: number, saved: boolean) => {
+    if (!user) return;
+    // Optimistic update
+    setStories(prev => prev.map(s => s.id === id ? { ...s, is_saved: saved } : s));
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    fetch(`${baseUrl}/api/stories/${id}/interact`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saved }),
+    }).catch(() => {
+      // Revert on failure
+      setStories(prev => prev.map(s => s.id === id ? { ...s, is_saved: !saved } : s));
     });
   };
 
@@ -386,59 +463,87 @@ function App() {
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
 
       {/* ─── Zen Header ─── */}
-      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200/50 dark:border-slate-700/50 px-4 py-2.5 flex-shrink-0 z-50 transition-colors duration-200">
-        <div className="flex items-center gap-6">
+      <header className="bg-slate-900 border-b border-slate-700 px-5 flex-shrink-0 z-50 h-16">
+        <div className="flex items-center h-full gap-8">
 
           {/* Brand */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="bg-gradient-to-br from-[#ff6600] to-[#ff8533] text-white font-bold rounded-lg w-8 h-8 flex items-center justify-center text-sm shadow-sm shadow-orange-500/20">Y</div>
-            <span className="font-bold text-base tracking-tight text-orange-600 dark:text-orange-500 hidden sm:inline">HN Station</span>
-          </div>
+          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station</span>
 
-          {/* Mode Pills */}
-          <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 rounded-lg p-0.5 shrink-0">
-            {MODES.map(m => (
-              <button
-                key={m.key}
-                onClick={() => setMode(m.key)}
-                className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${mode === m.key
-                  ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/25'
-                  : 'text-gray-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-slate-200'
-                  }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
+          {/* GitHub-Style Nav Tabs */}
+          <nav className="h-full flex items-center gap-6">
+            {MODES.map((m, i) => {
+              const Icon = m.icon;
+              const isActive = mode === m.key;
+              return (
+                <button
+                  key={m.key}
+                  ref={el => modeButtonRefs.current[i] = el}
+                  onClick={() => { setMode(m.key); setFocusMode('stories'); }}
+                  className={`h-full flex items-center gap-1.5 text-sm font-medium border-b-2 transition-all outline-none ${isActive
+                      ? 'text-white border-orange-500 pb-3 mt-3'
+                      : 'text-gray-500 border-transparent hover:text-gray-300 hover:border-b-2 hover:border-gray-600'
+                    }`}
+                >
+                  <Icon size={15} />
+                  {m.label}
+                </button>
+              );
+            })}
+          </nav>
 
-          {/* Omnibar + Chips */}
+          {/* Search + Quick Filters */}
           <div className="flex-1 flex items-center gap-2 min-w-0">
-            <form onSubmit={handleTopicSubmit} className="flex-1 max-w-sm relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
+            <form onSubmit={handleTopicSubmit} className="relative max-w-[220px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 ref={topicInputRef}
                 type="text"
                 value={topicInput}
                 onChange={(e) => setTopicInput(e.target.value)}
                 onKeyDown={handleTopicKeyDown}
-                placeholder="Filter by topic... (press /)"
-                className="w-full bg-gray-100 dark:bg-slate-800 border border-transparent focus:border-blue-500 dark:focus:border-blue-400 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all placeholder-gray-500 dark:placeholder-slate-400"
+                placeholder="Filter... (/)"
+                className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-md pl-9 pr-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all placeholder-slate-500"
               />
             </form>
 
-            {/* Topic Chips (color-coded) */}
-            {activeTopics.map(topic => {
+            {/* Quick Filter Chips */}
+            <div className="flex items-center gap-1.5">
+              {QUICK_FILTERS.map(filter => {
+                const isFilterActive = activeTopics.includes(filter.toLowerCase());
+                return (
+                  <button
+                    key={filter}
+                    onClick={() => {
+                      const lower = filter.toLowerCase();
+                      if (isFilterActive) {
+                        removeTopicChip(lower);
+                      } else {
+                        addTopicChip(lower);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${isFilterActive
+                      ? 'bg-orange-500/15 text-orange-400 border-orange-500/30'
+                      : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                      }`}
+                  >
+                    {filter}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active custom topic chips */}
+            {activeTopics.filter(t => !QUICK_FILTERS.map(f => f.toLowerCase()).includes(t)).map(topic => {
               const color = getTopicColor(topic);
               return (
                 <span
                   key={topic}
-                  className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-full border shrink-0 transition-all ${color.bg} ${color.text} ${color.border}`}
+                  className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md border shrink-0 ${color.bg} ${color.text} ${color.border}`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color.accent }}></span>
                   {topic}
                   <button
                     onClick={() => removeTopicChip(topic)}
-                    className="ml-0.5 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                    className="ml-0.5 hover:text-red-400 transition-colors"
                   >
                     <X size={12} />
                   </button>
@@ -451,14 +556,14 @@ function App() {
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={handleRefresh}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 dark:text-slate-400 transition-all active:scale-95"
+              className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-all active:scale-95"
               title="Refresh"
             >
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 dark:text-slate-400 transition-all active:scale-95"
+              className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-all active:scale-95"
               title={theme === 'dark' ? "Light Mode" : "Dark Mode"}
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
@@ -470,12 +575,12 @@ function App() {
                 <img
                   src={user.avatar_url}
                   alt={user.name}
-                  className="w-7 h-7 rounded-full ring-2 ring-gray-200 dark:ring-slate-700"
+                  className="w-7 h-7 rounded-full ring-2 ring-slate-700"
                   title={user.name}
                 />
                 <a
                   href="/auth/logout"
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 dark:text-slate-400 transition-all active:scale-95"
+                  className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-all active:scale-95"
                   title="Sign out"
                 >
                   <LogOut size={16} />
@@ -505,7 +610,7 @@ function App() {
 
         {/* Story Feed */}
         <Panel defaultSize={35} minSize={25} id="feed">
-          <div className="h-full flex flex-col bg-gray-50/50 dark:bg-slate-950">
+          <div className="h-full flex flex-col bg-slate-950">
             <main
               className={`flex-1 overflow-y-auto custom-scrollbar p-3 transition-all ${focusMode === 'stories' ? 'shadow-[inset_0_0_0_2px_rgba(59,130,246,0.3)]' : ''}`}
             >
@@ -524,10 +629,10 @@ function App() {
               )}
 
               {!loading && !error && (
-                <div className="space-y-1">
+                <div className="space-y-3">
                   {stories.map((story, index) => {
                     const isSelected = selectedStoryId === story.id;
-                    const isRead = readIds.has(story.id);
+                    const isRead = readIds.has(story.id) || story.is_read;
                     const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
                     const topicAccent = matchedTopic ? getTopicColor(matchedTopic).accent : null;
                     return (
@@ -545,17 +650,16 @@ function App() {
                           }
                         }}
                         onClick={() => handleStorySelect(story.id)}
-                        className={`rounded-lg transition-all duration-200 outline-none focus:ring-2 focus:ring-blue-500/50 ${isSelected
-                          ? 'ring-2 ring-blue-500 dark:ring-blue-400 bg-white dark:bg-slate-800 shadow-sm'
-                          : 'hover:bg-white dark:hover:bg-slate-900'
-                          } ${isRead && !isSelected ? 'opacity-55' : ''}`}
+                        className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
                         style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
                       >
                         <StoryCard
                           story={story}
                           index={index}
                           isSelected={isSelected}
+                          isRead={isRead}
                           onSelect={(id) => handleStorySelect(id)}
+                          onToggleSave={user ? handleToggleSave : undefined}
                         />
                       </div>
                     );
@@ -587,106 +691,14 @@ function App() {
           <aside
             ref={readerContainerRef}
             tabIndex={-1}
-            className={`h-full bg-white dark:bg-slate-900 overflow-y-auto custom-scrollbar focus:outline-none transition-all ${focusMode === 'reader' ? 'shadow-[inset_4px_0_0_0_#3b82f6]' : ''}`}
+            className={`h-full bg-[#0d1117] overflow-y-auto custom-scrollbar focus:outline-none transition-all ${focusMode === 'reader' ? 'shadow-[inset_4px_0_0_0_#3b82f6]' : ''}`}
           >
             {selectedStory ? (
-              <div className="flex flex-col h-full">
-                {/* Reader Header */}
-                <div className="sticky top-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-gray-100 dark:border-slate-800 px-6 pt-5 pb-0">
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100 leading-snug">
-                      {selectedStory.title}
-                    </h1>
-                    <a
-                      href={selectedStory.url || `https://news.ycombinator.com/item?id=${selectedStory.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-2 rounded-lg bg-gray-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors shrink-0"
-                      title="Open Link"
-                    >
-                      <ExternalLink size={20} />
-                    </a>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-slate-400 mb-3">
-                    <span>{selectedStory.score} points</span>
-                    <span>by <span className="text-gray-700 dark:text-slate-300 font-medium">{selectedStory.by}</span></span>
-                    <span>{new Date(selectedStory.time).toLocaleDateString()}</span>
-                  </div>
-
-                  {/* Tab Switcher */}
-                  <div className="flex gap-0 border-b-0">
-                    <button
-                      onClick={() => setReaderTab('article')}
-                      className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${readerTab === 'article'
-                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                        : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 hover:border-gray-300 dark:hover:border-slate-600'
-                        }`}
-                    >
-                      <FileText size={14} />
-                      Article
-                    </button>
-                    <button
-                      onClick={() => setReaderTab('discussion')}
-                      className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${readerTab === 'discussion'
-                        ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                        : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 hover:border-gray-300 dark:hover:border-slate-600'
-                        }`}
-                    >
-                      <MessageSquare size={14} />
-                      Discussion
-                      {selectedStory.descendants > 0 && (
-                        <span className="text-xs bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
-                          {selectedStory.descendants}
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Tab Content */}
-                <div className="flex-1 overflow-y-auto">
-                  {readerTab === 'article' ? (
-                    /* Article Preview (iframe) */
-                    selectedStory.url ? (
-                      <iframe
-                        key={selectedStory.id}
-                        src={selectedStory.url}
-                        title={selectedStory.title}
-                        className="w-full h-full border-0 bg-white"
-                        sandbox="allow-scripts allow-same-origin allow-popups"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-slate-500 p-8 text-center">
-                        <FileText size={32} className="mb-3 opacity-50" />
-                        <p className="font-medium">No external link</p>
-                        <p className="text-sm mt-1">This is a text post — check the Discussion tab.</p>
-                      </div>
-                    )
-                  ) : (
-                    /* Discussion (Comments) */
-                    <div className="p-6 pt-4">
-                      {commentsLoading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
-                          <RefreshCw size={24} className="animate-spin" />
-                          <span>Loading discussion...</span>
-                        </div>
-                      ) : (
-                        <>
-                          {comments.length > 0 ? (
-                            <CommentList comments={comments} parentId={null} />
-                          ) : (
-                            <div className="text-center py-20 bg-gray-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
-                              <MessageSquare size={32} className="mx-auto text-gray-300 dark:text-slate-600 mb-2" />
-                              <p className="text-gray-500 dark:text-slate-400">No comments yet.</p>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ReaderPane
+                story={selectedStory}
+                comments={comments}
+                commentsLoading={commentsLoading}
+              />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 p-8 text-center">
                 <div className="w-16 h-16 bg-gray-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 shadow-inner">

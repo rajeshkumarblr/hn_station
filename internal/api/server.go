@@ -61,7 +61,10 @@ func (s *Server) routes() {
 
 	// API routes
 	s.router.Get("/api/stories", s.handleGetStories)
+	s.router.Get("/api/stories/saved", s.handleGetSavedStories)
 	s.router.Get("/api/stories/{id}", s.handleGetStoryDetails)
+	s.router.Post("/api/stories/{id}/interact", s.handleInteract)
+	s.router.Get("/api/content/readme", s.handleGetReadme)
 	s.router.Get("/api/me", s.handleGetMe)
 
 	// Auth routes
@@ -250,7 +253,10 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics)
+	// Pass user ID for interaction flags (empty string = anonymous)
+	userID := s.auth.GetUserIDFromRequest(r)
+
+	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics, userID)
 	if err != nil {
 		http.Error(w, "Failed to fetch stories", http.StatusInternalServerError)
 		return
@@ -298,4 +304,76 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// ─── Interaction Handlers ───
+
+func (s *Server) handleInteract(w http.ResponseWriter, r *http.Request) {
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	storyID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	var body struct {
+		Read  *bool `json:"read"`
+		Saved *bool `json:"saved"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.UpsertInteraction(r.Context(), userID, storyID, body.Read, body.Saved); err != nil {
+		log.Printf("Error upserting interaction: %v", err)
+		http.Error(w, "Failed to update interaction", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleGetSavedStories(w http.ResponseWriter, r *http.Request) {
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 20
+	offset := 0
+	if limitStr != "" {
+		if val, err := strconv.Atoi(limitStr); err == nil && val > 0 {
+			limit = val
+		}
+	}
+	if offsetStr != "" {
+		if val, err := strconv.Atoi(offsetStr); err == nil && val >= 0 {
+			offset = val
+		}
+	}
+
+	stories, err := s.store.GetSavedStories(r.Context(), userID, limit, offset)
+	if err != nil {
+		http.Error(w, "Failed to fetch saved stories", http.StatusInternalServerError)
+		return
+	}
+
+	if stories == nil {
+		stories = []storage.Story{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stories)
 }

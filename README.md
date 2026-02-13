@@ -44,8 +44,11 @@ docker-compose up --build
 
 ## Recent Updates
 
+- **Phase 25**: GitHub-style navigation tabs with icons (TrendingUp, Clock, Trophy, Monitor, Bookmark), quick filter chips (Postgres/Rust/AI/LLM/Go), visual de-congestion with `h-16` header, `space-y-3` story gaps, and `p-4` card padding.
+- **Phase 24**: Readme Viewer — tabbed reader pane (Discussion/Readme/Article), backend GitHub README proxy (`/api/content/readme`), auto-switches to Readme for Show HN + GitHub stories, rendered with `react-markdown` + `rehype-highlight`.
+- **Phase 23**: Keyboard navigation refinements — header focus mode, arrow key pill navigation, PageUp/PageDown for 5-story jumps, compact story layout, stronger zebra striping.
+- **Phase 22**: User interactions — bookmarks (save/unsave with star icon), read history tracking, `user_interactions` table with composite PK, optimistic UI updates, "Bookmarks" mode.
 - **Phase 21**: Google OAuth login with JWT sessions, user avatars, `is_admin` column for future admin panel. Site fully usable without login.
-- **Phase 20**: Multi-topic inline chips with color-coded tags, "Show HN" mode, read story dimming, infinite scroll, and localStorage persistence.
 - **Phase 19**: Zen Mode 2-pane layout (feed + reader), Article/Discussion tabs with iframe preview.
 - **Phase 18**: Resizable 3-pane IDE layout with `react-resizable-panels`, persistent sizing, and Space/Esc keyboard shortcuts.
 - **Phase 17**: Header redesign, simplified navigation, and data cleanup.

@@ -20,6 +20,8 @@ type Story struct {
 	PostedAt    time.Time `json:"time"`
 	CreatedAt   time.Time `json:"created_at"`
 	HNRank      *int      `json:"hn_rank,omitempty"`
+	IsRead      *bool     `json:"is_read,omitempty"`
+	IsSaved     *bool     `json:"is_saved,omitempty"`
 }
 
 type AuthUser struct {
@@ -57,10 +59,25 @@ func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 	return err
 }
 
-func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string) ([]Story, error) {
-	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank FROM stories WHERE 1=1`
+func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string) ([]Story, error) {
+	// Base select — optionally LEFT JOIN user_interactions for logged-in users
+	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank`
+	fromClause := `FROM stories s`
+	hasUser := userID != ""
+
+	if hasUser {
+		selectCols += `, ui.is_read, ui.is_saved`
+		fromClause += ` LEFT JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1`
+	}
+
+	query := `SELECT ` + selectCols + ` ` + fromClause + ` WHERE 1=1`
 	var args []interface{}
 	argID := 1
+
+	if hasUser {
+		args = append(args, userID)
+		argID = 2
+	}
 
 	// Multi-topic OR filter
 	if len(topics) > 0 {
@@ -70,22 +87,22 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 			args = append(args, t)
 			argID++
 		}
-		query += ` AND search_vector @@ (` + strings.Join(tsqueryParts, " || ") + `)`
+		query += ` AND s.search_vector @@ (` + strings.Join(tsqueryParts, " || ") + `)`
 	}
 
 	// Show HN filter
 	if sortStrategy == "show" {
-		query += ` AND title ILIKE 'Show HN:%'`
+		query += ` AND s.title ILIKE 'Show HN:%'`
 	}
 
-	orderBy := "hn_rank ASC NULLS LAST"
+	orderBy := "s.hn_rank ASC NULLS LAST"
 	switch sortStrategy {
 	case "votes":
-		orderBy = "score DESC"
+		orderBy = "s.score DESC"
 	case "latest":
-		orderBy = "posted_at DESC"
+		orderBy = "s.posted_at DESC"
 	case "show":
-		orderBy = "posted_at DESC"
+		orderBy = "s.posted_at DESC"
 	}
 	query += ` ORDER BY ` + orderBy
 
@@ -101,8 +118,14 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	var stories []Story
 	for rows.Next() {
 		var story Story
-		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank); err != nil {
-			return nil, err
+		if hasUser {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.IsRead, &story.IsSaved); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank); err != nil {
+				return nil, err
+			}
 		}
 		stories = append(stories, story)
 	}
@@ -242,4 +265,45 @@ func (s *Store) GetAuthUser(ctx context.Context, userID string) (*AuthUser, erro
 		return nil, err
 	}
 	return &user, nil
+}
+
+// UpsertInteraction creates or updates a user-story interaction.
+func (s *Store) UpsertInteraction(ctx context.Context, userID string, storyID int, isRead *bool, isSaved *bool) error {
+	query := `
+		INSERT INTO user_interactions (user_id, story_id, is_read, is_saved, updated_at)
+		VALUES ($1, $2, COALESCE($3, FALSE), COALESCE($4, FALSE), NOW())
+		ON CONFLICT (user_id, story_id) DO UPDATE SET
+			is_read = COALESCE($3, user_interactions.is_read),
+			is_saved = COALESCE($4, user_interactions.is_saved),
+			updated_at = NOW()
+	`
+	_, err := s.db.Exec(ctx, query, userID, storyID, isRead, isSaved)
+	return err
+}
+
+// GetSavedStories returns stories saved by a user, newest first.
+func (s *Store) GetSavedStories(ctx context.Context, userID string, limit, offset int) ([]Story, error) {
+	query := `
+		SELECT s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, ui.is_read, ui.is_saved
+		FROM stories s
+		INNER JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1
+		WHERE ui.is_saved = TRUE
+		ORDER BY ui.updated_at DESC
+		LIMIT $2 OFFSET $3
+	`
+	rows, err := s.db.Query(ctx, query, userID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stories []Story
+	for rows.Next() {
+		var story Story
+		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.IsRead, &story.IsSaved); err != nil {
+			return nil, err
+		}
+		stories = append(stories, story)
+	}
+	return stories, nil
 }
