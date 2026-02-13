@@ -86,7 +86,7 @@ export function ReaderPane({ story, comments, commentsLoading }: ReaderPaneProps
     return (
         <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="sticky top-0 z-20 bg-[#0d1117]/95 backdrop-blur border-b border-slate-800 px-6 pt-5 pb-0">
+            <div className="sticky top-0 z-20 bg-[#111d2e]/95 backdrop-blur border-b border-slate-800 px-6 pt-5 pb-0">
                 <div className="flex items-start justify-between gap-4 mb-2">
                     <h1 className="text-xl font-bold text-slate-100 leading-snug">
                         {story.title}
@@ -141,7 +141,7 @@ export function ReaderPane({ story, comments, commentsLoading }: ReaderPaneProps
             {/* Tab Content */}
             <div className="flex-1 overflow-y-auto">
                 {activeTab === 'discussion' && (
-                    <div className="p-6 pt-4">
+                    <div className="p-6 pt-4 max-w-3xl mx-auto">
                         {commentsLoading ? (
                             <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
                                 <RefreshCw size={24} className="animate-spin" />
@@ -159,7 +159,7 @@ export function ReaderPane({ story, comments, commentsLoading }: ReaderPaneProps
                 )}
 
                 {activeTab === 'readme' && (
-                    <div className="p-6 pt-4">
+                    <div className="p-6 pt-4 max-w-3xl mx-auto">
                         {readmeLoading ? (
                             <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
                                 <RefreshCw size={24} className="animate-spin" />
@@ -171,7 +171,7 @@ export function ReaderPane({ story, comments, commentsLoading }: ReaderPaneProps
                                 <p className="text-slate-400">{readmeError}</p>
                             </div>
                         ) : (
-                            <div className="markdown-body" style={{ backgroundColor: 'transparent' }}>
+                            <div className="markdown-body reader-prose prose prose-invert prose-slate max-w-none" style={{ backgroundColor: 'transparent' }}>
                                 <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
                                     {readme}
                                 </ReactMarkdown>
@@ -182,14 +182,28 @@ export function ReaderPane({ story, comments, commentsLoading }: ReaderPaneProps
 
                 {activeTab === 'article' && (
                     story.url ? (
-                        <iframe
-                            key={story.id}
-                            src={story.url}
-                            title={story.title}
-                            className="w-full h-full border-0 bg-white"
-                            sandbox="allow-scripts allow-same-origin allow-popups"
-                            referrerPolicy="no-referrer"
-                        />
+                        isGH ? (
+                            <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center">
+                                <BookOpen size={32} className="mb-3 opacity-50" />
+                                <p className="font-medium">GitHub repos are best viewed in the Readme tab</p>
+                                <p className="text-sm mt-1 text-slate-500">iframes are blocked by GitHub's security headers.</p>
+                                <button
+                                    onClick={() => setActiveTab('readme')}
+                                    className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                                >
+                                    View Readme →
+                                </button>
+                            </div>
+                        ) : (
+                            <iframe
+                                key={story.id}
+                                src={story.url}
+                                title={story.title}
+                                className="w-full h-full border-0 bg-white"
+                                sandbox="allow-scripts allow-same-origin allow-popups"
+                                referrerPolicy="no-referrer"
+                            />
+                        )
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-slate-500 p-8 text-center">
                             <FileText size={32} className="mb-3 opacity-50" />

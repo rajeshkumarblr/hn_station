@@ -44,6 +44,8 @@ docker-compose up --build
 
 ## Recent Updates
 
+- **Phase 27**: Collapsible threaded comments (click-to-collapse header row, descendant count), GitHub iframe fix (redirects to Readme tab), prose-invert comment styling.
+- **Phase 26**: Site favicons in StoryCard (Google Favicons API), dark mode scrollbars (8px, slate-themed, Firefox support), reader typography (Merriweather font, `prose-invert`, `max-w-3xl` constraint), `@tailwindcss/typography` plugin.
 - **Phase 25**: GitHub-style navigation tabs with icons (TrendingUp, Clock, Trophy, Monitor, Bookmark), quick filter chips (Postgres/Rust/AI/LLM/Go), visual de-congestion with `h-16` header, `space-y-3` story gaps, and `p-4` card padding.
 - **Phase 24**: Readme Viewer — tabbed reader pane (Discussion/Readme/Article), backend GitHub README proxy (`/api/content/readme`), auto-switches to Readme for Show HN + GitHub stories, rendered with `react-markdown` + `rehype-highlight`.
 - **Phase 23**: Keyboard navigation refinements — header focus mode, arrow key pill navigation, PageUp/PageDown for 5-story jumps, compact story layout, stronger zebra striping.

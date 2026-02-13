@@ -463,7 +463,7 @@ function App() {
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
 
       {/* ─── Zen Header ─── */}
-      <header className="bg-slate-900 border-b border-slate-700 px-5 flex-shrink-0 z-50 h-16">
+      <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-16">
         <div className="flex items-center h-full gap-8">
 
           {/* Brand */}
@@ -480,8 +480,8 @@ function App() {
                   ref={el => modeButtonRefs.current[i] = el}
                   onClick={() => { setMode(m.key); setFocusMode('stories'); }}
                   className={`h-full flex items-center gap-1.5 text-sm font-medium border-b-2 transition-all outline-none ${isActive
-                      ? 'text-white border-orange-500 pb-3 mt-3'
-                      : 'text-gray-500 border-transparent hover:text-gray-300 hover:border-b-2 hover:border-gray-600'
+                    ? 'text-white border-orange-500 pb-3 mt-3'
+                    : 'text-gray-500 border-transparent hover:text-gray-300 hover:border-b-2 hover:border-gray-600'
                     }`}
                 >
                   <Icon size={15} />
@@ -691,7 +691,7 @@ function App() {
           <aside
             ref={readerContainerRef}
             tabIndex={-1}
-            className={`h-full bg-[#0d1117] overflow-y-auto custom-scrollbar focus:outline-none transition-all ${focusMode === 'reader' ? 'shadow-[inset_4px_0_0_0_#3b82f6]' : ''}`}
+            className={`h-full bg-[#111d2e] overflow-y-auto custom-scrollbar focus:outline-none transition-all ${focusMode === 'reader' ? 'shadow-[inset_4px_0_0_0_#3b82f6]' : ''}`}
           >
             {selectedStory ? (
               <ReaderPane

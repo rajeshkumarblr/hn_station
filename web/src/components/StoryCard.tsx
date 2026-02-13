@@ -1,4 +1,4 @@
-import { Star } from 'lucide-react';
+import { Star, Terminal } from 'lucide-react';
 
 export interface Story {
     id: number;
@@ -84,8 +84,21 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
 
                 <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400 font-medium">
                     {domain && (
-                        <div className="flex items-center gap-1 text-slate-500">
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                            <img
+                                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                                alt=""
+                                className="w-4 h-4 rounded-sm"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
                             <span className="truncate max-w-[150px] hover:text-slate-300 transition-colors">{domain}</span>
+                            <span className="text-slate-600">•</span>
+                        </div>
+                    )}
+                    {!domain && story.title.startsWith('Ask HN') && (
+                        <div className="flex items-center gap-1 text-slate-500">
+                            <Terminal size={12} />
+                            <span>Ask HN</span>
                             <span className="text-slate-600">•</span>
                         </div>
                     )}
