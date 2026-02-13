@@ -29,7 +29,7 @@ function CommentNode({ comment, comments, depth }: { comment: Comment; comments:
     const descendantCount = countDescendants(comments, comment.id);
 
     return (
-        <div className="text-sm">
+        <div className="text-sm" {...(depth === 0 ? { 'data-root-comment': 'true' } : {})}>
             {/* Header row — fully clickable to toggle collapse */}
             <div
                 onClick={() => setIsCollapsed(!isCollapsed)}
@@ -51,7 +51,7 @@ function CommentNode({ comment, comments, depth }: { comment: Comment; comments:
             {!isCollapsed && (
                 <>
                     <div
-                        className="text-slate-300 overflow-hidden break-words prose prose-sm prose-invert max-w-none leading-snug [&>p]:mb-2 [&>pre]:bg-slate-800 [&>pre]:p-2 [&>pre]:overflow-x-auto [&>a]:text-indigo-400 hover:[&>a]:underline ml-6"
+                        className="font-reading text-slate-300 overflow-hidden break-words prose prose-sm prose-invert max-w-none leading-relaxed [&>p]:mb-2 [&>pre]:bg-slate-800 [&>pre]:p-2 [&>pre]:overflow-x-auto [&>a]:text-indigo-400 hover:[&>a]:underline ml-6"
                         dangerouslySetInnerHTML={{ __html: comment.text }}
                     />
                     <div className="mt-2">

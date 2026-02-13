@@ -72,3 +72,11 @@ body {
     font-family: 'Inter', system-ui, sans-serif;
     color: #e6edf3;
 }
+
+/* Merriweather reading font for comment bodies & article content */
+.font-reading {
+    font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+    line-height: 1.75;
+    color: #cbd5e1;
+    /* slate-300 */
+}

@@ -1,5 +1,14 @@
 # Hacker News Station
 
+[![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white)](https://kubernetes.io)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Live](https://img.shields.io/badge/Live-hnstation.dev-orange?style=flat-square)](https://hnstation.dev)
+
 A modern, fast, and feature-rich Hacker News client built with Go and React.
 
 ## Features
@@ -42,8 +51,40 @@ docker-compose up --build
 - **API Server**: Serves stories and comments via REST endpoints (`/api/stories`, `/api/stories/{id}`).
 - **Frontend**: A responsive single-page application consuming the API.
 
+## System Architecture
+
+```mermaid
+graph TD
+    User["User / Browser"] -->|HTTPS| CDN["Cloudflare / Ingress"]
+    CDN -->|/api| API["Go API Server"]
+    CDN -->|/| UI["React Frontend"]
+    
+    subgraph "Kubernetes Cluster (Azure AKS)"
+        UI
+        API
+        Ingest["Go Ingestion Worker"]
+        DB[("PostgreSQL")]
+    end
+    
+    subgraph "External Services"
+        HN["Hacker News Firebase API"]
+        GH["GitHub API"]
+        Auth["Google OAuth"]
+    end
+
+    Ingest -->|Polls Updates| HN
+    Ingest -->|Upserts Stories| DB
+    
+    API -->|Reads Stories/Search| DB
+    API -->|Fetches READMEs| GH
+    API -->|Auth Callback| Auth
+    
+    UI -->|Connects| API
+```
+
 ## Recent Updates
 
+- **Phase 28**: Pro reading features — Merriweather serif typography (`.font-reading`), Zen Mode (`z` key hides story list), Jump to Next/Prev root comment (`n`/`p` keys).
 - **Phase 27**: Collapsible threaded comments (click-to-collapse header row, descendant count), GitHub iframe fix (redirects to Readme tab), prose-invert comment styling.
 - **Phase 26**: Site favicons in StoryCard (Google Favicons API), dark mode scrollbars (8px, slate-themed, Firefox support), reader typography (Merriweather font, `prose-invert`, `max-w-3xl` constraint), `@tailwindcss/typography` plugin.
 - **Phase 25**: GitHub-style navigation tabs with icons (TrendingUp, Clock, Trophy, Monitor, Bookmark), quick filter chips (Postgres/Rust/AI/LLM/Go), visual de-congestion with `h-16` header, `space-y-3` story gaps, and `p-4` card padding.

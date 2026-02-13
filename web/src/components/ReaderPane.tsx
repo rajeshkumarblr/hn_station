@@ -171,7 +171,7 @@ export function ReaderPane({ story, comments, commentsLoading }: ReaderPaneProps
                                 <p className="text-slate-400">{readmeError}</p>
                             </div>
                         ) : (
-                            <div className="markdown-body reader-prose prose prose-invert prose-slate max-w-none" style={{ backgroundColor: 'transparent' }}>
+                            <div className="markdown-body reader-prose font-reading prose prose-invert prose-slate max-w-none" style={{ backgroundColor: 'transparent' }}>
                                 <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
                                     {readme}
                                 </ReactMarkdown>
