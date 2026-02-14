@@ -11,10 +11,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	"github.com/rajeshkumarblr/my_hn/internal/ai"
-	"github.com/rajeshkumarblr/my_hn/internal/api"
-	"github.com/rajeshkumarblr/my_hn/internal/auth"
-	"github.com/rajeshkumarblr/my_hn/internal/storage"
+	"github.com/rajeshkumarblr/hn_station/internal/ai"
+	"github.com/rajeshkumarblr/hn_station/internal/api"
+	"github.com/rajeshkumarblr/hn_station/internal/auth"
+	"github.com/rajeshkumarblr/hn_station/internal/storage"
 )
 
 func main() {

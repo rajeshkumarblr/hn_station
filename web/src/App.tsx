@@ -629,7 +629,7 @@ function App() {
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
             <a
-              href="https://github.com/rajeshkumarblr/my_hn"
+              href="https://github.com/rajeshkumarblr/hn_station"
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors active:scale-95"

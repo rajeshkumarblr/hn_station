@@ -24,7 +24,7 @@ az role assignment create --role "Key Vault Secrets Officer" --assignee $CURRENT
 echo "Adding secrets to Key Vault..."
 # Generate a real random password
 DB_PASSWORD=$(openssl rand -base64 16)
-DB_URL="postgres://hn_user:${DB_PASSWORD}@postgres:5432/my_hn?sslmode=disable"
+DB_URL="postgres://hn_user:${DB_PASSWORD}@postgres:5432/hn_station?sslmode=disable"
 
 az keyvault secret set --vault-name $KV_NAME --name "db-password" --value "$DB_PASSWORD" >/dev/null
 az keyvault secret set --vault-name $KV_NAME --name "db-url" --value "$DB_URL" >/dev/null

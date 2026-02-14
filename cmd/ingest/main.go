@@ -11,9 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	"github.com/rajeshkumarblr/my_hn/internal/ai"
-	"github.com/rajeshkumarblr/my_hn/internal/hn"
-	"github.com/rajeshkumarblr/my_hn/internal/storage"
+	"github.com/rajeshkumarblr/hn_station/internal/ai"
+	"github.com/rajeshkumarblr/hn_station/internal/hn"
+	"github.com/rajeshkumarblr/hn_station/internal/storage"
 )
 
 const (

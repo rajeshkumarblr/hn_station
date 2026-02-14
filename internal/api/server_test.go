@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rajeshkumarblr/my_hn/internal/storage"
+	"github.com/rajeshkumarblr/hn_station/internal/storage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,7 +36,7 @@ func TestGetStories_Integration(t *testing.T) {
 	// usage: go test -v ./internal/api -tags=integration
 	// currently we just run it if we can connect, else skip
 
-	dbURL := "postgres://postgres:rootPass1@localhost:5432/my_hn" // Hardcoded for test environment or read from env
+	dbURL := "postgres://postgres:rootPass1@localhost:5432/hn_station" // Hardcoded for test environment or read from env
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {

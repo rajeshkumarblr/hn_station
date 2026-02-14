@@ -1,4 +1,4 @@
-# Deploying "my_hn" to Azure Kubernetes Service (AKS)
+# Deploying "hn_station" to Azure Kubernetes Service (AKS)
 
 This guide walks you through deploying the application to AKS using the Free Tier and self-hosted PostgreSQL, keeping costs within $150/month.
 
@@ -50,7 +50,7 @@ The application does not run migrations automatically. You must run them once af
 
 ```bash
 # Apply all UP migrations
-cat migrations/*.up.sql | kubectl exec -i postgres-0 -- psql -U hn_user -d my_hn
+cat migrations/*.up.sql | kubectl exec -i postgres-0 -- psql -U hn_user -d hn_station
 ```
 
 ## 7. Access the Application

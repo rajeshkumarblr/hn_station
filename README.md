@@ -86,6 +86,7 @@ graph TD
 
 ## Recent Updates
 
+- **Phase 30**: AKS Deployment Stability — PGVector support (`000007_add_vectors`), correct secret management (`secrets.yaml` with base64 encoded credentials), and robust ingestion restart policy.
 - **Phase 29**: High-Density UI & AI Features — Compact, single-line story list for maximum information density (15+ visible items). AI-powered Thread Summarization (`s` key). Enhanced keyboard navigation (`Left`/`Right` to collapse/expand, `Ctrl+Left` to focus list, `Del` to hide story). Visual cursor improvements.
 - **Phase 27**: Collapsible threaded comments (click-to-collapse header row, descendant count), GitHub iframe fix (redirects to Readme tab), prose-invert comment styling.
 - **Phase 26**: Site favicons in StoryCard (Google Favicons API), dark mode scrollbars (8px, slate-themed, Firefox support), reader typography (Merriweather font, `prose-invert`, `max-w-3xl` constraint), `@tailwindcss/typography` plugin.

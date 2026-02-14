@@ -1,4 +1,4 @@
-module github.com/rajeshkumarblr/my_hn
+module github.com/rajeshkumarblr/hn_station
 
 go 1.24.0
 

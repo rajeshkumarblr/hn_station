@@ -14,9 +14,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/rajeshkumarblr/my_hn/internal/ai"
-	"github.com/rajeshkumarblr/my_hn/internal/auth"
-	"github.com/rajeshkumarblr/my_hn/internal/storage"
+	"github.com/rajeshkumarblr/hn_station/internal/ai"
+	"github.com/rajeshkumarblr/hn_station/internal/auth"
+	"github.com/rajeshkumarblr/hn_station/internal/storage"
 	"golang.org/x/oauth2"
 )
 
