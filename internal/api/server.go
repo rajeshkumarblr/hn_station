@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -13,22 +14,25 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/rajeshkumarblr/my_hn/internal/ai"
 	"github.com/rajeshkumarblr/my_hn/internal/auth"
 	"github.com/rajeshkumarblr/my_hn/internal/storage"
 	"golang.org/x/oauth2"
 )
 
 type Server struct {
-	store  *storage.Store
-	router *chi.Mux
-	auth   *auth.Config
+	store    *storage.Store
+	router   *chi.Mux
+	auth     *auth.Config
+	aiClient *ai.OllamaClient
 }
 
-func NewServer(store *storage.Store, authCfg *auth.Config) *Server {
+func NewServer(store *storage.Store, authCfg *auth.Config, aiClient *ai.OllamaClient) *Server {
 	s := &Server{
-		store:  store,
-		router: chi.NewRouter(),
-		auth:   authCfg,
+		store:    store,
+		router:   chi.NewRouter(),
+		auth:     authCfg,
+		aiClient: aiClient,
 	}
 
 	s.middlewares()
@@ -71,6 +75,9 @@ func (s *Server) routes() {
 	s.router.Get("/auth/google", s.handleGoogleLogin)
 	s.router.Get("/auth/google/callback", s.handleGoogleCallback)
 	s.router.Get("/auth/logout", s.handleLogout)
+
+	// AI routes
+	s.router.Post("/api/stories/{id}/summarize", s.handleSummarizeStory)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -236,6 +243,41 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Semantic search path
+	searchType := r.URL.Query().Get("type")
+	if searchType == "semantic" {
+		query := r.URL.Query().Get("q")
+		if query == "" {
+			http.Error(w, "query parameter 'q' is required for semantic search", http.StatusBadRequest)
+			return
+		}
+		if s.aiClient == nil {
+			http.Error(w, "semantic search is not configured", http.StatusServiceUnavailable)
+			return
+		}
+
+		embedding, err := s.aiClient.GetEmbedding(r.Context(), query)
+		if err != nil {
+			log.Printf("Failed to get query embedding: %v", err)
+			http.Error(w, "Failed to process search query", http.StatusInternalServerError)
+			return
+		}
+
+		stories, err := s.store.SearchStories(r.Context(), embedding, limit)
+		if err != nil {
+			log.Printf("Semantic search failed: %v", err)
+			http.Error(w, "Search failed", http.StatusInternalServerError)
+			return
+		}
+		if stories == nil {
+			stories = []storage.Story{}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stories)
+		return
+	}
+
 	sortParam := r.URL.Query().Get("sort")
 	if sortParam == "new" {
 		sortParam = "latest"
@@ -376,4 +418,58 @@ func (s *Server) handleGetSavedStories(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stories)
+}
+
+func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	story, err := s.store.GetStory(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Story not found", http.StatusNotFound)
+		return
+	}
+
+	comments, err := s.store.GetComments(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
+		return
+	}
+
+	if len(comments) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"summary": "No discussion to summarize."})
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Title: %s\n\nDiscussion:\n", story.Title))
+
+	// Limit to reasonable amount of text to avoid excessive processing time
+	// A naive truncation strategy
+	totalChars := 0
+	maxChars := 12000 // roughly 3-4k tokens
+
+	for _, c := range comments {
+		text := fmt.Sprintf("- %s: %s\n", c.By, c.Text)
+		if totalChars+len(text) > maxChars {
+			break
+		}
+		sb.WriteString(text)
+		totalChars += len(text)
+	}
+
+	summary, err := s.aiClient.Summarize(r.Context(), sb.String())
+	if err != nil {
+		log.Printf("Summarization failed: %v", err)
+		http.Error(w, "Failed to generate summary", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"summary": summary})
 }

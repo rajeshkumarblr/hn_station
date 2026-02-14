@@ -46,29 +46,29 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
 
     // Active state overrides everything
     const activeBg = isSelected
-        ? 'bg-white/10 border-l-4 border-l-orange-500 ring-1 ring-orange-500/30'
+        ? 'bg-[#1e293b] border-l-4 border-l-orange-500 shadow-lg shadow-black/40 ring-1 ring-white/10'
         : `${stripeBg} hover:bg-white/[0.06] border-l-4 border-l-transparent`;
 
     return (
-        <div className={`group relative rounded-md p-4 transition-all duration-150 ${activeBg}`}>
+        <div className={`group relative rounded-md py-2 px-3 transition-all duration-150 ${activeBg}`}>
             {/* Save/Star button — top right */}
             {onToggleSave && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onToggleSave(story.id, !saved); }}
-                    className={`absolute top-2.5 right-2.5 p-1.5 rounded-md transition-all duration-150 z-20 ${saved
+                    className={`absolute top-2 right-2 p-1 rounded-md transition-all duration-150 z-20 ${saved
                         ? 'text-yellow-400 hover:text-yellow-300 hover:scale-110'
                         : 'text-gray-500 dark:text-slate-600 opacity-0 group-hover:opacity-100 hover:text-yellow-400 dark:hover:text-yellow-400 hover:scale-110'
                         }`}
                     title={saved ? 'Unsave' : 'Save'}
                 >
-                    <Star size={15} fill={saved ? 'currentColor' : 'none'} strokeWidth={saved ? 2 : 1.5} />
+                    <Star size={14} fill={saved ? 'currentColor' : 'none'} strokeWidth={saved ? 2 : 1.5} />
                 </button>
             )}
 
-            <div className="relative z-10 pr-6">
-                <h3 className={`text-[15px] leading-snug mb-1.5 ${isSelected ? 'font-semibold' : 'font-medium'} ${dimmed ? 'text-slate-500' : 'text-slate-200'}`}>
+            <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
+                <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate'} ${dimmed ? 'text-slate-500' : 'text-slate-200'}`}>
                     {displayRank && (
-                        <span className="text-slate-500 font-normal mr-2 select-none tabular-nums">
+                        <span className="text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
                             {displayRank}.
                         </span>
                     )}
@@ -82,49 +82,51 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
                     </a>
                 </h3>
 
-                <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400 font-medium">
-                    {domain && (
-                        <div className="flex items-center gap-1.5 text-slate-500">
-                            <img
-                                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-                                alt=""
-                                className="w-4 h-4 rounded-sm"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                            />
-                            <span className="truncate max-w-[150px] hover:text-slate-300 transition-colors">{domain}</span>
-                            <span className="text-slate-600">•</span>
-                        </div>
-                    )}
-                    {!domain && story.title.startsWith('Ask HN') && (
-                        <div className="flex items-center gap-1 text-slate-500">
-                            <Terminal size={12} />
-                            <span>Ask HN</span>
-                            <span className="text-slate-600">•</span>
-                        </div>
-                    )}
+                {isSelected && (
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400 font-medium">
+                        {domain && (
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                                <img
+                                    src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                                    alt=""
+                                    className="w-4 h-4 rounded-sm"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                                <span className="truncate max-w-[150px] hover:text-slate-300 transition-colors">{domain}</span>
+                                <span className="text-slate-600">•</span>
+                            </div>
+                        )}
+                        {!domain && story.title.startsWith('Ask HN') && (
+                            <div className="flex items-center gap-1 text-slate-500">
+                                <Terminal size={12} />
+                                <span>Ask HN</span>
+                                <span className="text-slate-600">•</span>
+                            </div>
+                        )}
 
-                    <span className="flex items-center gap-1 text-orange-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
-                        {story.score}
-                    </span>
+                        <span className="flex items-center gap-1 text-orange-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                            {story.score}
+                        </span>
 
-                    <span className="flex items-center gap-1">
-                        {story.by}
-                    </span>
+                        <span className="flex items-center gap-1">
+                            {story.by}
+                        </span>
 
-                    <span className="flex items-center gap-1" title={date.toLocaleString()}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                        {timeAgo}
-                    </span>
+                        <span className="flex items-center gap-1" title={date.toLocaleString()}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            {timeAgo}
+                        </span>
 
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
-                        className={`flex items-center gap-1 transition-colors px-2 py-0.5 rounded-full ${story.descendants > 0 ? 'text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20' : 'text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                        {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
-                    </button>
-                </div>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
+                            className={`flex items-center gap-1 transition-colors px-2 py-0.5 rounded-full ${story.descendants > 0 ? 'text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                            {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -11,6 +11,8 @@
 
 A modern, fast, and feature-rich Hacker News client built with Go and React.
 
+![Hacker News Station Screenshot](screenshot.png)
+
 ## Features
 
 - **Real-time Updates**: Stories are fetched every minute to keep content fresh.
@@ -84,7 +86,7 @@ graph TD
 
 ## Recent Updates
 
-- **Phase 28**: Pro reading features — Merriweather serif typography (`.font-reading`), Zen Mode (`z` key hides story list), Jump to Next/Prev root comment (`n`/`p` keys).
+- **Phase 29**: High-Density UI & AI Features — Compact, single-line story list for maximum information density (15+ visible items). AI-powered Thread Summarization (`s` key). Enhanced keyboard navigation (`Left`/`Right` to collapse/expand, `Ctrl+Left` to focus list, `Del` to hide story). Visual cursor improvements.
 - **Phase 27**: Collapsible threaded comments (click-to-collapse header row, descendant count), GitHub iframe fix (redirects to Readme tab), prose-invert comment styling.
 - **Phase 26**: Site favicons in StoryCard (Google Favicons API), dark mode scrollbars (8px, slate-themed, Firefox support), reader typography (Merriweather font, `prose-invert`, `max-w-3xl` constraint), `@tailwindcss/typography` plugin.
 - **Phase 25**: GitHub-style navigation tabs with icons (TrendingUp, Clock, Trophy, Monitor, Bookmark), quick filter chips (Postgres/Rust/AI/LLM/Go), visual de-congestion with `h-16` header, `space-y-3` story gaps, and `p-4` card padding.

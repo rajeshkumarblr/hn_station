@@ -8,20 +8,23 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	pgvector "github.com/pgvector/pgvector-go"
 )
 
 type Story struct {
-	ID          int64     `json:"id"`
-	Title       string    `json:"title"`
-	URL         string    `json:"url"`
-	Score       int       `json:"score"`
-	By          string    `json:"by"`
-	Descendants int       `json:"descendants"`
-	PostedAt    time.Time `json:"time"`
-	CreatedAt   time.Time `json:"created_at"`
-	HNRank      *int      `json:"hn_rank,omitempty"`
-	IsRead      *bool     `json:"is_read,omitempty"`
-	IsSaved     *bool     `json:"is_saved,omitempty"`
+	ID          int64            `json:"id"`
+	Title       string           `json:"title"`
+	URL         string           `json:"url"`
+	Score       int              `json:"score"`
+	By          string           `json:"by"`
+	Descendants int              `json:"descendants"`
+	PostedAt    time.Time        `json:"time"`
+	CreatedAt   time.Time        `json:"created_at"`
+	HNRank      *int             `json:"hn_rank,omitempty"`
+	IsRead      *bool            `json:"is_read,omitempty"`
+	IsSaved     *bool            `json:"is_saved,omitempty"`
+	Embedding   *pgvector.Vector `json:"-"`
+	Similarity  *float64         `json:"similarity,omitempty"`
 }
 
 type AuthUser struct {
@@ -44,8 +47,8 @@ func New(db *pgxpool.Pool) *Store {
 
 func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 	query := `
-		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, hn_rank, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, hn_rank, embedding, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
 		ON CONFLICT (id) DO UPDATE
 		SET title = EXCLUDED.title,
 			url = EXCLUDED.url,
@@ -53,9 +56,10 @@ func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 			by = EXCLUDED.by,
 			descendants = EXCLUDED.descendants,
 			posted_at = EXCLUDED.posted_at,
-			hn_rank = EXCLUDED.hn_rank;
+			hn_rank = EXCLUDED.hn_rank,
+			embedding = COALESCE(EXCLUDED.embedding, stories.embedding);
 	`
-	_, err := s.db.Exec(ctx, query, story.ID, story.Title, story.URL, story.Score, story.By, story.Descendants, story.PostedAt, story.HNRank)
+	_, err := s.db.Exec(ctx, query, story.ID, story.Title, story.URL, story.Score, story.By, story.Descendants, story.PostedAt, story.HNRank, story.Embedding)
 	return err
 }
 
@@ -303,6 +307,35 @@ func (s *Store) GetSavedStories(ctx context.Context, userID string, limit, offse
 		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.IsRead, &story.IsSaved); err != nil {
 			return nil, err
 		}
+		stories = append(stories, story)
+	}
+	return stories, nil
+}
+
+// SearchStories performs a semantic similarity search using a query embedding vector.
+func (s *Store) SearchStories(ctx context.Context, embedding pgvector.Vector, limit int) ([]Story, error) {
+	query := `
+		SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank,
+		       1 - (embedding <=> $1) as similarity
+		FROM stories
+		WHERE embedding IS NOT NULL AND 1 - (embedding <=> $1) > 0.5
+		ORDER BY similarity DESC
+		LIMIT $2
+	`
+	rows, err := s.db.Query(ctx, query, embedding, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stories []Story
+	for rows.Next() {
+		var story Story
+		var similarity float64
+		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &similarity); err != nil {
+			return nil, err
+		}
+		story.Similarity = &similarity
 		stories = append(stories, story)
 	}
 	return stories, nil

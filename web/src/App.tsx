@@ -133,6 +133,9 @@ function App() {
   const [comments, setComments] = useState<any[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
 
+  // Hidden stories
+  const [hiddenStories, setHiddenStories] = useState<Set<number>>(new Set());
+
   // Keyboard Nav
   const [focusMode, setFocusMode] = useState<'stories' | 'reader' | 'header'>('stories');
   const [isZenMode, setIsZenMode] = useState(false);
@@ -196,6 +199,35 @@ function App() {
         setFocusMode('stories');
         const idx = stories.findIndex(s => s.id === selectedStoryId);
         if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
+        return;
+      }
+
+      if (e.key === 'Delete' && focusMode === 'stories' && selectedStoryId) {
+        e.preventDefault();
+        setHiddenStories(prev => {
+          const next = new Set(prev);
+          next.add(selectedStoryId);
+          return next;
+        });
+
+        // Select next visible story
+        const currentIndex = stories.findIndex(s => s.id === selectedStoryId);
+        let nextIndex = currentIndex + 1;
+        while (nextIndex < stories.length && hiddenStories.has(stories[nextIndex].id)) {
+          nextIndex++;
+        }
+        if (nextIndex < stories.length) {
+          setSelectedStoryId(stories[nextIndex].id);
+        } else {
+          // Try previous
+          let prevIndex = currentIndex - 1;
+          while (prevIndex >= 0 && hiddenStories.has(stories[prevIndex].id)) {
+            prevIndex--;
+          }
+          if (prevIndex >= 0) {
+            setSelectedStoryId(stories[prevIndex].id);
+          }
+        }
         return;
       }
 
@@ -674,8 +706,8 @@ function App() {
                 )}
 
                 {!loading && !error && (
-                  <div className="space-y-3">
-                    {stories.map((story, index) => {
+                  <div className="space-y-1">
+                    {stories.filter(s => !hiddenStories.has(s.id)).map((story, index) => {
                       const isSelected = selectedStoryId === story.id;
                       const isRead = readIds.has(story.id) || story.is_read;
                       const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
@@ -744,6 +776,11 @@ function App() {
                 story={selectedStory}
                 comments={comments}
                 commentsLoading={commentsLoading}
+                onFocusList={() => {
+                  setFocusMode('stories');
+                  const idx = stories.findIndex(s => s.id === selectedStoryId);
+                  if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
+                }}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 p-8 text-center">

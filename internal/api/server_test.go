@@ -21,7 +21,7 @@ import (
 
 func TestHealthCheck(t *testing.T) {
 	// server with nil store is fine for health check
-	server := NewServer(nil)
+	server := NewServer(nil, nil, nil)
 
 	req, _ := http.NewRequest("GET", "/healthc", nil)
 	rr := httptest.NewRecorder()
@@ -50,7 +50,7 @@ func TestGetStories_Integration(t *testing.T) {
 	}
 
 	store := storage.New(pool)
-	server := NewServer(store)
+	server := NewServer(store, nil, nil)
 
 	// Seed a story for testing?
 	// We assume data exists from ingestion or we can insert one.

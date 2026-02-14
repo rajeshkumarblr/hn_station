@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/rajeshkumarblr/my_hn/internal/ai"
 	"github.com/rajeshkumarblr/my_hn/internal/api"
 	"github.com/rajeshkumarblr/my_hn/internal/auth"
 	"github.com/rajeshkumarblr/my_hn/internal/storage"
@@ -46,8 +47,16 @@ func main() {
 	authCfg := auth.NewConfig()
 	log.Printf("OAuth2 callback URL: %s", authCfg.OAuth2Config.RedirectURL)
 
+	// Initialize Ollama client for semantic search
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://ollama:11434"
+	}
+	aiClient := ai.NewOllamaClient(ollamaURL)
+	log.Printf("Ollama client configured: %s", ollamaURL)
+
 	store := storage.New(dbpool)
-	server := api.NewServer(store, authCfg)
+	server := api.NewServer(store, authCfg, aiClient)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
