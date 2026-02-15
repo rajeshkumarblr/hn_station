@@ -16,7 +16,9 @@ interface Story {
   created_at: string;
   hn_rank?: number;
   is_read?: boolean;
+
   is_saved?: boolean;
+  is_hidden?: boolean;
 }
 
 interface User {
@@ -134,6 +136,9 @@ function App() {
   const [commentsLoading, setCommentsLoading] = useState(false);
 
   // Hidden stories
+  const [showHidden, setShowHidden] = useState(false);
+  // We still keep local hiddenStories for immediate UI feedback, 
+  // but now we also rely on the server filtering when showHidden is false.
   const [hiddenStories, setHiddenStories] = useState<Set<number>>(new Set());
 
   // Keyboard Nav
@@ -210,9 +215,21 @@ function App() {
           return next;
         });
 
+        // Persist hidden state to server
+        if (user) {
+          const baseUrl = import.meta.env.VITE_API_URL || '';
+          fetch(`${baseUrl}/api/stories/${selectedStoryId}/interact`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hidden: true }),
+          }).catch(() => { });
+        }
+
         // Select next visible story
         const currentIndex = stories.findIndex(s => s.id === selectedStoryId);
         let nextIndex = currentIndex + 1;
+        // Skip stories that are hidden locally
         while (nextIndex < stories.length && hiddenStories.has(stories[nextIndex].id)) {
           nextIndex++;
         }
@@ -345,9 +362,12 @@ function App() {
     activeTopics.forEach(t => {
       url += `&topic=${encodeURIComponent(t)}`;
     });
+    if (showHidden) {
+      url += `&show_hidden=true`;
+    }
     url += `&_t=${Date.now()}`;
     return url;
-  }, [mode, activeTopics]);
+  }, [mode, activeTopics, showHidden]);
 
   // Initial fetch (reset on mode/topics change)
   useEffect(() => {
@@ -374,7 +394,7 @@ function App() {
         setError(err.message);
         setLoading(false);
       });
-  }, [mode, activeTopics, refreshKey, buildUrl]);
+  }, [mode, activeTopics, refreshKey, showHidden, buildUrl]);
 
   // Load more (infinite scroll)
   const loadMore = useCallback(() => {
@@ -644,6 +664,18 @@ function App() {
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
+            <button
+              onClick={() => setShowHidden(!showHidden)}
+              className={`p-2 rounded-lg transition-all active:scale-95 ${showHidden ? 'bg-orange-500/20 text-orange-500' : 'hover:bg-slate-800 text-slate-400'}`}
+              title={showHidden ? "Hide deleted stories" : "Show all stories"}
+            >
+              {/* Using Eye/EyeOff or similar icon. Using generic View icon for now if lucide-react has it, otherwise ToggleLeft/Right */}
+              {showHidden ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></svg>
+              )}
+            </button>
 
             {/* User Auth */}
             {user ? (
@@ -707,40 +739,44 @@ function App() {
 
                 {!loading && !error && (
                   <div className="space-y-1">
-                    {stories.filter(s => !hiddenStories.has(s.id)).map((story, index) => {
-                      const isSelected = selectedStoryId === story.id;
-                      const isRead = readIds.has(story.id) || story.is_read;
-                      const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
-                      const topicAccent = matchedTopic ? getTopicColor(matchedTopic).accent : null;
-                      return (
-                        <div
-                          key={story.id}
-                          ref={el => storyRefs.current[index] = el}
-                          tabIndex={0}
-                          role="button"
-                          aria-selected={isSelected}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleStorySelect(story.id);
-                              const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
-                              window.open(url, '_blank', 'noopener,noreferrer');
-                            }
-                          }}
-                          onClick={() => handleStorySelect(story.id)}
-                          className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
-                          style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
-                        >
-                          <StoryCard
-                            story={story}
-                            index={index}
-                            isSelected={isSelected}
-                            isRead={isRead}
-                            onSelect={(id) => handleStorySelect(id)}
-                            onToggleSave={user ? handleToggleSave : undefined}
-                          />
-                        </div>
-                      );
-                    })}
+                    {stories
+                      // If showHidden is false, we filter out locally hidden stories AND logic from server (though server shouldn't send them)
+                      // If showHidden is true, we show everything
+                      .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
+                      .map((story, index) => {
+                        const isSelected = selectedStoryId === story.id;
+                        const isRead = readIds.has(story.id) || story.is_read;
+                        const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
+                        const topicAccent = matchedTopic ? getTopicColor(matchedTopic).accent : null;
+                        return (
+                          <div
+                            key={story.id}
+                            ref={el => storyRefs.current[index] = el}
+                            tabIndex={0}
+                            role="button"
+                            aria-selected={isSelected}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleStorySelect(story.id);
+                                const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+                                window.open(url, '_blank', 'noopener,noreferrer');
+                              }
+                            }}
+                            onClick={() => handleStorySelect(story.id)}
+                            className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
+                            style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
+                          >
+                            <StoryCard
+                              story={story}
+                              index={index}
+                              isSelected={isSelected}
+                              isRead={isRead}
+                              onSelect={(id) => handleStorySelect(id)}
+                              onToggleSave={user ? handleToggleSave : undefined}
+                            />
+                          </div>
+                        );
+                      })}
 
                     {/* Infinite Scroll Sentinel */}
                     <div ref={sentinelRef} className="h-4" />
