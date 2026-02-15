@@ -24,10 +24,10 @@ type Server struct {
 	store    *storage.Store
 	router   *chi.Mux
 	auth     *auth.Config
-	aiClient *ai.OllamaClient
+	aiClient *ai.GeminiClient
 }
 
-func NewServer(store *storage.Store, authCfg *auth.Config, aiClient *ai.OllamaClient) *Server {
+func NewServer(store *storage.Store, authCfg *auth.Config, aiClient *ai.GeminiClient) *Server {
 	s := &Server{
 		store:    store,
 		router:   chi.NewRouter(),
@@ -70,6 +70,7 @@ func (s *Server) routes() {
 	s.router.Post("/api/stories/{id}/interact", s.handleInteract)
 	s.router.Get("/api/content/readme", s.handleGetReadme)
 	s.router.Get("/api/me", s.handleGetMe)
+	s.router.Post("/api/settings", s.handleUpdateSettings)
 
 	// Auth routes
 	s.router.Get("/auth/google", s.handleGoogleLogin)
@@ -78,6 +79,8 @@ func (s *Server) routes() {
 
 	// AI routes
 	s.router.Post("/api/stories/{id}/summarize", s.handleSummarizeStory)
+	s.router.Get("/api/chat/{id}", s.handleGetChatHistory)
+	s.router.Post("/api/chat", s.handleChat)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -243,38 +246,10 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Semantic search path
+	// Semantic search path - DISABLED for Gemini BYOK MVP
 	searchType := r.URL.Query().Get("type")
 	if searchType == "semantic" {
-		query := r.URL.Query().Get("q")
-		if query == "" {
-			http.Error(w, "query parameter 'q' is required for semantic search", http.StatusBadRequest)
-			return
-		}
-		if s.aiClient == nil {
-			http.Error(w, "semantic search is not configured", http.StatusServiceUnavailable)
-			return
-		}
-
-		embedding, err := s.aiClient.GetEmbedding(r.Context(), query)
-		if err != nil {
-			log.Printf("Failed to get query embedding: %v", err)
-			http.Error(w, "Failed to process search query", http.StatusInternalServerError)
-			return
-		}
-
-		stories, err := s.store.SearchStories(r.Context(), embedding, limit)
-		if err != nil {
-			log.Printf("Semantic search failed: %v", err)
-			http.Error(w, "Search failed", http.StatusInternalServerError)
-			return
-		}
-		if stories == nil {
-			stories = []storage.Story{}
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(stories)
+		http.Error(w, "Semantic search is currently disabled in BYOK mode", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -430,6 +405,23 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := s.store.GetAuthUser(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+
+	if user.GeminiAPIKey == "" {
+		http.Error(w, "Please set your Gemini API Key in Settings to use this feature.", http.StatusBadRequest)
+		return
+	}
+
 	story, err := s.store.GetStory(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Story not found", http.StatusNotFound)
@@ -465,13 +457,191 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		totalChars += len(text)
 	}
 
-	summary, err := s.aiClient.Summarize(r.Context(), sb.String())
+	// Pass user's API key
+	summary, err := s.aiClient.GenerateSummary(r.Context(), user.GeminiAPIKey, sb.String())
 	if err != nil {
 		log.Printf("Summarization failed: %v", err)
-		http.Error(w, "Failed to generate summary", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to generate summary: " + err.Error()})
 		return
+	}
+
+	// Save summary to chat history
+	if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Summary of \"%s\":**\n\n%s", story.Title, summary)); err != nil {
+		log.Printf("Failed to save summary to history: %v", err)
+		// Don't fail the request, just log
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"summary": summary})
+}
+
+func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	var body struct {
+		GeminiAPIKey string `json:"gemini_api_key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.UpdateUserGeminiKey(r.Context(), userID, body.GeminiAPIKey); err != nil {
+		log.Printf("Failed to update gemini key: %v", err)
+		http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := s.store.GetAuthUser(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusInternalServerError)
+		return
+	}
+
+	if user.GeminiAPIKey == "" {
+		http.Error(w, "Please set your Gemini API Key in Settings to use this feature.", http.StatusBadRequest)
+		return
+	}
+
+	var body struct {
+		StoryID int    `json:"story_id"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if body.Message == "" {
+		http.Error(w, "Message is required", http.StatusBadRequest)
+		return
+	}
+
+	// Save user message
+	if err := s.store.SaveChatMessage(r.Context(), userID, body.StoryID, "user", body.Message); err != nil {
+		log.Printf("Failed to save user message: %v", err)
+		http.Error(w, "Failed to save message", http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch story context
+	story, err := s.store.GetStory(r.Context(), body.StoryID)
+	if err != nil {
+		http.Error(w, "Story not found", http.StatusNotFound)
+		return
+	}
+
+	comments, err := s.store.GetComments(r.Context(), body.StoryID)
+	if err != nil {
+		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch chat history from DB
+	dbHistory, err := s.store.GetChatHistory(r.Context(), userID, body.StoryID)
+	if err != nil {
+		log.Printf("Failed to fetch chat history: %v", err)
+		http.Error(w, "Failed to fetch history", http.StatusInternalServerError)
+		return
+	}
+
+	// Convert DB history to AI client history
+	var aiHistory []ai.ChatMessage
+	for _, msg := range dbHistory {
+		aiHistory = append(aiHistory, ai.ChatMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+	// Note: aiHistory now includes the message we just saved.
+	// GenerateChatResponse expects history EXCLUDING the new message, and the new message as separate arg?
+	// Actually, looking at client.go: GenerateChatResponse(ctx, apiKey, context, history, newMessage)
+	// So we should exclude the very last user message from 'history' passed to AI,
+	// OR just pass it as 'newMessage' and existing history.
+
+	// Let's filter aiHistory to exclude the last message we just added?
+	// No, better to just use the `body.Message` as new message.
+	// But `aiHistory` contains it now.
+	// We need to pass `aiHistory` WITHOUT the last message to the client, if we want to follow that pattern.
+	// OR, we can just pass `aiHistory` excluding the last item.
+
+	effectiveHistory := aiHistory[:len(aiHistory)-1]
+
+	// Prepare context text
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Title: %s\nURL: %s\n\nDiscussion:\n", story.Title, story.URL))
+
+	totalChars := 0
+	maxChars := 15000
+	for _, c := range comments {
+		text := fmt.Sprintf("- %s: %s\n", c.By, c.Text)
+		if totalChars+len(text) > maxChars {
+			break
+		}
+		sb.WriteString(text)
+		totalChars += len(text)
+	}
+
+	response, err := s.aiClient.GenerateChatResponse(r.Context(), user.GeminiAPIKey, sb.String(), effectiveHistory, body.Message)
+	if err != nil {
+		log.Printf("Chat generation failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to generate response: " + err.Error()})
+		return
+	}
+
+	// Save model response
+	if err := s.store.SaveChatMessage(r.Context(), userID, body.StoryID, "model", response); err != nil {
+		log.Printf("Failed to save model response: %v", err)
+		// Don't fail, return response
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"response": response})
+}
+
+func (s *Server) handleGetChatHistory(w http.ResponseWriter, r *http.Request) {
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	storyIDStr := chi.URLParam(r, "id")
+	storyID, err := strconv.Atoi(storyIDStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	history, err := s.store.GetChatHistory(r.Context(), userID, storyID)
+	if err != nil {
+		log.Printf("Failed to fetch chat history: %v", err)
+		http.Error(w, "Failed to fetch history", http.StatusInternalServerError)
+		return
+	}
+
+	if history == nil {
+		history = []storage.ChatMessage{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(history)
 }

@@ -2,8 +2,10 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import './App.css';
 import { StoryCard } from './components/StoryCard';
 import { ReaderPane } from './components/ReaderPane';
-import { RefreshCw, Search, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github } from 'lucide-react';
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle, useDefaultLayout } from 'react-resizable-panels';
+import { SettingsModal } from './components/SettingsModal';
+import { AISidebar } from './components/AISidebar';
+import { RefreshCw, Search, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Sparkles } from 'lucide-react';
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
 interface Story {
   id: number;
@@ -140,6 +142,14 @@ function App() {
   // We still keep local hiddenStories for immediate UI feedback, 
   // but now we also rely on the server filtering when showHidden is false.
   const [hiddenStories, setHiddenStories] = useState<Set<number>>(new Set());
+
+  // Settings
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // AI Sidebar
+  const [isAIOpen, setIsAIOpen] = useState(false);
+
+  // Keyboard Nav
 
   // Keyboard Nav
   const [focusMode, setFocusMode] = useState<'stories' | 'reader' | 'header'>('stories');
@@ -540,11 +550,8 @@ function App() {
     </PanelResizeHandle>
   );
 
-  // Layout persistence
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-    id: 'hn-zen-v2',
-    storage: localStorage,
-  });
+  // Layout configuration
+  const layoutId = isAIOpen ? 'hn-zen-v3-ai-layout' : 'hn-zen-v3-std-layout';
 
   return (
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
@@ -554,7 +561,7 @@ function App() {
         <div className="flex items-center h-full gap-8">
 
           {/* Brand */}
-          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station</span>
+          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.2</span></span>
 
           {/* GitHub-Style Nav Tabs */}
           <nav className="h-full flex items-center gap-6">
@@ -665,6 +672,13 @@ function App() {
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-all active:scale-95"
+              title="Settings"
+            >
+              <Settings size={16} />
+            </button>
+            <button
               onClick={() => setShowHidden(!showHidden)}
               className={`p-2 rounded-lg transition-all active:scale-95 ${showHidden ? 'bg-orange-500/20 text-orange-500' : 'hover:bg-slate-800 text-slate-400'}`}
               title={showHidden ? "Hide deleted stories" : "Show all stories"}
@@ -675,6 +689,13 @@ function App() {
               ) : (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></svg>
               )}
+            </button>
+            <button
+              onClick={() => setIsAIOpen(!isAIOpen)}
+              className={`p-2 rounded-lg transition-all active:scale-95 ${isAIOpen ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-400'}`}
+              title="Toggle AI Assistant"
+            >
+              <Sparkles size={16} />
             </button>
 
             {/* User Auth */}
@@ -710,15 +731,13 @@ function App() {
 
       {/* ─── 2-Pane Layout ─── */}
       <PanelGroup
+        key={layoutId} // Force remount when layout changes to reset internal sizes
         orientation="horizontal"
-        id="hn-zen-v2"
-        defaultLayout={defaultLayout}
-        onLayoutChanged={onLayoutChanged}
       >
 
         {/* Story Feed */}
         {!isZenMode && (
-          <Panel defaultSize={35} minSize={25} id="feed">
+          <Panel defaultSize={isAIOpen ? 30 : 35} minSize={25} id="feed">
             <div className="h-full flex flex-col bg-slate-950">
               <main
                 className={`flex-1 overflow-y-auto custom-scrollbar p-3 transition-all ${focusMode === 'stories' ? 'shadow-[inset_0_0_0_2px_rgba(59,130,246,0.3)]' : ''}`}
@@ -801,36 +820,62 @@ function App() {
         {!isZenMode && <ResizeHandle />}
 
         {/* Reader Pane */}
-        <Panel defaultSize={isZenMode ? 100 : 65} minSize={30} id="reader">
-          <aside
-            ref={readerContainerRef}
-            tabIndex={-1}
-            className={`h-full bg-[#111d2e] overflow-y-auto custom-scrollbar focus:outline-none transition-all ${focusMode === 'reader' ? 'shadow-[inset_4px_0_0_0_#3b82f6]' : ''}`}
-          >
-            {selectedStory ? (
-              <ReaderPane
-                story={selectedStory}
-                comments={comments}
-                commentsLoading={commentsLoading}
-                onFocusList={() => {
-                  setFocusMode('stories');
-                  const idx = stories.findIndex(s => s.id === selectedStoryId);
-                  if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
-                }}
-              />
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 p-8 text-center">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
-                  <Star size={32} className="opacity-50" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-slate-200 mb-1">Select a Story</h3>
-                <p className="text-sm max-w-xs mx-auto">Choose a story from the feed to read its discussion.</p>
+        {selectedStory ? (
+          <>
+            <Panel defaultSize={isAIOpen ? 45 : (isZenMode ? 100 : 70)} minSize={30} id="reader">
+              <aside
+                ref={readerContainerRef}
+                tabIndex={-1}
+                className={`h-full bg-[#111d2e] overflow-y-auto custom-scrollbar focus:outline-none transition-all ${focusMode === 'reader' ? 'shadow-[inset_4px_0_0_0_#3b82f6]' : ''}`}
+              >
+                <ReaderPane
+                  story={selectedStory}
+                  comments={comments}
+                  commentsLoading={commentsLoading}
+                  onFocusList={() => {
+                    setFocusMode('stories');
+                    const idx = stories.findIndex(s => s.id === selectedStoryId);
+                    if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
+                  }}
+                  onSummarize={() => setIsAIOpen(true)}
+                />
+              </aside>
+            </Panel>
+          </>
+        ) : (
+          <Panel defaultSize={isZenMode ? 100 : 70} minSize={30} id="reader">
+            <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 p-8 text-center">
+              <div className="w-16 h-16 bg-gray-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
+                <Star size={32} className="opacity-50" />
               </div>
-            )}
-          </aside>
-        </Panel>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-slate-200 mb-1">Select a Story</h3>
+              <p className="text-sm max-w-xs mx-auto">Choose a story from the feed to read its discussion.</p>
+            </div>
+          </Panel>
+        )}
+
+        {/* AI Sidebar Panel */}
+        {isAIOpen && selectedStory && (
+          <>
+            <ResizeHandle />
+            <Panel defaultSize={25} minSize={20} id="ai-sidebar">
+              <AISidebar
+                storyId={selectedStory.id}
+                storyTitle={selectedStory.title}
+                isOpen={isAIOpen}
+                onClose={() => setIsAIOpen(false)}
+              />
+            </Panel>
+          </>
+        )}
 
       </PanelGroup>
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        user={user}
+      />
     </div>
   );
 }

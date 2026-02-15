@@ -29,13 +29,14 @@ type Story struct {
 }
 
 type AuthUser struct {
-	ID        string    `json:"id"`
-	GoogleID  string    `json:"google_id"`
-	Email     string    `json:"email"`
-	Name      string    `json:"name"`
-	AvatarURL string    `json:"avatar_url"`
-	IsAdmin   bool      `json:"is_admin"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	GoogleID     string    `json:"google_id"`
+	Email        string    `json:"email"`
+	Name         string    `json:"name"`
+	AvatarURL    string    `json:"avatar_url"`
+	IsAdmin      bool      `json:"is_admin"`
+	GeminiAPIKey string    `json:"-"` // Never expose to frontend
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Store struct {
@@ -251,11 +252,11 @@ func (s *Store) UpsertAuthUser(ctx context.Context, googleID, email, name, avata
 		SET email = EXCLUDED.email,
 			name = EXCLUDED.name,
 			avatar_url = EXCLUDED.avatar_url
-		RETURNING id, google_id, email, name, avatar_url, is_admin, created_at
+		RETURNING id, google_id, email, name, avatar_url, is_admin, COALESCE(gemini_api_key, ''), created_at
 	`
 	var user AuthUser
 	err := s.db.QueryRow(ctx, query, googleID, email, name, avatarURL).Scan(
-		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.CreatedAt,
+		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.GeminiAPIKey, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -265,15 +266,21 @@ func (s *Store) UpsertAuthUser(ctx context.Context, googleID, email, name, avata
 
 // GetAuthUser fetches a user by their UUID.
 func (s *Store) GetAuthUser(ctx context.Context, userID string) (*AuthUser, error) {
-	query := `SELECT id, google_id, email, name, avatar_url, is_admin, created_at FROM auth_users WHERE id = $1`
+	query := `SELECT id, google_id, email, name, avatar_url, is_admin, COALESCE(gemini_api_key, ''), created_at FROM auth_users WHERE id = $1`
 	var user AuthUser
 	err := s.db.QueryRow(ctx, query, userID).Scan(
-		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.CreatedAt,
+		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.GeminiAPIKey, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (s *Store) UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error {
+	query := `UPDATE auth_users SET gemini_api_key = $1 WHERE id = $2`
+	_, err := s.db.Exec(ctx, query, apiKey, userID)
+	return err
 }
 
 // UpsertInteraction creates or updates a user-story interaction.
@@ -345,4 +352,38 @@ func (s *Store) SearchStories(ctx context.Context, embedding pgvector.Vector, li
 		stories = append(stories, story)
 	}
 	return stories, nil
+}
+
+type ChatMessage struct {
+	ID        int       `json:"id"`
+	UserID    string    `json:"user_id"`
+	StoryID   int       `json:"story_id"`
+	Role      string    `json:"role"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *Store) SaveChatMessage(ctx context.Context, userID string, storyID int, role, content string) error {
+	query := `INSERT INTO chat_messages (user_id, story_id, role, content) VALUES ($1::uuid, $2, $3, $4)`
+	_, err := s.db.Exec(ctx, query, userID, storyID, role, content)
+	return err
+}
+
+func (s *Store) GetChatHistory(ctx context.Context, userID string, storyID int) ([]ChatMessage, error) {
+	query := `SELECT id, user_id, story_id, role, content, created_at FROM chat_messages WHERE user_id = $1::uuid AND story_id = $2 ORDER BY created_at ASC`
+	rows, err := s.db.Query(ctx, query, userID, storyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []ChatMessage
+	for rows.Next() {
+		var m ChatMessage
+		if err := rows.Scan(&m.ID, &m.UserID, &m.StoryID, &m.Role, &m.Content, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		messages = append(messages, m)
+	}
+	return messages, nil
 }

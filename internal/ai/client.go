@@ -1,128 +1,178 @@
 package ai
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"time"
+	"log"
+	"strings"
 
-	pgvector "github.com/pgvector/pgvector-go"
+	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/api/option"
 )
 
-// OllamaClient communicates with a self-hosted Ollama instance for embeddings.
-type OllamaClient struct {
-	baseURL    string
-	httpClient *http.Client
+// GeminiClient handles interactions with Google's Gemini API.
+type GeminiClient struct{}
+
+// NewGeminiClient creates a new instance of GeminiClient.
+func NewGeminiClient() *GeminiClient {
+	return &GeminiClient{}
 }
 
-// NewOllamaClient creates a new client for the Ollama API.
-func NewOllamaClient(baseURL string) *OllamaClient {
-	return &OllamaClient{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			// Increased timeout for generation tasks
-			Timeout: 120 * time.Second,
+// GenerateSummary generates a summary using the provided API key and text.
+func (c *GeminiClient) GenerateSummary(ctx context.Context, apiKey string, text string) (string, error) {
+	log.Printf("GeminiClient: Starting summarization. Input text length: %d", len(text))
+
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to create gemini client: %w", err)
+	}
+	defer client.Close()
+
+	model, err := c.getBestModel(ctx, client)
+	if err != nil {
+		return "", err
+	}
+
+	prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Text: %s", text)
+
+	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		log.Printf("GeminiClient: Model failed: %v", err)
+		return "", fmt.Errorf("model failed: %w", err)
+	}
+
+	return c.extractTextFromResponse(resp)
+}
+
+// ChatMessage represents a message in the chat history.
+type ChatMessage struct {
+	Role    string // "user" or "model"
+	Content string
+}
+
+// GenerateChatResponse generates a response to a user message, given context and history.
+func (c *GeminiClient) GenerateChatResponse(ctx context.Context, apiKey string, contextText string, history []ChatMessage, newMessage string) (string, error) {
+	log.Printf("GeminiClient: Starting chat. History length: %d", len(history))
+
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to create gemini client: %w", err)
+	}
+	defer client.Close()
+
+	model, err := c.getBestModel(ctx, client)
+	if err != nil {
+		return "", err
+	}
+
+	cs := model.StartChat()
+
+	// Set the system instruction or initial context if supported,
+	// or just prepend it to the history/first message.
+	// Gemini Pro often works best if context is in the first message or history.
+
+	// We will construct the history for the session.
+	// We'll inject the context (story content) as a "user" message at the beginning,
+	// followed by a "model" confirmation, to establish context.
+
+	cs.History = []*genai.Content{
+		{
+			Role: "user",
+			Parts: []genai.Part{
+				genai.Text(fmt.Sprintf("Here is the content of the Hacker News story and discussion we will talk about:\n\n%s\n\nPlease answer my future questions based on this context.", contextText)),
+			},
+		},
+		{
+			Role: "model",
+			Parts: []genai.Part{
+				genai.Text("Understood. I have read the story and discussion. I am ready to answer your questions about it."),
+			},
 		},
 	}
+
+	// Append actual user history
+	for _, msg := range history {
+		role := "user"
+		if msg.Role == "model" || msg.Role == "assistant" {
+			role = "model"
+		}
+		cs.History = append(cs.History, &genai.Content{
+			Role:  role,
+			Parts: []genai.Part{genai.Text(msg.Content)},
+		})
+	}
+
+	resp, err := cs.SendMessage(ctx, genai.Text(newMessage))
+	if err != nil {
+		log.Printf("GeminiClient: Chat failed: %v", err)
+		return "", fmt.Errorf("chat failed: %w", err)
+	}
+
+	return c.extractTextFromResponse(resp)
 }
 
-type embeddingRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
+func (c *GeminiClient) getBestModel(ctx context.Context, client *genai.Client) (*genai.GenerativeModel, error) {
+	// Dynamic Model Discovery
+	iter := client.ListModels(ctx)
+	var selectedModel string
+
+	log.Println("GeminiClient: Listing available models...")
+	for {
+		m, err := iter.Next()
+		if err != nil {
+			if strings.Contains(err.Error(), "iterator") && strings.Contains(err.Error(), "stop") {
+				break
+			}
+			log.Printf("GeminiClient: Error listing models: %v", err)
+			break
+		}
+
+		// Check if it supports generateContent
+		supportsGenerateContent := false
+		for _, method := range m.SupportedGenerationMethods {
+			if method == "generateContent" {
+				supportsGenerateContent = true
+				break
+			}
+		}
+
+		if supportsGenerateContent && strings.Contains(strings.ToLower(m.Name), "gemini") {
+			// Prioritize flash models, then pro
+			if selectedModel == "" {
+				selectedModel = m.Name
+			} else if strings.Contains(m.Name, "flash") && !strings.Contains(selectedModel, "flash") {
+				selectedModel = m.Name
+			}
+		}
+	}
+
+	if selectedModel == "" {
+		log.Println("GeminiClient: No suitable models found via discovery. Using hardcoded fallback.")
+		selectedModel = "gemini-1.5-flash"
+	} else {
+		log.Printf("GeminiClient: Selected model via discovery: %s", selectedModel)
+	}
+
+	selectedModel = strings.TrimPrefix(selectedModel, "models/")
+	return client.GenerativeModel(selectedModel), nil
 }
 
-type embeddingResponse struct {
-	Embedding []float32 `json:"embedding"`
-}
-
-type generateRequest struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
-	Stream bool   `json:"stream"`
-}
-
-type generateResponse struct {
-	Response string `json:"response"`
-	Done     bool   `json:"done"`
-}
-
-// GetEmbedding generates an embedding vector for the given text using nomic-embed-text.
-func (c *OllamaClient) GetEmbedding(ctx context.Context, text string) (pgvector.Vector, error) {
-	reqBody := embeddingRequest{
-		Model:  "nomic-embed-text",
-		Prompt: text,
+func (c *GeminiClient) extractTextFromResponse(resp *genai.GenerateContentResponse) (string, error) {
+	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil || len(resp.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("empty response from model")
 	}
 
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return pgvector.Vector{}, fmt.Errorf("marshal embedding request: %w", err)
+	var sb strings.Builder
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if txt, ok := part.(genai.Text); ok {
+			sb.WriteString(string(txt))
+		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/api/embeddings", c.baseURL), bytes.NewReader(body))
-	if err != nil {
-		return pgvector.Vector{}, fmt.Errorf("create embedding request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return pgvector.Vector{}, fmt.Errorf("ollama embedding request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return pgvector.Vector{}, fmt.Errorf("ollama returned status %d", resp.StatusCode)
+	result := sb.String()
+	if result == "" {
+		return "", fmt.Errorf("empty text response from model")
 	}
 
-	var result embeddingResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return pgvector.Vector{}, fmt.Errorf("decode embedding response: %w", err)
-	}
-
-	if len(result.Embedding) == 0 {
-		return pgvector.Vector{}, fmt.Errorf("ollama returned empty embedding")
-	}
-
-	return pgvector.NewVector(result.Embedding), nil
-}
-
-// Summarize generates a summary of the provided text using llama3.2:1b.
-func (c *OllamaClient) Summarize(ctx context.Context, text string) (string, error) {
-	prompt := fmt.Sprintf("Summarize the key points from this Hacker News discussion in concise bullet points:\n\n%s", text)
-
-	reqBody := generateRequest{
-		Model:  "llama3.2:1b",
-		Prompt: prompt,
-		Stream: false,
-	}
-
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("marshal summaries request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/api/generate", c.baseURL), bytes.NewReader(body))
-	if err != nil {
-		return "", fmt.Errorf("create generation request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("ollama generation request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("ollama returned status %d", resp.StatusCode)
-	}
-
-	var result generateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("decode generation response: %w", err)
-	}
-
-	return result.Response, nil
+	return result, nil
 }

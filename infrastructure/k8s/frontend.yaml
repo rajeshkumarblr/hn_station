@@ -28,6 +28,7 @@ spec:
       containers:
         - name: frontend
           image: myhnregistry31509.azurecr.io/frontend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
           resources:

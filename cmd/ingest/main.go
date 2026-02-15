@@ -11,7 +11,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-	"github.com/rajeshkumarblr/hn_station/internal/ai"
 	"github.com/rajeshkumarblr/hn_station/internal/hn"
 	"github.com/rajeshkumarblr/hn_station/internal/storage"
 )
@@ -54,18 +53,10 @@ func main() {
 	store := storage.New(dbpool)
 	client := hn.NewClient()
 
-	// Initialize Ollama client for embeddings
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" {
-		ollamaURL = "http://ollama:11434"
-	}
-	aiClient := ai.NewOllamaClient(ollamaURL)
-	log.Printf("Ollama client configured: %s", ollamaURL)
-
 	log.Println("Starting Ingestion Service...")
 
 	// Run initially
-	runIngestion(ctx, client, store, aiClient)
+	runIngestion(ctx, client, store)
 
 	// Ticker for periodic updates (every 1 minute)
 	ticker := time.NewTicker(1 * time.Minute)
@@ -77,12 +68,12 @@ func main() {
 			log.Println("Shutting down ingestion service...")
 			return
 		case <-ticker.C:
-			runIngestion(ctx, client, store, aiClient)
+			runIngestion(ctx, client, store)
 		}
 	}
 }
 
-func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.OllamaClient) {
+func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) {
 	log.Println("Fetching stories...")
 
 	// Fetch Top Stories (Ranked)
@@ -156,7 +147,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 					// Pass rankPtr to processStory, which will handle upsert.
 					// For existing stories, this is redundant but harmless (idempotent).
 					// For new stories, this sets the initial rank correctly.
-					if err := processStory(ctx, client, store, aiClient, id, rankPtr); err != nil {
+					if err := processStory(ctx, client, store, id, rankPtr); err != nil {
 						log.Printf("Worker %d: Failed to process story %d: %v", workerID, id, err)
 					}
 				}
@@ -175,7 +166,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 	log.Println("Ingestion run completed.")
 }
 
-func processStory(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.OllamaClient, id int, rank *int) error {
+func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int, rank *int) error {
 	item, err := client.GetItem(ctx, id)
 	if err != nil {
 		return err
@@ -199,14 +190,14 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 	}
 
 	// Fetch embedding for the story title (non-blocking on failure)
-	if item.Title != "" {
-		embedding, err := aiClient.GetEmbedding(ctx, item.Title)
-		if err != nil {
-			log.Printf("Failed to get embedding for story %d: %v", item.ID, err)
-		} else {
-			story.Embedding = &embedding
-		}
-	}
+	// if item.Title != "" {
+	// 	embedding, err := aiClient.GetEmbedding(ctx, item.Title)
+	// 	if err != nil {
+	// 		log.Printf("Failed to get embedding for story %d: %v", item.ID, err)
+	// 	} else {
+	// 		story.Embedding = &embedding
+	// 	}
+	// }
 
 	if err := store.UpsertStory(ctx, story); err != nil {
 		return err

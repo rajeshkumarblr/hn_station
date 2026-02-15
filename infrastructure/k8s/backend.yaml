@@ -28,6 +28,7 @@ spec:
       containers:
         - name: backend
           image: myhnregistry31509.azurecr.io/backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:

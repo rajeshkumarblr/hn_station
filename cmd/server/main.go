@@ -47,13 +47,9 @@ func main() {
 	authCfg := auth.NewConfig()
 	log.Printf("OAuth2 callback URL: %s", authCfg.OAuth2Config.RedirectURL)
 
-	// Initialize Ollama client for semantic search
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" {
-		ollamaURL = "http://ollama:11434"
-	}
-	aiClient := ai.NewOllamaClient(ollamaURL)
-	log.Printf("Ollama client configured: %s", ollamaURL)
+	// Initialize Gemini client (stateless, acts as a factory/wrapper)
+	aiClient := ai.NewGeminiClient()
+	log.Println("Gemini client initialized")
 
 	store := storage.New(dbpool)
 	server := api.NewServer(store, authCfg, aiClient)
