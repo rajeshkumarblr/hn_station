@@ -23,6 +23,7 @@ type Story struct {
 	HNRank      *int             `json:"hn_rank,omitempty"`
 	IsRead      *bool            `json:"is_read,omitempty"`
 	IsSaved     *bool            `json:"is_saved,omitempty"`
+	IsHidden    *bool            `json:"is_hidden,omitempty"`
 	Embedding   *pgvector.Vector `json:"-"`
 	Similarity  *float64         `json:"similarity,omitempty"`
 }
@@ -63,14 +64,14 @@ func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 	return err
 }
 
-func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string) ([]Story, error) {
+func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, error) {
 	// Base select — optionally LEFT JOIN user_interactions for logged-in users
 	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank`
 	fromClause := `FROM stories s`
 	hasUser := userID != ""
 
 	if hasUser {
-		selectCols += `, ui.is_read, ui.is_saved`
+		selectCols += `, ui.is_read, ui.is_saved, ui.is_hidden`
 		fromClause += ` LEFT JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1`
 	}
 
@@ -81,6 +82,10 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	if hasUser {
 		args = append(args, userID)
 		argID = 2
+
+		if !showHidden {
+			query += ` AND (ui.is_hidden IS NULL OR ui.is_hidden = FALSE)`
+		}
 	}
 
 	// Multi-topic OR filter
@@ -123,7 +128,7 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	for rows.Next() {
 		var story Story
 		if hasUser {
-			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.IsRead, &story.IsSaved); err != nil {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.IsRead, &story.IsSaved, &story.IsHidden); err != nil {
 				return nil, err
 			}
 		} else {
@@ -272,16 +277,17 @@ func (s *Store) GetAuthUser(ctx context.Context, userID string) (*AuthUser, erro
 }
 
 // UpsertInteraction creates or updates a user-story interaction.
-func (s *Store) UpsertInteraction(ctx context.Context, userID string, storyID int, isRead *bool, isSaved *bool) error {
+func (s *Store) UpsertInteraction(ctx context.Context, userID string, storyID int, isRead *bool, isSaved *bool, isHidden *bool) error {
 	query := `
-		INSERT INTO user_interactions (user_id, story_id, is_read, is_saved, updated_at)
-		VALUES ($1, $2, COALESCE($3, FALSE), COALESCE($4, FALSE), NOW())
+		INSERT INTO user_interactions (user_id, story_id, is_read, is_saved, is_hidden, updated_at)
+		VALUES ($1, $2, COALESCE($3, FALSE), COALESCE($4, FALSE), COALESCE($5, FALSE), NOW())
 		ON CONFLICT (user_id, story_id) DO UPDATE SET
 			is_read = COALESCE($3, user_interactions.is_read),
 			is_saved = COALESCE($4, user_interactions.is_saved),
+			is_hidden = COALESCE($5, user_interactions.is_hidden),
 			updated_at = NOW()
 	`
-	_, err := s.db.Exec(ctx, query, userID, storyID, isRead, isSaved)
+	_, err := s.db.Exec(ctx, query, userID, storyID, isRead, isSaved, isHidden)
 	return err
 }
 

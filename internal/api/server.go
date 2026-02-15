@@ -297,8 +297,9 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 
 	// Pass user ID for interaction flags (empty string = anonymous)
 	userID := s.auth.GetUserIDFromRequest(r)
+	showHidden := r.URL.Query().Get("show_hidden") == "true"
 
-	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics, userID)
+	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics, userID, showHidden)
 	if err != nil {
 		http.Error(w, "Failed to fetch stories", http.StatusInternalServerError)
 		return
@@ -365,15 +366,16 @@ func (s *Server) handleInteract(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Read  *bool `json:"read"`
-		Saved *bool `json:"saved"`
+		Read   *bool `json:"read"`
+		Saved  *bool `json:"saved"`
+		Hidden *bool `json:"hidden"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := s.store.UpsertInteraction(r.Context(), userID, storyID, body.Read, body.Saved); err != nil {
+	if err := s.store.UpsertInteraction(r.Context(), userID, storyID, body.Read, body.Saved, body.Hidden); err != nil {
 		log.Printf("Error upserting interaction: %v", err)
 		http.Error(w, "Failed to update interaction", http.StatusInternalServerError)
 		return
