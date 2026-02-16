@@ -39,7 +39,7 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
         >
             {/* Content Wrapper - Target for highlight and navigation */}
             <div
-                className={`comment-node transition-all duration-200 cursor-pointer ${isActive ? 'bg-blue-500/10 rounded-lg border border-blue-500/40 shadow-sm py-2 px-3 -ml-3 my-1' : 'border border-transparent hover:bg-slate-800/30 rounded-lg py-1 px-1 -ml-1'}`}
+                className={`comment-node transition-all duration-200 cursor-pointer ${isActive ? 'bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-500/40 shadow-sm py-2 px-3 -ml-3 my-1' : 'border border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/30 rounded-lg py-1 px-1 -ml-1'}`}
                 data-comment-id={comment.id}
                 onClick={(e) => {
                     e.stopPropagation(); // Prevent triggering parent's click
@@ -47,24 +47,24 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                 }}
             >
                 {/* Header row — click to toggle */}
-                <div className="flex items-center gap-2 mb-1 text-xs text-slate-400 select-none">
+                <div className="flex items-center gap-2 mb-1 text-xs text-slate-500 dark:text-slate-400 select-none">
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsCollapsed(!isCollapsed);
                         }}
-                        className={`hover:bg-slate-700/50 rounded px-1 -ml-1 transition-colors cursor-pointer flex items-center gap-1.5 focus:outline-none ${isActive ? 'text-blue-300' : ''}`}
+                        className={`hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded px-1 -ml-1 transition-colors cursor-pointer flex items-center gap-1.5 focus:outline-none ${isActive ? 'text-blue-600 dark:text-blue-300' : ''}`}
                         aria-expanded={!isCollapsed}
                     >
-                        <span className="text-slate-500 font-mono w-3 text-center shrink-0">
+                        <span className="text-slate-400 dark:text-slate-500 font-mono w-3 text-center shrink-0">
                             {isCollapsed ? '+' : '−'}
                         </span>
-                        <span className={`font-bold ${isActive ? 'text-blue-400' : 'text-[#ff6600]'}`}>{comment.by}</span>
+                        <span className={`font-bold ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-[#ff6600]'}`}>{comment.by}</span>
                         <span>{getTimeAgo(new Date(comment.time))}</span>
                     </button>
 
                     {isCollapsed && descendantCount > 0 && (
-                        <span className="text-slate-500">
+                        <span className="text-slate-400 dark:text-slate-500">
                             ({descendantCount} {descendantCount === 1 ? 'child' : 'children'})
                         </span>
                     )}
@@ -73,7 +73,7 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                 {/* Body */}
                 {!isCollapsed && (
                     <div
-                        className="font-reading text-slate-300 overflow-hidden break-words prose prose-sm prose-invert max-w-none leading-relaxed [&>p]:mb-2 [&>pre]:bg-slate-800 [&>pre]:p-2 [&>pre]:overflow-x-auto [&>a]:text-indigo-400 hover:[&>a]:underline ml-5"
+                        className="font-reading text-slate-800 dark:text-slate-300 overflow-hidden break-words prose prose-sm dark:prose-invert max-w-none leading-relaxed [&>p]:mb-2 [&>pre]:bg-slate-100 dark:[&>pre]:bg-slate-800 [&>pre]:p-2 [&>pre]:overflow-x-auto [&>a]:text-blue-600 dark:[&>a]:text-indigo-400 hover:[&>a]:underline ml-5"
                         dangerouslySetInnerHTML={{ __html: comment.text }}
                     />
                 )}
@@ -108,7 +108,7 @@ export function CommentList({ comments, parentId, depth = 0, onCollapse, activeC
             {/* Thread Line - Only for nested levels */}
             {depth > 0 && (
                 <div
-                    className="absolute left-0 top-0 bottom-0 w-[1px] bg-slate-800 hover:bg-orange-500 cursor-pointer transition-colors z-10"
+                    className="absolute left-0 top-0 bottom-0 w-[1px] bg-slate-300 dark:bg-slate-800 hover:bg-orange-400 dark:hover:bg-orange-500 cursor-pointer transition-colors z-10"
                     onClick={(e) => {
                         e.stopPropagation();
                         onCollapse?.();

@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: myhnregistry31509.azurecr.io/frontend:v2.10
+          image: myhnregistry31509.azurecr.io/frontend:v2.12
           imagePullPolicy: Always
           ports:
             - containerPort: 80
