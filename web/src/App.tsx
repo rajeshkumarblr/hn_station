@@ -578,7 +578,7 @@ function App() {
         <div className="flex items-center h-full gap-8">
 
           {/* Brand */}
-          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.10</span></span>
+          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.12</span></span>
 
           {/* GitHub-Style Nav Tabs */}
           <nav className="h-full flex items-center gap-6">
@@ -755,7 +755,7 @@ function App() {
         {/* Story Feed */}
         {!isZenMode && (
           <Panel defaultSize={isAIOpen ? 30 : 35} minSize={25} id="feed">
-            <div className="h-full flex flex-col bg-slate-950">
+            <div className="h-full flex flex-col bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800">
               <main
                 className={`flex-1 overflow-y-auto custom-scrollbar p-3 transition-all ${focusMode === 'stories' ? 'shadow-[inset_0_0_0_2px_rgba(59,130,246,0.3)]' : ''}`}
               >

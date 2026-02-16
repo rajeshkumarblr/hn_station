@@ -40,24 +40,33 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
     const dimmed = story.is_read || isRead;
     const saved = story.is_saved || false;
 
-    // Zebra stripe: odd rows get a visible tint
+    // Check if odd row for zebra striping
     const isOdd = index !== undefined && index % 2 !== 0;
-    const stripeBg = isOdd ? 'bg-slate-800/80' : 'bg-transparent';
+
+    // Background logic
+    // Light mode: Odd = slate-100, Even = transparent
+    // Dark mode: Odd = slate-900/40, Even = transparent
+    const stripeBg = isOdd
+        ? 'bg-slate-100 dark:bg-slate-800/40'
+        : 'bg-transparent';
 
     // Active state overrides everything
     const activeBg = isSelected
-        ? 'bg-[#1e293b] border-l-4 border-l-orange-500 shadow-lg shadow-black/40 ring-1 ring-white/10'
-        : `${stripeBg} hover:bg-white/[0.06] border-l-4 border-l-transparent`;
+        ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-orange-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10 z-10'
+        : `${stripeBg} hover:bg-white dark:hover:bg-white/[0.06] border-l-4 border-l-transparent`;
 
     return (
-        <div className={`group relative rounded-md py-2 px-3 transition-all duration-150 ${activeBg}`}>
+        <div
+            className={`group relative rounded-md py-2 px-3 transition-all duration-150 ${activeBg}`}
+        // Allow parent to handle clicks, but we also want hover effects
+        >
             {/* Save/Star button — top right */}
             {onToggleSave && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onToggleSave(story.id, !saved); }}
                     className={`absolute top-2 right-2 p-1 rounded-md transition-all duration-150 z-20 ${saved
-                        ? 'text-yellow-400 hover:text-yellow-300 hover:scale-110'
-                        : 'text-gray-500 dark:text-slate-600 opacity-0 group-hover:opacity-100 hover:text-yellow-400 dark:hover:text-yellow-400 hover:scale-110'
+                        ? 'text-yellow-500 dark:text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300 hover:scale-110'
+                        : 'text-gray-400 dark:text-slate-600 opacity-0 group-hover:opacity-100 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110'
                         }`}
                     title={saved ? 'Unsave' : 'Save'}
                 >
@@ -66,41 +75,48 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
             )}
 
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
-                <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate'} ${dimmed ? 'text-slate-500' : 'text-slate-200'}`}>
+                <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate'} ${dimmed ? 'text-slate-500 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'} transition-all duration-200`}>
                     {displayRank && (
-                        <span className="text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
+                        <span className="text-slate-400 dark:text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
                             {displayRank}.
                         </span>
                     )}
-                    {/* Title - Click behavior handled by parent card */}
-                    <span className="hover:text-orange-400 transition-colors cursor-pointer">
+                    {/* Title */}
+                    <span className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors cursor-pointer">
                         {story.title}
                     </span>
                 </h3>
 
-                {isSelected && (
-                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400 font-medium">
+                {/* Details Row - Visible on selection OR hover */}
+                {/* We use grid/height transition for smooth expansion effect on hover, or just simple block display for now */}
+                <div className={`
+                    overflow-hidden transition-all duration-200 ease-in-out
+                    ${isSelected
+                        ? 'max-h-20 opacity-100 mt-1'
+                        : 'max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 group-hover:mt-1'}
+                `}>
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 font-medium pt-1">
                         {domain && (
-                            <div className="flex items-center gap-1.5 text-slate-500">
+                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-500">
                                 <img
                                     src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
                                     alt=""
-                                    className="w-4 h-4 rounded-sm"
+                                    className="w-3.5 h-3.5 rounded-sm opacity-75"
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
-                                <span className="truncate max-w-[150px] hover:text-slate-300 transition-colors">{domain}</span>
-                                <span className="text-slate-600">•</span>
+                                <span className="truncate max-w-[150px] hover:text-slate-800 dark:hover:text-slate-300 transition-colors">{domain}</span>
+                                <span className="text-slate-300 dark:text-slate-600">•</span>
                             </div>
                         )}
                         {!domain && story.title.startsWith('Ask HN') && (
                             <div className="flex items-center gap-1 text-slate-500">
                                 <Terminal size={12} />
                                 <span>Ask HN</span>
-                                <span className="text-slate-600">•</span>
+                                <span className="text-slate-300 dark:text-slate-600">•</span>
                             </div>
                         )}
 
-                        <span className="flex items-center gap-1 text-orange-500">
+                        <span className="flex items-center gap-1 text-orange-600 dark:text-orange-500">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
                             {story.score}
                         </span>
@@ -116,13 +132,13 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
 
                         <button
                             onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
-                            className={`flex items-center gap-1 transition-colors px-2 py-0.5 rounded-full ${story.descendants > 0 ? 'text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20' : 'text-slate-500 hover:text-slate-300'}`}
+                            className={`flex items-center gap-1 transition-colors px-2 py-0.5 rounded-full ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                             {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
                         </button>
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );

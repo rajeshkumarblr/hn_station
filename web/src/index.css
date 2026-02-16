@@ -5,63 +5,100 @@
 body {
     margin: 0;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #0f172a;
-    /* slate-900 (Dark Mode Default) */
-    color: #f8fafc;
-    /* slate-50 */
+    background-color: #f8fafc;
+    /* slate-50 (Light Mode Default) */
+    color: #0f172a;
+    /* slate-900 */
 }
 
-/* ─── Dark Mode Scrollbars ─── */
+/* Dark Mode Override */
+.dark body {
+    background-color: #0f172a;
+    color: #f8fafc;
+}
+
+/* ─── Scrollbars (Default Light) ─── */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    /* slate-100 */
+}
+
+.dark ::-webkit-scrollbar-track {
     background: #0f172a;
     /* slate-900 */
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #334155;
-    /* slate-700 */
+    background: #cbd5e1;
+    /* slate-300 */
     border-radius: 9999px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+    background: #334155;
+    /* slate-700 */
+}
+
 ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+    /* slate-400 */
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
     background: #475569;
     /* slate-600 */
 }
 
-/* Legacy .custom-scrollbar class (backwards compat) */
-.custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+/* Legacy .custom-scrollbar class (mostly redundant now but keeping for safety) */
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
+.dark .custom-scrollbar::-webkit-scrollbar-track {
     background: #0f172a;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #334155;
-    border-radius: 9999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #475569;
 }
 
 /* Firefox scrollbar */
 * {
     scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.dark * {
     scrollbar-color: #334155 #0f172a;
 }
 
 /* ─── Reader Typography ─── */
+/* ─── Reader Typography ─── */
 .reader-prose {
     font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
     line-height: 1.8;
+    color: #334155;
+    /* slate-700 */
+}
+
+.dark .reader-prose {
     color: #c9d1d9;
 }
 
@@ -70,6 +107,14 @@ body {
 .reader-prose h3,
 .reader-prose h4 {
     font-family: 'Inter', system-ui, sans-serif;
+    color: #0f172a;
+    /* slate-900 */
+}
+
+.dark .reader-prose h1,
+.dark .reader-prose h2,
+.dark .reader-prose h3,
+.dark .reader-prose h4 {
     color: #e6edf3;
 }
 
@@ -77,6 +122,11 @@ body {
 .font-reading {
     font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
     line-height: 1.75;
+    color: #334155;
+    /* slate-700 */
+}
+
+.dark .font-reading {
     color: #cbd5e1;
     /* slate-300 */
 }
