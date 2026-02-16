@@ -5,7 +5,8 @@ export function useKeyboardNav(
     isLoading: boolean,
     onCollapse: (commentId: string) => void,
     onSummarize: () => void,
-    onFocusList?: () => void
+    onFocusList?: () => void,
+    initialActiveCommentId?: string | null
 ) {
     const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
     const hasAutoSelected = useRef(false);
@@ -27,20 +28,32 @@ export function useKeyboardNav(
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
-    // Auto-select first comment
+    // Auto-select logic
     useEffect(() => {
         if (!isLoading && !activeCommentId && !hasAutoSelected.current) {
             const comments = getVisibleComments();
             if (comments.length > 0) {
+                // If initial ID provided, try to find it
+                if (initialActiveCommentId) {
+                    const savedNode = containerRef.current?.querySelector(`[data-comment-id="${initialActiveCommentId}"]`);
+                    if (savedNode) {
+                        setActiveCommentId(initialActiveCommentId);
+                        scrollToComment(savedNode);
+                        hasAutoSelected.current = true;
+                        return;
+                    }
+                }
+
+                // Fallback to first comment if no initial ID or not found
                 const firstId = comments[0].getAttribute('data-comment-id');
                 if (firstId) {
                     setActiveCommentId(firstId);
-                    // Don't scroll on initial load, it might be annoying if user is reading description
+                    // Don't scroll on initial load for first comment
                     hasAutoSelected.current = true;
                 }
             }
         }
-    }, [isLoading, activeCommentId, getVisibleComments]);
+    }, [isLoading, activeCommentId, getVisibleComments, initialActiveCommentId]);
 
     useEffect(() => {
         if (isLoading) return;

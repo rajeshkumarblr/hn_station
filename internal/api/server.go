@@ -79,6 +79,7 @@ func (s *Server) routes() {
 
 	// AI routes
 	s.router.Post("/api/stories/{id}/summarize", s.handleSummarizeStory)
+	s.router.Post("/api/stories/{id}/summarize_article", s.handleSummarizeArticle)
 	s.router.Get("/api/chat/{id}", s.handleGetChatHistory)
 	s.router.Post("/api/chat", s.handleChat)
 }

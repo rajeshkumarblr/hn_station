@@ -72,14 +72,10 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
                             {displayRank}.
                         </span>
                     )}
-                    <a
-                        href={story.url || `https://news.ycombinator.com/item?id=${story.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-orange-400 transition-colors"
-                    >
+                    {/* Title - Click behavior handled by parent card */}
+                    <span className="hover:text-orange-400 transition-colors cursor-pointer">
                         {story.title}
-                    </a>
+                    </span>
                 </h3>
 
                 {isSelected && (

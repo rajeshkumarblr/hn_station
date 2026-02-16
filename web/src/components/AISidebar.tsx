@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, X, Bot, User as UserIcon } from 'lucide-react';
+import { Send, X, Bot, User as UserIcon, FileText } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -74,6 +74,27 @@ export function AISidebar({ storyId, storyTitle, isOpen, onClose }: AISidebarPro
         }
     };
 
+    const handleSummarizeArticle = async () => {
+        setLoading(true);
+        try {
+            const baseUrl = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${baseUrl}/api/stories/${storyId}/summarize_article`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to summarize article');
+
+            const summaryMsg: Message = { role: 'model', content: `**Article Summary of "${storyTitle}":**\n\n${data.summary}` };
+            setMessages(prev => [summaryMsg, ...prev]);
+            await fetchHistory();
+        } catch (err: any) {
+            setMessages(prev => [...prev, { role: 'model', content: `Error: ${err.message}` }]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSend = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!input.trim() || loading) return;
@@ -133,13 +154,22 @@ export function AISidebar({ storyId, storyTitle, isOpen, onClose }: AISidebarPro
                     <div className="flex flex-col items-center justify-center h-full text-slate-500 text-center p-4">
                         <Bot size={48} className="mb-4 opacity-20" />
                         <p className="mb-6 text-sm">Summarize this discussion or ask questions about it.</p>
-                        <button
-                            onClick={handleSummarize}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-medium transition-all shadow-sm active:scale-95"
-                        >
-                            <Bot size={16} />
-                            Summarize Discussion
-                        </button>
+                        <div className="flex flex-col gap-2 w-full max-w-xs">
+                            <button
+                                onClick={handleSummarize}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all shadow-sm active:scale-95"
+                            >
+                                <Bot size={16} />
+                                Summarize Discussion
+                            </button>
+                            <button
+                                onClick={() => handleSummarizeArticle()}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-all shadow-sm active:scale-95"
+                            >
+                                <FileText size={16} />
+                                Summarize Article
+                            </button>
+                        </div>
                     </div>
                 )}
 

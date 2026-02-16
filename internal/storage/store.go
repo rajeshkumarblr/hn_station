@@ -24,6 +24,7 @@ type Story struct {
 	IsRead      *bool            `json:"is_read,omitempty"`
 	IsSaved     *bool            `json:"is_saved,omitempty"`
 	IsHidden    *bool            `json:"is_hidden,omitempty"`
+	Summary     *string          `json:"summary,omitempty"`
 	Embedding   *pgvector.Vector `json:"-"`
 	Similarity  *float64         `json:"similarity,omitempty"`
 }
@@ -67,7 +68,7 @@ func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 
 func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, error) {
 	// Base select — optionally LEFT JOIN user_interactions for logged-in users
-	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank`
+	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary`
 	fromClause := `FROM stories s`
 	hasUser := userID != ""
 
@@ -129,11 +130,11 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	for rows.Next() {
 		var story Story
 		if hasUser {
-			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.IsRead, &story.IsSaved, &story.IsHidden); err != nil {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.IsRead, &story.IsSaved, &story.IsHidden); err != nil {
 				return nil, err
 			}
 		} else {
-			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank); err != nil {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary); err != nil {
 				return nil, err
 			}
 		}
@@ -143,9 +144,9 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 }
 
 func (s *Store) GetStory(ctx context.Context, id int) (*Story, error) {
-	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank FROM stories WHERE id = $1`
+	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary FROM stories WHERE id = $1`
 	var story Story
-	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank)
+	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +241,12 @@ func (s *Store) UpdateRanks(ctx context.Context, rankMap map[int]int) error {
 		}
 	}
 	return nil
+}
+
+func (s *Store) UpdateStorySummary(ctx context.Context, id int, summary string) error {
+	query := `UPDATE stories SET summary = $1 WHERE id = $2`
+	_, err := s.db.Exec(ctx, query, summary, id)
+	return err
 }
 
 // UpsertAuthUser creates or updates a user based on their Google ID.

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { MessageSquare, ExternalLink, Sparkles, RefreshCw } from 'lucide-react';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
@@ -20,9 +20,11 @@ interface ReaderPaneProps {
     onFocusList?: () => void;
     onSummarize?: () => void;
     onTakeFocus?: () => void;
+    initialActiveCommentId?: string | null;
+    onSaveProgress?: (commentId: string) => void;
 }
 
-export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus }: ReaderPaneProps) {
+export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress }: ReaderPaneProps) {
     const storyUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -38,8 +40,16 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
         commentsLoading,
         handleCollapse,
         onSummarize || (() => { }),
-        onFocusList
+        onFocusList,
+        initialActiveCommentId
     );
+
+    // Sync progress
+    useEffect(() => {
+        if (activeCommentId) {
+            onSaveProgress?.(activeCommentId);
+        }
+    }, [activeCommentId, onSaveProgress]);
 
     return (
         <div className="relative h-full flex flex-col bg-[#111d2e] border-t border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)]">

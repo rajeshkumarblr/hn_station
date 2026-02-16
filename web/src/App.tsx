@@ -397,7 +397,22 @@ function App() {
         setLoading(false);
         setHasMore(data.length >= PAGE_SIZE);
         if (data && data.length > 0 && !selectedStoryId) {
-          setSelectedStoryId(data[0].id);
+          const lastId = localStorage.getItem('hn_last_story_id');
+          if (lastId) {
+            const id = parseInt(lastId);
+            // Check if story exists in current list (it might not if list changed)
+            // But we probably want to try loading it regardless? 
+            // Ideally we just select it if it's in the list, or fetch it specifically if not. 
+            // For now, let's select it if it's in the feed to be safe.
+            const exists = data.find((s: Story) => s.id === id);
+            if (exists) {
+              setSelectedStoryId(id);
+            } else {
+              setSelectedStoryId(data[0].id);
+            }
+          } else {
+            setSelectedStoryId(data[0].id);
+          }
         }
       })
       .catch(err => {
@@ -487,6 +502,7 @@ function App() {
       saveReadIds(next);
       return next;
     });
+    localStorage.setItem('hn_last_story_id', id.toString());
     // Mark as read (server, if logged in)
     if (user) {
       const baseUrl = import.meta.env.VITE_API_URL || '';
@@ -562,7 +578,7 @@ function App() {
         <div className="flex items-center h-full gap-8">
 
           {/* Brand */}
-          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.7</span></span>
+          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.10</span></span>
 
           {/* GitHub-Style Nav Tabs */}
           <nav className="h-full flex items-center gap-6">
@@ -783,6 +799,10 @@ function App() {
                               }
                             }}
                             onClick={() => handleStorySelect(story.id)}
+                            onDoubleClick={() => {
+                              const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            }}
                             className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
                             style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
                           >
@@ -791,6 +811,7 @@ function App() {
                               index={index}
                               isSelected={isSelected}
                               isRead={isRead}
+                              // Pass explicit select handler but bubbling should handle it too
                               onSelect={(id) => handleStorySelect(id)}
                               onToggleSave={user ? handleToggleSave : undefined}
                             />
@@ -833,6 +854,12 @@ function App() {
                   story={selectedStory}
                   comments={comments}
                   commentsLoading={commentsLoading}
+                  initialActiveCommentId={(() => {
+                    try {
+                      const progress = JSON.parse(localStorage.getItem('hn_story_progress') || '{}');
+                      return progress[selectedStory.id] || null;
+                    } catch { return null; }
+                  })()}
                   onFocusList={() => {
                     setFocusMode('stories');
                     const idx = stories.findIndex(s => s.id === selectedStoryId);
@@ -840,6 +867,13 @@ function App() {
                   }}
                   onSummarize={() => setIsAIOpen(true)}
                   onTakeFocus={() => setFocusMode('reader')}
+                  onSaveProgress={(commentId) => {
+                    try {
+                      const progress = JSON.parse(localStorage.getItem('hn_story_progress') || '{}');
+                      progress[selectedStory.id] = commentId;
+                      localStorage.setItem('hn_story_progress', JSON.stringify(progress));
+                    } catch { }
+                  }}
                 />
               </aside>
             </Panel>
