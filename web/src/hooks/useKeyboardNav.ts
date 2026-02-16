@@ -130,5 +130,5 @@ export function useKeyboardNav(
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isLoading, activeCommentId, getVisibleComments, onCollapse, onSummarize, onFocusList]);
 
-    return { activeCommentId };
+    return { activeCommentId, setActiveCommentId };
 }

@@ -194,6 +194,7 @@ function App() {
   // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
 
       if (e.key === ' ') {
@@ -561,7 +562,7 @@ function App() {
         <div className="flex items-center h-full gap-8">
 
           {/* Brand */}
-          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.2</span></span>
+          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.7</span></span>
 
           {/* GitHub-Style Nav Tabs */}
           <nav className="h-full flex items-center gap-6">
@@ -838,6 +839,7 @@ function App() {
                     if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
                   }}
                   onSummarize={() => setIsAIOpen(true)}
+                  onTakeFocus={() => setFocusMode('reader')}
                 />
               </aside>
             </Panel>

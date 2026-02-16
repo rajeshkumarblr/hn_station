@@ -86,6 +86,7 @@ graph TD
 
 ## Recent Updates
 
+- **Phase 34**: Comment Focus & Navigation — Active comments now have a distinct box highlight. Click-to-focus enables keyboard navigation (`Arrow Keys`, `j`/`k`) within the discussion pane. Fixed keyboard context switching issues.
 - **Phase 33**: Persistent AI Chat & Lazy Summarization — Chat history is now saved to the database (`chat_messages` table) and restored across sessions. "Summarize Discussion" is now an on-demand action to save costs and tokens. Backend v2.2 with proper JSON error handling for AI quota limits.
 - **Phase 31**: Hidden Articles — Users can now "delete" stories (hide them from feed) using `Delete` key. Hidden state is persisted in DB and can be toggled via "Show All" UI.
 - **Phase 30**: AKS Deployment Stability — PGVector support (`000007_add_vectors`), correct secret management (`secrets.yaml` with base64 encoded credentials), and robust ingestion restart policy.

@@ -19,9 +19,10 @@ interface ReaderPaneProps {
     commentsLoading: boolean;
     onFocusList?: () => void;
     onSummarize?: () => void;
+    onTakeFocus?: () => void;
 }
 
-export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize }: ReaderPaneProps) {
+export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus }: ReaderPaneProps) {
     const storyUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +33,7 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
         if (btn) (btn as HTMLButtonElement).click();
     };
 
-    const { activeCommentId } = useKeyboardNav(
+    const { activeCommentId, setActiveCommentId } = useKeyboardNav(
         containerRef,
         commentsLoading,
         handleCollapse,
@@ -91,6 +92,10 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                                 comments={comments}
                                 parentId={null}
                                 activeCommentId={activeCommentId}
+                                onFocusComment={(id) => {
+                                    setActiveCommentId(id);
+                                    onTakeFocus?.();
+                                }}
                             />
                         </div>
                     ) : (
