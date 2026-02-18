@@ -19,11 +19,12 @@ interface StoryCardProps {
     index?: number;
     onSelect?: (id: number) => void;
     onToggleSave?: (id: number, saved: boolean) => void;
+    onHide?: (id: number) => void;
     isSelected?: boolean;
     isRead?: boolean;
 }
 
-export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, isRead }: StoryCardProps) {
+export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSelected, isRead }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -57,20 +58,36 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
     // Background logic
     // Light mode: Odd = slate-100, Even = transparent
     // Dark mode: Odd = slate-900/40, Even = transparent
-    const stripeBg = isOdd
+    // READ STATE: Overrides zebra striping with a subtle gray
+    let bgClass = isOdd
         ? 'bg-slate-100 dark:bg-slate-800/40'
         : 'bg-transparent';
+
+    if (dimmed && !isSelected) {
+        bgClass = 'bg-gray-100 dark:bg-[#161b22] opacity-85';
+    }
 
     // Active state overrides everything
     const activeBg = isSelected
         ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-blue-600 dark:border-l-blue-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10 z-10'
-        : `${stripeBg} hover:bg-white dark:hover:bg-white/[0.06] border-l-4 border-l-transparent`;
+        : `${bgClass} hover:bg-white dark:hover:bg-white/[0.06] border-l-4 border-l-transparent`;
 
     return (
         <div
             className={`group relative rounded-md py-2 px-3 transition-all duration-150 ${activeBg}`}
         // Allow parent to handle clicks, but we also want hover effects
         >
+            {/* Close button - top right (next to Save) */}
+            {onHide && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onHide(story.id); }}
+                    className="absolute top-2 right-8 p-1 rounded-md text-gray-400 dark:text-slate-600 opacity-0 group-hover:opacity-100 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all duration-150 z-20"
+                    title="Hide Story"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                </button>
+            )}
+
             {/* Save/Star button — top right */}
             {onToggleSave && (
                 <button
@@ -92,8 +109,8 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
                             {displayRank}.
                         </span>
                     )}
-                    {/* Title */}
-                    <span className={`${dimmed ? 'text-slate-500 dark:text-slate-500 line-through opacity-70' : titleColorClass} hover:opacity-80 transition-opacity cursor-pointer`}>
+                    {/* Title - Read state is just colored text now, not line-through/dimmed */}
+                    <span className={`${titleColorClass} ${dimmed && !isSelected ? 'text-slate-600 dark:text-slate-400/80 font-normal mix-blend-luminosity' : ''} hover:opacity-80 transition-opacity cursor-pointer`}>
                         {story.title}
                     </span>
                 </h3>
