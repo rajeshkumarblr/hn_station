@@ -1,4 +1,5 @@
 import { Star, Terminal } from 'lucide-react';
+import { getStoryColor } from '../utils/colors';
 
 export interface Story {
     id: number;
@@ -45,15 +46,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSele
     const isOdd = index !== undefined && index % 2 !== 0;
 
     // Deterministic color generation based on Story ID
-    const colors = [
-        'text-red-600 dark:text-red-400', 'text-orange-600 dark:text-orange-400', 'text-amber-600 dark:text-amber-400',
-        'text-yellow-600 dark:text-yellow-400', 'text-lime-600 dark:text-lime-400', 'text-green-600 dark:text-green-400',
-        'text-emerald-600 dark:text-emerald-400', 'text-teal-600 dark:text-teal-400', 'text-cyan-600 dark:text-cyan-400',
-        'text-sky-600 dark:text-sky-400', 'text-blue-600 dark:text-blue-400', 'text-indigo-600 dark:text-indigo-400',
-        'text-violet-600 dark:text-violet-400', 'text-purple-600 dark:text-purple-400', 'text-fuchsia-600 dark:text-fuchsia-400',
-        'text-pink-600 dark:text-pink-400', 'text-rose-600 dark:text-rose-400'
-    ];
-    const titleColorClass = colors[story.id % colors.length];
+    const titleColorClass = getStoryColor(story.id);
 
     // Background logic
     // Light mode: Odd = slate-100, Even = transparent
@@ -77,30 +70,33 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSele
             className={`group relative rounded-md py-2 px-3 transition-all duration-150 ${activeBg}`}
         // Allow parent to handle clicks, but we also want hover effects
         >
-            {/* Close button - top right (next to Save) */}
-            {onHide && (
-                <button
-                    onClick={(e) => { e.stopPropagation(); onHide(story.id); }}
-                    className="absolute top-2 right-8 p-1 rounded-md text-gray-400 dark:text-slate-600 opacity-0 group-hover:opacity-100 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all duration-150 z-20"
-                    title="Hide Story"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                </button>
-            )}
+            {/* Action Buttons Container - Top Right */}
+            <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
+                {/* Save/Star button */}
+                {onToggleSave && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onToggleSave(story.id, !saved); }}
+                        className={`p-1 rounded-md transition-all duration-150 ${saved
+                            ? 'text-yellow-500 dark:text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300 hover:scale-110'
+                            : 'text-gray-400 dark:text-slate-600 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110'
+                            }`}
+                        title={saved ? 'Unsave' : 'Save'}
+                    >
+                        <Star size={14} fill={saved ? "currentColor" : "none"} />
+                    </button>
+                )}
 
-            {/* Save/Star button — top right */}
-            {onToggleSave && (
-                <button
-                    onClick={(e) => { e.stopPropagation(); onToggleSave(story.id, !saved); }}
-                    className={`absolute top-2 right-2 p-1 rounded-md transition-all duration-150 z-20 ${saved
-                        ? 'text-yellow-500 dark:text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300 hover:scale-110'
-                        : 'text-gray-400 dark:text-slate-600 opacity-0 group-hover:opacity-100 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110'
-                        }`}
-                    title={saved ? 'Unsave' : 'Save'}
-                >
-                    <Star size={14} fill={saved ? 'currentColor' : 'none'} strokeWidth={saved ? 2 : 1.5} />
-                </button>
-            )}
+                {/* Close button */}
+                {onHide && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onHide(story.id); }}
+                        className="p-1 rounded-md text-gray-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all duration-150"
+                        title="Hide Story"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                    </button>
+                )}
+            </div>
 
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
                 <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate'} transition-all duration-200`}>
@@ -168,7 +164,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSele
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 

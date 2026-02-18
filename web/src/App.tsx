@@ -2,12 +2,12 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import './App.css';
 import { StoryCard } from './components/StoryCard';
-import { FilterDropdown } from './components/FilterDropdown';
+import { FilterComboBox } from './components/FilterComboBox';
 import { ReaderPane } from './components/ReaderPane';
 import { SettingsModal } from './components/SettingsModal';
 import { AISidebar } from './components/AISidebar';
 import { AdminDashboard } from './components/AdminDashboard';
-import { RefreshCw, Search, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Sparkles, Shield } from 'lucide-react';
+import { RefreshCw, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Sparkles, Shield } from 'lucide-react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
 interface Story {
@@ -114,7 +114,6 @@ function App() {
 
   const [mode, setMode] = useState<ModeKey>('default');
   const [activeTopics, setActiveTopics] = useState<string[]>(loadTopicChips);
-  const [topicInput, setTopicInput] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Infinite scroll
@@ -153,14 +152,19 @@ function App() {
   const [isAIOpen, setIsAIOpen] = useState(false);
 
   // Keyboard Nav
-
-  // Keyboard Nav
   const [focusMode, setFocusMode] = useState<'stories' | 'reader' | 'header'>('stories');
   const [isZenMode, setIsZenMode] = useState(false);
   const readerContainerRef = useRef<HTMLElement>(null);
+  // Resize Handle
+  const ResizeHandle = () => (
+    <PanelResizeHandle className="w-2 flex justify-center items-stretch group focus:outline-none">
+      <div className="w-[1px] bg-gray-200 dark:bg-slate-800 transition-colors group-hover:bg-blue-500 group-active:bg-blue-600 dark:group-hover:bg-blue-500 delay-75 h-full"></div>
+    </PanelResizeHandle>
+  );
   const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const topicInputRef = useRef<HTMLInputElement>(null);
   const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
 
 
 
@@ -197,6 +201,50 @@ function App() {
   useEffect(() => {
     saveTopicChips(activeTopics);
   }, [activeTopics]);
+
+  // Hide a story (Hoist this up so it can be used in key handlers)
+  const handleHideStory = (id: number) => {
+    setHiddenStories(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+    // Persist hidden state to server
+    if (user) {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      fetch(`${baseUrl}/api/stories/${id}/interact`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hidden: true }),
+      }).catch(() => { });
+    }
+
+    // Auto-select next visible story if the hidden one was selected
+    if (selectedStoryId === id && stories.length > 0) {
+      const currentIndex = stories.findIndex(s => s.id === id);
+      let nextIndex = currentIndex + 1;
+      // Skip stories that are hidden locally
+      while (nextIndex < stories.length && hiddenStories.has(stories[nextIndex].id)) {
+        nextIndex++;
+      }
+      if (nextIndex < stories.length) {
+        setSelectedStoryId(stories[nextIndex].id);
+      } else {
+        // Try previous
+        let prevIndex = currentIndex - 1;
+        while (prevIndex >= 0 && hiddenStories.has(stories[prevIndex].id)) {
+          prevIndex--;
+        }
+        if (prevIndex >= 0) {
+          setSelectedStoryId(stories[prevIndex].id);
+        }
+      }
+    }
+  };
+
+
 
   // Keyboard handler
   useEffect(() => {
@@ -508,78 +556,9 @@ function App() {
   };
 
   // Topic chip handlers
-  const addTopicChip = (topic: string) => {
-    const trimmed = topic.trim().toLowerCase();
-    if (trimmed && !activeTopics.includes(trimmed)) {
-      setActiveTopics(prev => [...prev, trimmed]);
-    }
-    setTopicInput('');
-  };
-
   const removeTopicChip = (topic: string) => {
     setActiveTopics(prev => prev.filter(t => t !== topic));
   };
-
-  const handleTopicSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    addTopicChip(topicInput);
-  };
-
-  const handleTopicKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && topicInput === '' && activeTopics.length > 0) {
-      // Remove last chip
-      setActiveTopics(prev => prev.slice(0, -1));
-    }
-  };
-
-  // Hide a story
-  const handleHideStory = (id: number) => {
-    setHiddenStories(prev => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
-
-    // Persist hidden state to server
-    if (user) {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      fetch(`${baseUrl}/api/stories/${id}/interact`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hidden: true }),
-      }).catch(() => { });
-    }
-
-    // Auto-select next visible story if the hidden one was selected
-    if (selectedStoryId === id && stories.length > 0) {
-      const currentIndex = stories.findIndex(s => s.id === id);
-      let nextIndex = currentIndex + 1;
-      // Skip stories that are hidden locally
-      while (nextIndex < stories.length && hiddenStories.has(stories[nextIndex].id)) {
-        nextIndex++;
-      }
-      if (nextIndex < stories.length) {
-        setSelectedStoryId(stories[nextIndex].id);
-      } else {
-        // Try previous
-        let prevIndex = currentIndex - 1;
-        while (prevIndex >= 0 && hiddenStories.has(stories[prevIndex].id)) {
-          prevIndex--;
-        }
-        if (prevIndex >= 0) {
-          setSelectedStoryId(stories[prevIndex].id);
-        }
-      }
-    }
-  };
-
-  // Resize Handle
-  const ResizeHandle = () => (
-    <PanelResizeHandle className="w-2 flex justify-center items-stretch group focus:outline-none">
-      <div className="w-[1px] bg-gray-200 dark:bg-slate-800 transition-colors group-hover:bg-blue-500 group-active:bg-blue-600 dark:group-hover:bg-blue-500 delay-75 h-full"></div>
-    </PanelResizeHandle>
-  );
 
   // Layout configuration
   const layoutId = isAIOpen ? 'hn-zen-v3-ai-layout' : 'hn-zen-v3-std-layout';
@@ -622,33 +601,12 @@ function App() {
 
           {/* Search + Quick Filters */}
           <div className="flex-1 flex items-center gap-2 min-w-0">
-            <form onSubmit={handleTopicSubmit} className="relative max-w-[220px]">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                ref={topicInputRef}
-                type="text"
-                value={topicInput}
-                onChange={(e) => setTopicInput(e.target.value)}
-                onKeyDown={handleTopicKeyDown}
-                placeholder="Filter... (/)"
-                className="w-full bg-slate-800 border border-slate-700 focus:border-blue-500 rounded-md pl-9 pr-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all placeholder-slate-500"
-              />
-            </form>
-
-            {/* Quick Filter Dropdown */}
-            <div className="flex items-center gap-1.5">
-              <FilterDropdown
+            {/* Filter Combo Box */}
+            <div className="flex-1 max-w-[300px]">
+              <FilterComboBox
                 options={QUICK_FILTERS}
                 selected={activeTopics}
-                onChange={(selected) => {
-                  if (selected.length > activeTopics.length) {
-                    // Items added - just update
-                    setActiveTopics(selected);
-                  } else {
-                    // Items removed - handled by FilterDropdown state but we synchronize
-                    setActiveTopics(selected);
-                  }
-                }}
+                onSelect={setActiveTopics}
               />
             </div>
 

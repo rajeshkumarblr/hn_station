@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { MessageSquare, ExternalLink, Sparkles, RefreshCw } from 'lucide-react';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
+import { getStoryColor } from '../utils/colors';
 
 interface Story {
     id: number;
@@ -51,18 +52,21 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
         }
     }, [activeCommentId, onSaveProgress]);
 
+    const titleColor = getStoryColor(story.id);
+
     return (
         <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] border-t border-slate-200 dark:border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)]">
 
             {/* Compact Sticky Title Bar */}
-            <div className="flex items-center justify-between px-6 py-3 bg-white dark:bg-[#0d1624] border-b border-slate-200 dark:border-white/5 shadow-sm shrink-0 z-20">
-                <h2 className="text-slate-800 dark:text-slate-200 font-bold text-sm truncate mr-4" title={story.title}>
-                    <a href={storyUrl} target="_blank" rel="noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            <div className="flex items-center justify-between px-6 py-2 bg-white dark:bg-[#0d1624] border-b border-slate-200 dark:border-white/5 shadow-sm shrink-0 z-20">
+                <h2 className={`font-bold text-sm truncate mr-4 flex-1 ${titleColor}`} title={story.title}>
+                    <a href={storyUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:underline decoration-dotted underline-offset-4 group transition-colors">
                         {story.title}
+                        <ExternalLink size={12} className="opacity-0 group-hover:opacity-50 transition-opacity" />
                     </a>
                 </h2>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     <button
                         onClick={onSummarize}
                         className="flex items-center gap-1.5 text-xs font-bold transition-all px-2 py-1 rounded border bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-200 dark:border-transparent hover:border-slate-300 dark:hover:border-slate-700"
@@ -88,7 +92,7 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
 
 
             {/* Scrollable Comment Container */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 pt-3">
                 <div
                     ref={containerRef}
                     className="max-w-5xl relative cursor-text select-text pointer-events-auto"
