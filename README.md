@@ -86,6 +86,7 @@ graph TD
 
 ## Recent Updates
 
+- **Phase 36**: Admin Panel v2 — Enhanced Analytics Dashboard with "Grafana-style" UI. Tracks total users, interactions, stories, and comments. Includes detailed User List with activity metrics (Total Views, Last Seen) and a dedicated Admin Header. Securely accessible via `/admin`.
 - **Phase 35**: UI Refinements — Full Light Mode support (fixed dark ReaderPane/CommentList), Hover Cards (expand to show details), and Zebra Striping for better list readability.
 - **Phase 34**: Comment Focus & Navigation — Active comments now have a distinct box highlight. Click-to-focus enables keyboard navigation (`Arrow Keys`, `j`/`k`) within the discussion pane. Fixed keyboard context switching issues.
 - **Phase 33**: Persistent AI Chat & Lazy Summarization — Chat history is now saved to the database (`chat_messages` table) and restored across sessions. "Summarize Discussion" is now an on-demand action to save costs and tokens. Backend v2.2 with proper JSON error handling for AI quota limits.

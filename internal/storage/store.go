@@ -30,14 +30,23 @@ type Story struct {
 }
 
 type AuthUser struct {
-	ID           string    `json:"id"`
-	GoogleID     string    `json:"google_id"`
-	Email        string    `json:"email"`
-	Name         string    `json:"name"`
-	AvatarURL    string    `json:"avatar_url"`
-	IsAdmin      bool      `json:"is_admin"`
-	GeminiAPIKey string    `json:"-"` // Never expose to frontend
-	CreatedAt    time.Time `json:"created_at"`
+	ID           string     `json:"id"`
+	GoogleID     string     `json:"google_id"`
+	Email        string     `json:"email"`
+	Name         string     `json:"name"`
+	AvatarURL    string     `json:"avatar_url"`
+	IsAdmin      bool       `json:"is_admin"`
+	TotalViews   int        `json:"total_views"`
+	LastSeen     *time.Time `json:"last_seen"` // Pointer to handle nulls
+	GeminiAPIKey string     `json:"-"`         // Never expose to frontend
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
+type AppStats struct {
+	TotalUsers        int `json:"total_users"`
+	TotalInteractions int `json:"total_interactions"`
+	TotalStories      int `json:"total_stories"`
+	TotalComments     int `json:"total_comments"`
 }
 
 type Store struct {
@@ -393,4 +402,67 @@ func (s *Store) GetChatHistory(ctx context.Context, userID string, storyID int) 
 		messages = append(messages, m)
 	}
 	return messages, nil
+}
+
+func (s *Store) GetAppStats(ctx context.Context) (*AppStats, error) {
+	stats := &AppStats{}
+
+	// Total Users
+	err := s.db.QueryRow(ctx, "SELECT COUNT(*) FROM auth_users").Scan(&stats.TotalUsers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count users: %w", err)
+	}
+
+	// Total Interactions (only read ones as proxy for views)
+	err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM user_interactions WHERE is_read = TRUE").Scan(&stats.TotalInteractions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count interactions: %w", err)
+	}
+
+	// Total Stories
+	err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM stories").Scan(&stats.TotalStories)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count stories: %w", err)
+	}
+
+	// Total Comments
+	err = s.db.QueryRow(ctx, "SELECT COUNT(*) FROM comments").Scan(&stats.TotalComments)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count comments: %w", err)
+	}
+
+	return stats, nil
+}
+
+func (s *Store) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
+	query := `
+		SELECT 
+			u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, COALESCE(u.gemini_api_key, ''), u.created_at,
+			COUNT(ui.story_id) FILTER (WHERE ui.is_read = TRUE) as total_views,
+			MAX(ui.updated_at) as last_seen
+		FROM auth_users u
+		LEFT JOIN user_interactions ui ON u.id = ui.user_id
+		GROUP BY u.id
+		ORDER BY u.created_at DESC
+	`
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*AuthUser
+	for rows.Next() {
+		var user AuthUser
+		if err := rows.Scan(
+			&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.GeminiAPIKey, &user.CreatedAt,
+			&user.TotalViews, &user.LastSeen,
+		); err != nil {
+			return nil, err
+		}
+		// redact sensitive info just in case, though it's admin only
+		user.GeminiAPIKey = ""
+		users = append(users, &user)
+	}
+	return users, nil
 }

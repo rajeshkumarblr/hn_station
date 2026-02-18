@@ -82,6 +82,71 @@ func (s *Server) routes() {
 	s.router.Post("/api/stories/{id}/summarize_article", s.handleSummarizeArticle)
 	s.router.Get("/api/chat/{id}", s.handleGetChatHistory)
 	s.router.Post("/api/chat", s.handleChat)
+
+	// Admin routes
+	s.router.Group(func(r chi.Router) {
+		r.Use(s.adminMiddleware)
+		r.Get("/api/admin/stats", s.handleGetAdminStats)
+		r.Get("/api/admin/users", s.handleGetAdminUsers)
+	})
+
+	// SPA catch-all
+	// Serve index.html for any other route that doesn't match API or static files
+	// This assumes the frontend build output is served from "web/dist" or similar
+	// But actually, in production, usually Nginx handles this.
+	// If Go server is the only entrypoint, it needs to serve static files too.
+	// Let's check where static files are served.
+	// Current code doesn't seem to serve static files at all!
+	// It assumes specific API routes.
+	// Wait, Dockerfile might copy static files to a location.
+	// But s.routes() has no FileServer logic.
+	// Let's add it.
+
+	workDir, _ := os.Getwd()
+	filesDir := http.Dir(fmt.Sprintf("%s/web/dist", workDir))
+
+	// Serve static files
+	FileServer(s.router, "/", filesDir)
+}
+
+// FileServer sets up a handler that serves static files from a http.FileSystem.
+// If a file is not found, it falls back to serving index.html (SPA behavior).
+func FileServer(r chi.Router, path string, root http.FileSystem) {
+	if strings.Contains(path, "{}") {
+		panic("FileServer does not permit any URL parameters.")
+	}
+
+	if path != "/" && path[len(path)-1] != '/' {
+		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		path += "/"
+	}
+	path += "*"
+
+	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
+		rctx := chi.RouteContext(r.Context())
+		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+
+		// Check if file exists
+		fsPath := strings.TrimPrefix(r.URL.Path, pathPrefix)
+		f, err := root.Open(fsPath)
+		if err != nil {
+			// File not found, serve index.html
+			index, err := root.Open("index.html")
+			if err != nil {
+				// Don't expose internal error, just 404
+				http.NotFound(w, r)
+				return
+			}
+			defer index.Close()
+			http.ServeContent(w, r, "index.html", time.Time{}, index)
+			return
+		}
+		defer f.Close()
+
+		// Serve the file
+		fs.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -645,4 +710,53 @@ func (s *Server) handleGetChatHistory(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(history)
+}
+
+// ─── Admin Handlers ───
+
+func (s *Server) adminMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID := s.auth.GetUserIDFromRequest(r)
+		if userID == "" {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+
+		user, err := s.store.GetAuthUser(r.Context(), userID)
+		if err != nil {
+			http.Error(w, "User not found", http.StatusUnauthorized)
+			return
+		}
+
+		if !user.IsAdmin {
+			http.Error(w, "Access denied", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) handleGetAdminStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := s.store.GetAppStats(r.Context())
+	if err != nil {
+		log.Printf("Failed to fetch admin stats: %v", err)
+		http.Error(w, "Failed to fetch stats", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+func (s *Server) handleGetAdminUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := s.store.GetAllUsers(r.Context())
+	if err != nil {
+		log.Printf("Failed to fetch admin users: %v", err)
+		http.Error(w, "Failed to fetch users", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
 }
