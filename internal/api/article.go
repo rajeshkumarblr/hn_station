@@ -3,14 +3,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	readability "github.com/go-shiori/go-readability"
 )
 
 func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) {
@@ -57,42 +54,17 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 
 	// 2. Fetch and Parse Article
 	var textContent string
-	var fetchErr error
+	var errFetch error
 
 	if story.URL != "" {
-		// Attempt 1: go-readability
-		article, err := readability.FromURL(story.URL, 30*time.Second)
+		content, _, _, err := s.fetchArticleContent(story.URL)
 		if err == nil {
-			textContent = article.TextContent
+			// For summarization, we'd prefer text content, but Go-Readability's Content is HTML.
+			// Ideally we should strip tags for Gemini to save tokens, but Gemini handles HTML fine.
+			// Let's use the content we got.
+			textContent = content
 		} else {
-			log.Printf("Readability failed for %s: %v", story.URL, err)
-			fetchErr = err
-		}
-
-		// Attempt 2: Raw HTML fallback if readability failed or returned very little text
-		if len(textContent) < 500 {
-			log.Printf("Readability returned empty/short text (%d chars). Falling back to raw HTML.", len(textContent))
-
-			client := &http.Client{
-				Timeout: 30 * time.Second,
-			}
-			req, _ := http.NewRequest("GET", story.URL, nil)
-			req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
-			resp, err := client.Do(req)
-			if err == nil {
-				defer resp.Body.Close()
-				// Read up to 50k bytes to avoid memory issues with huge files
-				// (Gemini Flash has 1M token context, so 50k chars is fine ~10-15k tokens)
-				bodyBytes := make([]byte, 50000)
-				n, _ := io.ReadFull(resp.Body, bodyBytes)
-				if n > 0 {
-					textContent = string(bodyBytes[:n])
-					fetchErr = nil // Clear error since we got something
-				}
-			} else {
-				log.Printf("Raw HTML fetch failed: %v", err)
-			}
+			errFetch = err
 		}
 	} else {
 		// Text-only post
@@ -101,7 +73,7 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if fetchErr != nil && len(textContent) < 100 {
+	if errFetch != nil || len(textContent) < 100 {
 		http.Error(w, "Failed to fetch article content. It might be behind a paywall or inaccessible.", http.StatusBadGateway)
 		return
 	}

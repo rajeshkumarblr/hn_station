@@ -86,6 +86,8 @@ graph TD
 
 ## Recent Updates
 
+- **Phase 39**: UI Refinements — Improved title bar visibility in dark mode and relocated the "Open in new tab" button to the Reader Pane header for better accessibility.
+- **Phase 38**: Reader Mode & Smart Iframes — New "Article" tab in Reader Pane. Fetches and sanitizes article content server-side (`go-readability` + `dompurify`) to bypass iframe restrictions. Features "Smart Fallback": attempts to load the original site in an iframe (Web View) if headers allow, otherwise falls back to the clean text view (Reader View). Manual toggle included.
 - **Phase 37**: UI Polish — Unified "Combo Box" for topics (type + select), persistent story action buttons (Close/Star), and refined Reader Pane with consistent coloring and link affordance.
 - **Phase 36**: Admin Panel v2 — Enhanced Analytics Dashboard with "Grafana-style" UI. Tracks total users, interactions, stories, and comments. Includes detailed User List with activity metrics (Total Views, Last Seen) and a dedicated Admin Header. Securely accessible via `/admin`.
 - **Phase 35**: UI Refinements — Full Light Mode support (fixed dark ReaderPane/CommentList), Hover Cards (expand to show details), and Zebra Striping for better list readability.
