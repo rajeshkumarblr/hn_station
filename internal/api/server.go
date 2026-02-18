@@ -69,6 +69,7 @@ func (s *Server) routes() {
 	s.router.Get("/api/stories/{id}", s.handleGetStoryDetails)
 	s.router.Post("/api/stories/{id}/interact", s.handleInteract)
 	s.router.Get("/api/content/readme", s.handleGetReadme)
+	s.router.Get("/api/stories/{id}/content", s.handleGetArticleContent)
 	s.router.Get("/api/me", s.handleGetMe)
 	s.router.Post("/api/settings", s.handleUpdateSettings)
 
