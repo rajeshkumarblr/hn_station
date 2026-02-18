@@ -43,6 +43,17 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
     // Check if odd row for zebra striping
     const isOdd = index !== undefined && index % 2 !== 0;
 
+    // Deterministic color generation based on Story ID
+    const colors = [
+        'text-red-600 dark:text-red-400', 'text-orange-600 dark:text-orange-400', 'text-amber-600 dark:text-amber-400',
+        'text-yellow-600 dark:text-yellow-400', 'text-lime-600 dark:text-lime-400', 'text-green-600 dark:text-green-400',
+        'text-emerald-600 dark:text-emerald-400', 'text-teal-600 dark:text-teal-400', 'text-cyan-600 dark:text-cyan-400',
+        'text-sky-600 dark:text-sky-400', 'text-blue-600 dark:text-blue-400', 'text-indigo-600 dark:text-indigo-400',
+        'text-violet-600 dark:text-violet-400', 'text-purple-600 dark:text-purple-400', 'text-fuchsia-600 dark:text-fuchsia-400',
+        'text-pink-600 dark:text-pink-400', 'text-rose-600 dark:text-rose-400'
+    ];
+    const titleColorClass = colors[story.id % colors.length];
+
     // Background logic
     // Light mode: Odd = slate-100, Even = transparent
     // Dark mode: Odd = slate-900/40, Even = transparent
@@ -52,7 +63,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
 
     // Active state overrides everything
     const activeBg = isSelected
-        ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-orange-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10 z-10'
+        ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-blue-600 dark:border-l-blue-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10 z-10'
         : `${stripeBg} hover:bg-white dark:hover:bg-white/[0.06] border-l-4 border-l-transparent`;
 
     return (
@@ -75,14 +86,14 @@ export function StoryCard({ story, index, onSelect, onToggleSave, isSelected, is
             )}
 
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
-                <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate'} ${dimmed ? 'text-slate-500 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'} transition-all duration-200`}>
+                <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate'} transition-all duration-200`}>
                     {displayRank && (
                         <span className="text-slate-400 dark:text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
                             {displayRank}.
                         </span>
                     )}
                     {/* Title */}
-                    <span className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors cursor-pointer">
+                    <span className={`${dimmed ? 'text-slate-500 dark:text-slate-500 line-through opacity-70' : titleColorClass} hover:opacity-80 transition-opacity cursor-pointer`}>
                         {story.title}
                     </span>
                 </h3>

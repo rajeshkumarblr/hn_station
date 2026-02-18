@@ -57,7 +57,9 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
             {/* Compact Sticky Title Bar */}
             <div className="flex items-center justify-between px-6 py-3 bg-white dark:bg-[#0d1624] border-b border-slate-200 dark:border-white/5 shadow-sm shrink-0 z-20">
                 <h2 className="text-slate-800 dark:text-slate-200 font-bold text-sm truncate mr-4" title={story.title}>
-                    {story.title}
+                    <a href={storyUrl} target="_blank" rel="noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        {story.title}
+                    </a>
                 </h2>
 
                 <div className="flex items-center gap-2">
