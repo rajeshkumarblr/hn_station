@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import './App.css';
 import { StoryCard } from './components/StoryCard';
+import { FilterDropdown } from './components/FilterDropdown';
 import { ReaderPane } from './components/ReaderPane';
 import { SettingsModal } from './components/SettingsModal';
 import { AISidebar } from './components/AISidebar';
@@ -226,42 +227,7 @@ function App() {
 
       if (e.key === 'Delete' && focusMode === 'stories' && selectedStoryId) {
         e.preventDefault();
-        setHiddenStories(prev => {
-          const next = new Set(prev);
-          next.add(selectedStoryId);
-          return next;
-        });
-
-        // Persist hidden state to server
-        if (user) {
-          const baseUrl = import.meta.env.VITE_API_URL || '';
-          fetch(`${baseUrl}/api/stories/${selectedStoryId}/interact`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hidden: true }),
-          }).catch(() => { });
-        }
-
-        // Select next visible story
-        const currentIndex = stories.findIndex(s => s.id === selectedStoryId);
-        let nextIndex = currentIndex + 1;
-        // Skip stories that are hidden locally
-        while (nextIndex < stories.length && hiddenStories.has(stories[nextIndex].id)) {
-          nextIndex++;
-        }
-        if (nextIndex < stories.length) {
-          setSelectedStoryId(stories[nextIndex].id);
-        } else {
-          // Try previous
-          let prevIndex = currentIndex - 1;
-          while (prevIndex >= 0 && hiddenStories.has(stories[prevIndex].id)) {
-            prevIndex--;
-          }
-          if (prevIndex >= 0) {
-            setSelectedStoryId(stories[prevIndex].id);
-          }
-        }
+        handleHideStory(selectedStoryId);
         return;
       }
 
@@ -566,6 +532,48 @@ function App() {
     }
   };
 
+  // Hide a story
+  const handleHideStory = (id: number) => {
+    setHiddenStories(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+    // Persist hidden state to server
+    if (user) {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      fetch(`${baseUrl}/api/stories/${id}/interact`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hidden: true }),
+      }).catch(() => { });
+    }
+
+    // Auto-select next visible story if the hidden one was selected
+    if (selectedStoryId === id && stories.length > 0) {
+      const currentIndex = stories.findIndex(s => s.id === id);
+      let nextIndex = currentIndex + 1;
+      // Skip stories that are hidden locally
+      while (nextIndex < stories.length && hiddenStories.has(stories[nextIndex].id)) {
+        nextIndex++;
+      }
+      if (nextIndex < stories.length) {
+        setSelectedStoryId(stories[nextIndex].id);
+      } else {
+        // Try previous
+        let prevIndex = currentIndex - 1;
+        while (prevIndex >= 0 && hiddenStories.has(stories[prevIndex].id)) {
+          prevIndex--;
+        }
+        if (prevIndex >= 0) {
+          setSelectedStoryId(stories[prevIndex].id);
+        }
+      }
+    }
+  };
+
   // Resize Handle
   const ResizeHandle = () => (
     <PanelResizeHandle className="w-2 flex justify-center items-stretch group focus:outline-none">
@@ -627,30 +635,21 @@ function App() {
               />
             </form>
 
-            {/* Quick Filter Chips */}
+            {/* Quick Filter Dropdown */}
             <div className="flex items-center gap-1.5">
-              {QUICK_FILTERS.map(filter => {
-                const isFilterActive = activeTopics.includes(filter.toLowerCase());
-                return (
-                  <button
-                    key={filter}
-                    onClick={() => {
-                      const lower = filter.toLowerCase();
-                      if (isFilterActive) {
-                        removeTopicChip(lower);
-                      } else {
-                        addTopicChip(lower);
-                      }
-                    }}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${isFilterActive
-                      ? 'bg-orange-500/15 text-orange-400 border-orange-500/30'
-                      : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:text-slate-200'
-                      }`}
-                  >
-                    {filter}
-                  </button>
-                );
-              })}
+              <FilterDropdown
+                options={QUICK_FILTERS}
+                selected={activeTopics}
+                onChange={(selected) => {
+                  if (selected.length > activeTopics.length) {
+                    // Items added - just update
+                    setActiveTopics(selected);
+                  } else {
+                    // Items removed - handled by FilterDropdown state but we synchronize
+                    setActiveTopics(selected);
+                  }
+                }}
+              />
             </div>
 
             {/* Active custom topic chips */}
@@ -831,9 +830,9 @@ function App() {
                               index={index}
                               isSelected={isSelected}
                               isRead={isRead}
-                              // Pass explicit select handler but bubbling should handle it too
                               onSelect={(id) => handleStorySelect(id)}
                               onToggleSave={user ? handleToggleSave : undefined}
+                              onHide={handleHideStory}
                             />
                           </div>
                         );
