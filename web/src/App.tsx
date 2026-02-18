@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import './App.css';
 import { StoryCard } from './components/StoryCard';
 import { ReaderPane } from './components/ReaderPane';
 import { SettingsModal } from './components/SettingsModal';
 import { AISidebar } from './components/AISidebar';
-import { RefreshCw, Search, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Sparkles } from 'lucide-react';
+import { AdminDashboard } from './components/AdminDashboard';
+import { RefreshCw, Search, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Sparkles, Shield } from 'lucide-react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
 interface Story {
@@ -177,6 +179,10 @@ function App() {
       })
       .catch(() => { }); // Silently ignore — anonymous usage is fine
   }, []);
+
+  const location = useLocation();
+
+
 
   // Theme effect
   useEffect(() => {
@@ -570,6 +576,10 @@ function App() {
   // Layout configuration
   const layoutId = isAIOpen ? 'hn-zen-v3-ai-layout' : 'hn-zen-v3-std-layout';
 
+  if (location.pathname === '/admin' || location.pathname === '/admin/') {
+    return <AdminDashboard />;
+  }
+
   return (
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
 
@@ -578,7 +588,7 @@ function App() {
         <div className="flex items-center h-full gap-8">
 
           {/* Brand */}
-          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.12</span></span>
+          <span className="font-bold text-base tracking-tight text-orange-500 shrink-0">HN Station <span className="text-xs text-slate-500 font-normal">v2.13</span></span>
 
           {/* GitHub-Style Nav Tabs */}
           <nav className="h-full flex items-center gap-6">
@@ -718,6 +728,16 @@ function App() {
             {/* User Auth */}
             {user ? (
               <div className="flex items-center gap-2 ml-1">
+                {user.is_admin && (
+                  <Link
+                    to="/admin"
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-all active:scale-95 shadow-sm"
+                    title="Admin Dashboard"
+                  >
+                    <Shield size={14} />
+                    Admin
+                  </Link>
+                )}
                 <img
                   src={user.avatar_url}
                   alt={user.name}
