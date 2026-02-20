@@ -62,6 +62,7 @@ func main() {
 	// Run initially
 
 	// Start Summary Worker
+	apiKey := os.Getenv("GEMINI_API_KEY")
 	summaryQueue := make(chan SummaryJob, 500) // Buffer for pending summaries
 	go startSummaryWorker(ctx, store, aiClient, apiKey, summaryQueue)
 
@@ -131,7 +132,7 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Gemi
 		return
 	}
 
-	prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Text: %s", job.Title, fetchRes.Content)
+	prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Title: %s\n\nText: %s", job.Title, fetchRes.Content)
 
 	summary, err := aiClient.GenerateSummary(workCtx, apiKey, prompt)
 	if err != nil {

@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: hn-station/backend:local
+          imagePullPolicy: Never   # loaded into kind via "kind load docker-image"
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_url
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: google_client_id
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: google_client_secret
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: jwt_secret
+            - name: OAUTH_CALLBACK_URL
+              value: "http://localhost/auth/google/callback"
+            - name: FRONTEND_URL
+              value: "/"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

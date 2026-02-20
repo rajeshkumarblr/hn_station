@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingest
+  template:
+    metadata:
+      labels:
+        app: ingest
+    spec:
+      containers:
+        - name: ingest
+          image: hn-station/backend:local
+          imagePullPolicy: Never   # loaded into kind via "kind load docker-image"
+          command: ["/app/ingest"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_url
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

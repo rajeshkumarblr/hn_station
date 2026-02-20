@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingest
+  template:
+    metadata:
+      labels:
+        app: ingest
+    spec:
+      containers:
+        - name: ingest
+          image: myhnregistry31509.azurecr.io/backend:latest
+          command: ["/app/ingest"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: secrets
+                  key: database_url
+          volumeMounts:
+          - name: secrets-store-inline
+            mountPath: "/mnt/secrets-store"
+            readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+      volumes:
+        - name: secrets-store-inline
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "azure-kv"
+
