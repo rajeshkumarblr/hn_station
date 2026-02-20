@@ -466,3 +466,14 @@ func (s *Store) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
 	}
 	return users, nil
 }
+
+// GetAnyAdminAPIKey returns the Gemini API key of the first found admin user who has one set.
+func (s *Store) GetAnyAdminAPIKey(ctx context.Context) (string, error) {
+	query := `SELECT gemini_api_key FROM auth_users WHERE is_admin = TRUE AND gemini_api_key IS NOT NULL AND gemini_api_key != '' LIMIT 1`
+	var key string
+	err := s.db.QueryRow(ctx, query).Scan(&key)
+	if err != nil {
+		return "", err
+	}
+	return key, nil
+}

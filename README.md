@@ -86,6 +86,7 @@ graph TD
 
 ## Recent Updates
 
+- **Phase 40**: Local k8s Deployment — Added `infrastructure/k8s-local/` manifests for running the full stack on a local `kind` cluster using the host's PostgreSQL instance. Azure-specific manifests reorganised to `infrastructure/azure/`. Added `deploy_local.sh` for one-command local deployment.
 - **Phase 39**: UI Refinements — Improved title bar visibility in dark mode and relocated the "Open in new tab" button to the Reader Pane header for better accessibility.
 - **Phase 38**: Reader Mode & Smart Iframes — New "Article" tab in Reader Pane. Fetches and sanitizes article content server-side (`go-readability` + `dompurify`) to bypass iframe restrictions. Features "Smart Fallback": attempts to load the original site in an iframe (Web View) if headers allow, otherwise falls back to the clean text view (Reader View). Manual toggle included.
 - **Phase 37**: UI Polish — Unified "Combo Box" for topics (type + select), persistent story action buttons (Close/Star), and refined Reader Pane with consistent coloring and link affordance.

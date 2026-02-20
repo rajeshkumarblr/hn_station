@@ -9,11 +9,11 @@ echo "1. Logging into ACR..."
 az acr login --name $ACR_NAME
 
 echo "2. Building and Pushing Backend..."
-docker build -t $ACR_SERVER/backend:latest -f Dockerfile.backend .
+docker build --no-cache -t $ACR_SERVER/backend:latest -f Dockerfile.backend .
 docker push $ACR_SERVER/backend:latest
 
 echo "3. Building and Pushing Frontend..."
-docker build -t $ACR_SERVER/frontend:latest -f web/Dockerfile ./web
+docker build --no-cache -t $ACR_SERVER/frontend:latest -f web/Dockerfile ./web
 docker push $ACR_SERVER/frontend:latest
 
 echo "4. Deploying to AKS..."

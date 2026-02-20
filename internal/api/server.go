@@ -495,6 +495,22 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Check Global Cache (Short-circuit if already summarized)
+	if story.Summary != nil && *story.Summary != "" {
+		// Save to chat history so user sees it in their thread too (if not already there)
+		// We can't easily check if it's there without fetching history, but duplicate consecutive messages are fine-ish.
+		// Better: just return it. The frontend 'fetchHistory' will see the summary if we don't add it here?
+		// No, frontend logic: if history empty, check story.summary.
+		// So we don't strictly need to add to history if it's in story.summary, BUT for consistency in chat view we might want it.
+		// Let's add it to history to be safe and consistent with "Summarize" action.
+		if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Summary of \"%s\":**\n\n%s", story.Title, *story.Summary)); err != nil {
+			log.Printf("Failed to save cached summary to history: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"summary": *story.Summary})
+		return
+	}
+
 	comments, err := s.store.GetComments(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
@@ -532,6 +548,11 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to generate summary: " + err.Error()})
 		return
+	}
+
+	// 2. Save to Global Cache (Stories table)
+	if err := s.store.UpdateStorySummary(r.Context(), id, summary); err != nil {
+		log.Printf("Failed to update story summary cache: %v", err)
 	}
 
 	// Save summary to chat history

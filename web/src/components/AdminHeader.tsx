@@ -15,7 +15,7 @@ export function AdminHeader() {
             </div>
 
             <div className="flex items-center gap-4">
-                <div className="text-xs text-slate-500 font-mono">v2.13</div>
+                <div className="text-xs text-slate-500 font-mono">v2.17</div>
                 <div className="h-6 w-px bg-slate-700"></div>
                 <a
                     href="/auth/logout"

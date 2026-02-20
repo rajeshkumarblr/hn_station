@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
@@ -28,20 +29,23 @@ func (c *GeminiClient) GenerateSummary(ctx context.Context, apiKey string, text 
 	}
 	defer client.Close()
 
-	model, err := c.getBestModel(ctx, client)
-	if err != nil {
-		return "", err
-	}
+	// Wrap in retry logic
+	return c.generateWithRetry(ctx, func() (string, error) {
+		model, err := c.getBestModel(ctx, client)
+		if err != nil {
+			return "", err
+		}
 
-	prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Text: %s", text)
+		prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Text: %s", text)
 
-	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
-	if err != nil {
-		log.Printf("GeminiClient: Model failed: %v", err)
-		return "", fmt.Errorf("model failed: %w", err)
-	}
+		resp, err := model.GenerateContent(ctx, genai.Text(prompt))
+		if err != nil {
+			log.Printf("GeminiClient: Model failed: %v", err)
+			return "", fmt.Errorf("model failed: %w", err)
+		}
 
-	return c.extractTextFromResponse(resp)
+		return c.extractTextFromResponse(resp)
+	})
 }
 
 // ChatMessage represents a message in the chat history.
@@ -60,101 +64,65 @@ func (c *GeminiClient) GenerateChatResponse(ctx context.Context, apiKey string, 
 	}
 	defer client.Close()
 
-	model, err := c.getBestModel(ctx, client)
-	if err != nil {
-		return "", err
-	}
-
-	cs := model.StartChat()
-
-	// Set the system instruction or initial context if supported,
-	// or just prepend it to the history/first message.
-	// Gemini Pro often works best if context is in the first message or history.
-
-	// We will construct the history for the session.
-	// We'll inject the context (story content) as a "user" message at the beginning,
-	// followed by a "model" confirmation, to establish context.
-
-	cs.History = []*genai.Content{
-		{
-			Role: "user",
-			Parts: []genai.Part{
-				genai.Text(fmt.Sprintf("Here is the content of the Hacker News story and discussion we will talk about:\n\n%s\n\nPlease answer my future questions based on this context.", contextText)),
-			},
-		},
-		{
-			Role: "model",
-			Parts: []genai.Part{
-				genai.Text("Understood. I have read the story and discussion. I am ready to answer your questions about it."),
-			},
-		},
-	}
-
-	// Append actual user history
-	for _, msg := range history {
-		role := "user"
-		if msg.Role == "model" || msg.Role == "assistant" {
-			role = "model"
+	// Wrap in retry logic
+	return c.generateWithRetry(ctx, func() (string, error) {
+		model, err := c.getBestModel(ctx, client)
+		if err != nil {
+			return "", err
 		}
-		cs.History = append(cs.History, &genai.Content{
-			Role:  role,
-			Parts: []genai.Part{genai.Text(msg.Content)},
-		})
-	}
 
-	resp, err := cs.SendMessage(ctx, genai.Text(newMessage))
-	if err != nil {
-		log.Printf("GeminiClient: Chat failed: %v", err)
-		return "", fmt.Errorf("chat failed: %w", err)
-	}
+		cs := model.StartChat()
 
-	return c.extractTextFromResponse(resp)
+		// Set the system instruction or initial context if supported,
+		// or just prepend it to the history/first message.
+		// Gemini Pro often works best if context is in the first message or history.
+
+		// We will construct the history for the session.
+		// We'll inject the context (story content) as a "user" message at the beginning,
+		// followed by a "model" confirmation, to establish context.
+
+		cs.History = []*genai.Content{
+			{
+				Role: "user",
+				Parts: []genai.Part{
+					genai.Text(fmt.Sprintf("Here is the content of the Hacker News story and discussion we will talk about:\n\n%s\n\nPlease answer my future questions based on this context.", contextText)),
+				},
+			},
+			{
+				Role: "model",
+				Parts: []genai.Part{
+					genai.Text("Understood. I have read the story and discussion. I am ready to answer your questions about it."),
+				},
+			},
+		}
+
+		// Append actual user history
+		for _, msg := range history {
+			role := "user"
+			if msg.Role == "model" || msg.Role == "assistant" {
+				role = "model"
+			}
+			cs.History = append(cs.History, &genai.Content{
+				Role:  role,
+				Parts: []genai.Part{genai.Text(msg.Content)},
+			})
+		}
+
+		resp, err := cs.SendMessage(ctx, genai.Text(newMessage))
+		if err != nil {
+			log.Printf("GeminiClient: Chat failed: %v", err)
+			return "", fmt.Errorf("chat failed: %w", err)
+		}
+
+		return c.extractTextFromResponse(resp)
+	})
 }
 
 func (c *GeminiClient) getBestModel(ctx context.Context, client *genai.Client) (*genai.GenerativeModel, error) {
-	// Dynamic Model Discovery
-	iter := client.ListModels(ctx)
-	var selectedModel string
-
-	log.Println("GeminiClient: Listing available models...")
-	for {
-		m, err := iter.Next()
-		if err != nil {
-			if strings.Contains(err.Error(), "iterator") && strings.Contains(err.Error(), "stop") {
-				break
-			}
-			log.Printf("GeminiClient: Error listing models: %v", err)
-			break
-		}
-
-		// Check if it supports generateContent
-		supportsGenerateContent := false
-		for _, method := range m.SupportedGenerationMethods {
-			if method == "generateContent" {
-				supportsGenerateContent = true
-				break
-			}
-		}
-
-		if supportsGenerateContent && strings.Contains(strings.ToLower(m.Name), "gemini") {
-			// Prioritize flash models, then pro
-			if selectedModel == "" {
-				selectedModel = m.Name
-			} else if strings.Contains(m.Name, "flash") && !strings.Contains(selectedModel, "flash") {
-				selectedModel = m.Name
-			}
-		}
-	}
-
-	if selectedModel == "" {
-		log.Println("GeminiClient: No suitable models found via discovery. Using hardcoded fallback.")
-		selectedModel = "gemini-1.5-flash"
-	} else {
-		log.Printf("GeminiClient: Selected model via discovery: %s", selectedModel)
-	}
-
-	selectedModel = strings.TrimPrefix(selectedModel, "models/")
-	return client.GenerativeModel(selectedModel), nil
+	// Skip dynamic discovery to save quota/latency for now.
+	// Gemini Flash is generally available and best for this use case.
+	modelName := "gemini-2.5-flash"
+	return client.GenerativeModel(modelName), nil
 }
 
 func (c *GeminiClient) extractTextFromResponse(resp *genai.GenerateContentResponse) (string, error) {
@@ -175,4 +143,38 @@ func (c *GeminiClient) extractTextFromResponse(resp *genai.GenerateContentRespon
 	}
 
 	return result, nil
+}
+
+// generateWithRetry executes a generation function with retries for quota errors.
+func (c *GeminiClient) generateWithRetry(ctx context.Context, operation func() (string, error)) (string, error) {
+	var lastErr error
+	// Exponential backoff: 1s, 2s, 4s, 8s, 16s
+	backoff := 1 * time.Second
+	maxRetries := 5
+
+	for retries := 0; retries < maxRetries; retries++ {
+		result, err := operation()
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "429") || strings.Contains(errMsg, "Quota") || strings.Contains(errMsg, "quota") {
+			log.Printf("GeminiClient: Quota exceeded (attempt %d/%d), retrying in %v...", retries+1, maxRetries, backoff)
+
+			// Wait before retrying
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(backoff):
+				backoff *= 2 // Double the wait time
+				continue
+			}
+		}
+
+		// If not a quota error, fail immediately
+		return "", err
+	}
+	return "", fmt.Errorf("failed after retries: %w", lastErr)
 }

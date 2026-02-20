@@ -22,14 +22,15 @@ interface ReaderPaneProps {
     onFocusList?: () => void;
     onSummarize?: () => void;
     onTakeFocus?: () => void;
+    onToggleAI?: () => void;
     initialActiveCommentId?: string | null;
     onSaveProgress?: (commentId: string) => void;
 }
 
-export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress }: ReaderPaneProps) {
+export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, onToggleAI, initialActiveCommentId, onSaveProgress }: ReaderPaneProps) {
     const storyUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const containerRef = useRef<HTMLDivElement>(null);
-    const [activeTab, setActiveTab] = useState<'discussion' | 'article'>('discussion');
+    const [activeTab, setActiveTab] = useState<'discussion' | 'article'>('article');
     const [articleContent, setArticleContent] = useState<string | null>(null);
     const [articleLoading, setArticleLoading] = useState(false);
     const [articleError, setArticleError] = useState<string | null>(null);
@@ -52,12 +53,50 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
         initialActiveCommentId
     );
 
+    // Tab shortcuts & Navigation
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Ctrl + Space: Toggle AI Sidebar
+            if (e.ctrlKey && e.code === 'Space') {
+                e.preventDefault();
+                onToggleAI?.();
+                return;
+            }
+
+            // Ctrl + Right: Switch to Discussion
+            if (e.ctrlKey && e.key === 'ArrowRight') {
+                setActiveTab('discussion');
+            }
+            // Ctrl + Left: 
+            // If in Discussion -> Switch to Article
+            // If in Article -> Focus Story List
+            else if (e.ctrlKey && e.key === 'ArrowLeft') {
+                if (activeTab === 'discussion') {
+                    setActiveTab('article');
+                } else {
+                    onFocusList?.();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [activeTab, onFocusList, storyUrl]);
+
     // Sync progress
     useEffect(() => {
         if (activeCommentId) {
             onSaveProgress?.(activeCommentId);
         }
     }, [activeCommentId, onSaveProgress]);
+
+    // Reset article state when story changes
+    useEffect(() => {
+        setArticleContent(null);
+        setArticleError(null);
+        setArticleLoading(false);
+        setUseIframe(false);
+    }, [story.id]);
 
     // Fetch article content on tab switch
     useEffect(() => {
@@ -94,21 +133,12 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
             {/* Compact Sticky Title Bar */}
             <div className="flex items-center justify-between px-6 py-2 bg-white dark:bg-[#152238] border-b border-slate-200 dark:border-white/5 shadow-sm shrink-0 z-20">
                 <div className="flex flex-col gap-1 mr-4 flex-1 min-w-0">
-                    <h2 className={`font-bold text-sm truncate ${titleColor}`} title={story.title}>
+                    <h2 className={`font-bold text-sm ${titleColor}`} title={story.title}>
                         {story.title}
                     </h2>
 
                     {/* Tab Switcher */}
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setActiveTab('discussion')}
-                            className={`text-xs font-semibold pb-0.5 border-b-2 transition-colors ${activeTab === 'discussion'
-                                ? 'text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400'
-                                : 'text-slate-500 border-transparent hover:text-slate-700 dark:hover:text-slate-300'
-                                }`}
-                        >
-                            Discussion
-                        </button>
                         <button
                             onClick={() => setActiveTab('article')}
                             className={`text-xs font-semibold pb-0.5 border-b-2 transition-colors ${activeTab === 'article'
@@ -127,6 +157,15 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                         >
                             <ExternalLink size={12} />
                         </a>
+                        <button
+                            onClick={() => setActiveTab('discussion')}
+                            className={`text-xs font-semibold pb-0.5 border-b-2 transition-colors ${activeTab === 'discussion'
+                                ? 'text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400'
+                                : 'text-slate-500 border-transparent hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
+                        >
+                            Discussion
+                        </button>
                     </div>
                 </div>
 
