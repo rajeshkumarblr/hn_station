@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -11,12 +12,14 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/rajeshkumarblr/hn_station/internal/ai"
+	"github.com/rajeshkumarblr/hn_station/internal/content"
 	"github.com/rajeshkumarblr/hn_station/internal/hn"
 	"github.com/rajeshkumarblr/hn_station/internal/storage"
 )
 
 const (
-	WorkerCount  = 20
+	WorkerCount  = 2
 	TotalStories = 500
 )
 
@@ -52,11 +55,18 @@ func main() {
 
 	store := storage.New(dbpool)
 	client := hn.NewClient()
+	aiClient := ai.NewGeminiClient()
 
 	log.Println("Starting Ingestion Service...")
 
 	// Run initially
-	runIngestion(ctx, client, store)
+
+	// Start Summary Worker
+	summaryQueue := make(chan SummaryJob, 500) // Buffer for pending summaries
+	go startSummaryWorker(ctx, store, aiClient, apiKey, summaryQueue)
+
+	// Run initially
+	runIngestion(ctx, client, store, aiClient, summaryQueue)
 
 	// Ticker for periodic updates (every 1 minute)
 	ticker := time.NewTicker(1 * time.Minute)
@@ -68,12 +78,80 @@ func main() {
 			log.Println("Shutting down ingestion service...")
 			return
 		case <-ticker.C:
-			runIngestion(ctx, client, store)
+			runIngestion(ctx, client, store, aiClient, summaryQueue)
 		}
 	}
 }
 
-func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) {
+type SummaryJob struct {
+	ID    int
+	URL   string
+	Title string
+}
+
+func startSummaryWorker(ctx context.Context, store *storage.Store, aiClient *ai.GeminiClient, apiKey string, jobs <-chan SummaryJob) {
+	if apiKey == "" {
+		log.Println("No API key, summary worker disabled.")
+		return
+	}
+
+	log.Println("Summary worker started (Rate Limit: 1 request/10s)")
+
+	// Rate Limiter: 1 request every 10 seconds to stay safely under 15 RPM free tier
+	limiter := time.NewTicker(10 * time.Second)
+	defer limiter.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case job := <-jobs:
+			// Wait for tick before processing
+			<-limiter.C
+			processSummary(ctx, store, aiClient, apiKey, job)
+		}
+	}
+}
+
+func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.GeminiClient, apiKey string, job SummaryJob) {
+	log.Printf("Processing summary for story %d: %s", job.ID, job.Title)
+
+	// Use a new context with timeout for the actual work
+	workCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	fetchRes, err := content.FetchArticle(job.URL)
+	if err != nil {
+		log.Printf("Failed to fetch content (story %d): %v", job.ID, err)
+		return
+	}
+
+	if len(fetchRes.Content) < 100 {
+		log.Printf("Content too short (story %d)", job.ID)
+		return
+	}
+
+	prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Text: %s", job.Title, fetchRes.Content)
+
+	summary, err := aiClient.GenerateSummary(workCtx, apiKey, prompt)
+	if err != nil {
+		log.Printf("Failed to generate summary (story %d): %v", job.ID, err)
+		return
+	}
+
+	if err := store.UpdateStorySummary(workCtx, job.ID, summary); err != nil {
+		log.Printf("Failed to save summary (story %d): %v", job.ID, err)
+	} else {
+		log.Printf("Successfully saved summary for story %d", job.ID)
+	}
+}
+
+func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.GeminiClient, summaryQueue chan<- SummaryJob) {
+	// ... (Same fetching logic) ...
+	// Try to get an admin API key for summarization
+	// (Note: apiKey is passed to worker, but we check here just to log status)
+	// We can simplify this since worker handles it, but let's keep the initial fetch log
+
 	log.Println("Fetching stories...")
 
 	// Fetch Top Stories (Ranked)
@@ -82,13 +160,12 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 		log.Printf("Failed to fetch top stories: %v", err)
 	} else {
 		log.Printf("Fetched %d top stories", len(topIDs))
-		// Clear ranks for stories that are no longer in the top list
 		if err := store.ClearRanksNotIn(ctx, topIDs); err != nil {
 			log.Printf("Failed to clear old ranks: %v", err)
 		}
 	}
 
-	// Fetch New Stories (Unranked, effectively)
+	// Fetch New Stories
 	newIDs, err := client.GetNewStories(ctx)
 	if err != nil {
 		log.Printf("Failed to fetch new stories: %v", err)
@@ -96,13 +173,13 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 		log.Printf("Fetched %d new stories", len(newIDs))
 	}
 
-	// Map IDs to their Rank (only for Top Stories)
+	// Map IDs to their Rank
 	rankMap := make(map[int]int)
 	for i, id := range topIDs {
-		rankMap[id] = i + 1 // 1-based rank
+		rankMap[id] = i + 1
 	}
 
-	// IMMEDIATE UPDATE: Update ranks for existing stories
+	// IMMEDIATE UPDATE: Update ranks
 	log.Println("Updating ranks for existing stories...")
 	if err := store.UpdateRanks(ctx, rankMap); err != nil {
 		log.Printf("Failed to update ranks: %v", err)
@@ -117,13 +194,12 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 		uniqueIDs[id] = struct{}{}
 	}
 
-	// Convert to slice
 	var ids []int
 	for id := range uniqueIDs {
 		ids = append(ids, id)
 	}
 
-	log.Printf("Queuing %d unique stories for ingestion with %d workers...", len(ids), WorkerCount)
+	log.Printf("Queuing %d unique stories for ingestion...", len(ids))
 
 	jobs := make(chan int, len(ids))
 	var wg sync.WaitGroup
@@ -144,10 +220,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 						rankPtr = &rank
 					}
 
-					// Pass rankPtr to processStory, which will handle upsert.
-					// For existing stories, this is redundant but harmless (idempotent).
-					// For new stories, this sets the initial rank correctly.
-					if err := processStory(ctx, client, store, id, rankPtr); err != nil {
+					if err := processStory(ctx, client, store, id, rankPtr, summaryQueue); err != nil {
 						log.Printf("Worker %d: Failed to process story %d: %v", workerID, id, err)
 					}
 				}
@@ -155,24 +228,20 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store) 
 		}(i)
 	}
 
-	// Enqueue jobs
 	for _, id := range ids {
 		jobs <- id
 	}
 	close(jobs)
-
-	// Wait for workers to finish
 	wg.Wait()
 	log.Println("Ingestion run completed.")
 }
 
-func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int, rank *int) error {
+func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int, rank *int, summaryQueue chan<- SummaryJob) error {
 	item, err := client.GetItem(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	// Only process stories
 	if item.Type != "story" {
 		return nil
 	}
@@ -189,18 +258,28 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 		HNRank:      rank,
 	}
 
-	// Fetch embedding for the story title (non-blocking on failure)
-	// if item.Title != "" {
-	// 	embedding, err := aiClient.GetEmbedding(ctx, item.Title)
-	// 	if err != nil {
-	// 		log.Printf("Failed to get embedding for story %d: %v", item.ID, err)
-	// 	} else {
-	// 		story.Embedding = &embedding
-	// 	}
-	// }
-
 	if err := store.UpsertStory(ctx, story); err != nil {
 		return err
+	}
+
+	// 1.5 Enqueue for Auto-Summarization
+	// CRITERIA:
+	// 1. Must have URL
+	// 2. Score > 10 (Filtering noise)
+	// 3. No existing summary (Checked by worker? Or here? Better here to save queue space)
+
+	if item.URL != "" && item.Score > 10 {
+		// Optimization: Check if summary exists before queuing
+		// This adds a DB read, but saves the queue from being flooded with already-summarized items
+		existing, err := store.GetStory(ctx, id)
+		if err == nil && (existing.Summary == nil || *existing.Summary == "") {
+			select {
+			case summaryQueue <- SummaryJob{ID: id, URL: item.URL, Title: item.Title}:
+				// Queued successfully
+			default:
+				log.Printf("Summary queue full, skipping story %d", id)
+			}
+		}
 	}
 
 	// 2. Upsert Story Author
@@ -208,7 +287,7 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 		go processUser(ctx, client, store, item.By)
 	}
 
-	// 3. Process Comments (Kids)
+	// 3. Process Comments
 	if len(item.Kids) > 0 {
 		processComments(ctx, client, store, item.Kids, int64(item.ID), nil)
 	}
@@ -217,6 +296,24 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 }
 
 func processComments(ctx context.Context, client *hn.Client, store *storage.Store, kids []int, storyID int64, parentID *int64) {
+	// ... (unchanged) ...
+	// Need to copy the original body of processComments here or it will be lost if I don't include it in ReplacementContent
+	// Since I'm replacing from line 63 onwards, I need to include EVERYTHING after that.
+
+	// WAIT: replace_file_content replaces a chunk.
+	// I need to be careful. The original code has `processComments` at the end.
+	// I should only replace `main`, `runIngestion` and `processStory`.
+	// Leaving `processComments` and `processUser` alone if possible,
+	// BUT `processComments` is called by `processStory` and calls itself.
+	// The previous `processStory` implementation was ending around line 265.
+
+	// Let me rewrite the whole file content from main downwards to be safe,
+	// OR just target the block from `main` to `processStory` end.
+	// `processComments` starts at line 267.
+
+	// I will replace from line 63 (inside main) to line 265 (end of processStory).
+	// And I need to update `main` signature too, so I should start from line 62.
+
 	for _, kidID := range kids {
 		// Fetch comment item
 		item, err := client.GetItem(ctx, kidID)

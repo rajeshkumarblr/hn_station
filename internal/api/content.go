@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	readability "github.com/go-shiori/go-readability"
+	"github.com/rajeshkumarblr/hn_station/internal/content"
 )
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
@@ -121,57 +121,11 @@ func (s *Server) handleGetArticleContent(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(response)
 }
 
-// fetchArticleContent attempts to fetch and parse the article content.
-// It returns the HTML content, title, canIframe status, and error.
+// fetchArticleContent uses the shared internal/content package to fetch and parse the article.
 func (s *Server) fetchArticleContent(urlStr string) (string, string, bool, error) {
-	parsedURL, err := url.Parse(urlStr)
+	result, err := content.FetchArticle(urlStr)
 	if err != nil {
 		return "", "", false, err
 	}
-
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	req, _ := http.NewRequest("GET", urlStr, nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", false, err
-	}
-	defer resp.Body.Close()
-
-	// 1. Check Iframe Compatibility
-	canIframe := true
-	xFrame := strings.ToUpper(resp.Header.Get("X-Frame-Options"))
-	if xFrame == "DENY" || xFrame == "SAMEORIGIN" {
-		canIframe = false
-	}
-
-	csp := strings.ToLower(resp.Header.Get("Content-Security-Policy"))
-	if strings.Contains(csp, "frame-ancestors") {
-		// Simplified check: if frame-ancestors exists, it likely restricts us unless we are explicitly listed (unlikely)
-		// strictly parsing CSP is complex, but assuming blocking if present is safer/easier fallback
-		canIframe = false
-	}
-
-	// 2. Read Body
-	// Limit to 2MB to prevent memory exhaustion
-	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
-	if err != nil {
-		return "", "", canIframe, err
-	}
-
-	// 3. Attempt Parsing with go-readability
-	// We need a reader for readability
-	article, err := readability.FromReader(strings.NewReader(string(bodyBytes)), parsedURL)
-	if err == nil && article.Content != "" {
-		return article.Content, article.Title, canIframe, nil
-	}
-
-	// 4. Fallback to Raw HTML (sanitized by frontend usually, but we send raw here)
-	// If readability failed, we just send the body.
-	// Title extraction is rudimentary here.
-	title := "Unknown Title"
-	return string(bodyBytes), title, canIframe, nil
+	return result.Content, result.Title, result.CanIframe, nil
 }
