@@ -50,7 +50,19 @@ kind load docker-image hn-station/frontend:local --name "$CLUSTER_NAME"
 # ── 5. Apply manifests one-by-one (batch kubectl apply can hang on webhook timeout) ──
 echo "▶ Applying k8s manifests ..."
 sed "s/HOST_GATEWAY_IP/$HOST_GW/" "$K8S_DIR/host-postgres.yaml" | kubectl apply -f -
-kubectl apply -f "$K8S_DIR/secrets.yaml"
+
+# Only create the secret if it doesn't already exist.
+# The secrets.yaml in git has placeholder values (safe to commit).
+# On first run: fill in real values then let this create it.
+# On subsequent runs: the existing live secret is preserved.
+if kubectl get secret secrets &>/dev/null; then
+  echo "  ℹ️  Secret 'secrets' already exists — skipping (preserving live credentials)."
+else
+  echo "  Creating secret from $K8S_DIR/secrets.yaml ..."
+  echo "  ⚠️  Make sure you've filled in the REPLACE_WITH_... placeholders first!"
+  kubectl apply -f "$K8S_DIR/secrets.yaml"
+fi
+
 kubectl apply -f "$K8S_DIR/backend.yaml"
 kubectl apply -f "$K8S_DIR/ingest.yaml"
 kubectl apply -f "$K8S_DIR/frontend.yaml"
