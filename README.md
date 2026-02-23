@@ -6,30 +6,41 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![Live](https://img.shields.io/badge/Live-hnstation.dev-orange?style=flat-square)](https://hnstation.dev)
 
-A modern, fast, and feature-rich Hacker News client built with Go and React.
+A modern, fast, and feature-rich Hacker News client built with Go and React. Live at **[hnstation.dev](https://hnstation.dev)**.
 
 ![Hacker News Station Screenshot](screenshot.png)
 
+---
+
 ## Features
 
-- **Real-time Updates**: Stories are fetched every minute to keep content fresh.
-- **Accurate Ranking**: "Front Page" algorithm mirrors HN exactly, clearing old ranks automatically.
-- **Modern UI**: sleek dark mode (`bg-[#111827]`) with no white edges and a 3-column layout.
-- **Comments Sidebar**: Read comments inline in a dedicated right sidebar with recursive threading.
-- **Topic Filtering**: Filter stories by popular topics like *Postgres, LLM, Rust, Go, AI*.
-- **Custom Topics**: Add and remove your own topics, persisted via local storage.
-- **Search**: Full-text search powered by PostgreSQL `tsvector`.
-- **Dockerized**: Easy setup with Docker Compose.
+| Category | Highlights |
+|----------|-----------|
+| **Reading** | 3-pane resizable layout · Reader Mode (`go-readability`) · Smart iframe fallback |
+| **Comments** | Recursive collapsible threads · Keyboard nav (`n`/`p` root comments) |
+| **Discovery** | Topic filters (Postgres, LLM, Rust, …) · Full-text search (PostgreSQL `tsvector`) |
+| **AI (BYOK)** | Discussion & article summarizer · Multi-turn contextual chat · Auto-summarization |
+| **Auth** | Google OAuth · Bookmarks · Read/hidden state synced to DB |
+| **Navigation** | Full keyboard control · `j`/`k`, `/` search, `z` Zen mode, `Delete` to hide |
+| **Infra** | Docker Compose · Kubernetes (AKS + local Kind) |
+
+---
 
 ## Tech Stack
 
-- **Backend**: Go (Golang) with `chi` router.
-- **Database**: PostgreSQL with `pgx`.
-- **Frontend**: React, TypeScript, Tailwind CSS, Vite.
-- **Ingestion**: Custom Go worker pool fetching from HN Firebase API.
+| Layer | Technology |
+|-------|-----------|
+| Backend API | Go · `go-chi/chi` |
+| Ingestion | Go worker pool · HN Firebase REST API |
+| AI | Google Gemini 2.5 Flash (`google/generative-ai-go`) |
+| Database | PostgreSQL · `pgx/v5` · `pgvector` |
+| Auth | Google OAuth 2.0 · JWT (HS256) cookies |
+| Frontend | React 18 · TypeScript · Tailwind CSS · Vite |
+| Infrastructure | Docker · Kubernetes (AKS / Kind) · NGINX Ingress |
+
+---
 
 ## Getting Started
 
@@ -37,80 +48,59 @@ A modern, fast, and feature-rich Hacker News client built with Go and React.
 
 - Docker and Docker Compose
 
-### Running the Application
-
-1. Clone the repository.
-2. Start the services:
+### Docker Compose (Quickstart)
 
 ```bash
+# 1. Clone the repo
+git clone https://github.com/rajeshkumarblr/hn_station && cd hn_station
+
+# 2. Configure environment
+cp .env.example .env   # fill in Google OAuth credentials, JWT_SECRET, optional GEMINI_API_KEY
+
+# 3. Start everything
 docker-compose up --build
 ```
-3. Open http://localhost:3000 in your browser.
+
+Open **http://localhost:3000** in your browser.
+
+### Local Kind Cluster
+
+```bash
+./infrastructure/deploy_local.sh
+```
+
+Uses the manifests in `infrastructure/k8s-local/`, pointing Postgres at your host machine's running PostgreSQL instance. See [`DEPLOY.md`](DEPLOY.md) for full details.
+
+---
 
 ## Architecture
 
-- **Ingestion Service**: Fetches top stories and comments from HN API, processes them, and stores them in Postgres.
-- **API Server**: Serves stories and comments via REST endpoints (`/api/stories`, `/api/stories/{id}`).
-- **Frontend**: A responsive single-page application consuming the API.
+The system has four main components: a **Go ingestion worker** (polls HN every minute), a **Go API server** (REST + static file serving), a **React frontend**, and a **PostgreSQL database**.
 
-## System Architecture
+For a detailed breakdown — component responsibilities, all API routes, database schema, data flow diagrams, and infrastructure layout — see **[architecture.md](architecture.md)**.
 
-```mermaid
-graph TD
-    User["User / Browser"] -->|HTTPS| CDN["Cloudflare / Ingress"]
-    CDN -->|/api| API["Go API Server"]
-    CDN -->|/| UI["React Frontend"]
-    
-    subgraph "Kubernetes Cluster (Azure AKS)"
-        UI
-        API
-        Ingest["Go Ingestion Worker"]
-        DB[("PostgreSQL")]
-    end
-    
-    subgraph "External Services"
-        HN["Hacker News Firebase API"]
-        GH["GitHub API"]
-        Auth["Google OAuth"]
-    end
+---
 
-    Ingest -->|Polls Updates| HN
-    Ingest -->|Upserts Stories| DB
-    
-    API -->|Reads Stories/Search| DB
-    API -->|Fetches READMEs| GH
-    API -->|Auth Callback| Auth
-    
-    UI -->|Connects| API
-```
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|:--------:|-------------|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `JWT_SECRET` | ✅ | Secret for signing JWT session tokens |
+| `GOOGLE_CLIENT_ID` | ✅ | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | ✅ | Google OAuth client secret |
+| `OAUTH_CALLBACK_URL` | ✅ | Full callback URL (e.g. `https://hnstation.dev/auth/google/callback`) |
+| `GEMINI_API_KEY` | ⬜ | Server-side key for auto-summarization in the ingest service |
+| `FRONTEND_URL` | ⬜ | Redirect URL after OAuth (defaults to `/`) |
+
+---
 
 ## Recent Updates
 
-- **Phase 40**: Local k8s Deployment — Added `infrastructure/k8s-local/` manifests for running the full stack on a local `kind` cluster using the host's PostgreSQL instance. Azure-specific manifests reorganised to `infrastructure/azure/`. Added `deploy_local.sh` for one-command local deployment.
-- **Phase 39**: UI Refinements — Improved title bar visibility in dark mode and relocated the "Open in new tab" button to the Reader Pane header for better accessibility.
-- **Phase 38**: Reader Mode & Smart Iframes — New "Article" tab in Reader Pane. Fetches and sanitizes article content server-side (`go-readability` + `dompurify`) to bypass iframe restrictions. Features "Smart Fallback": attempts to load the original site in an iframe (Web View) if headers allow, otherwise falls back to the clean text view (Reader View). Manual toggle included.
-- **Phase 37**: UI Polish — Unified "Combo Box" for topics (type + select), persistent story action buttons (Close/Star), and refined Reader Pane with consistent coloring and link affordance.
-- **Phase 36**: Admin Panel v2 — Enhanced Analytics Dashboard with "Grafana-style" UI. Tracks total users, interactions, stories, and comments. Includes detailed User List with activity metrics (Total Views, Last Seen) and a dedicated Admin Header. Securely accessible via `/admin`.
-- **Phase 35**: UI Refinements — Full Light Mode support (fixed dark ReaderPane/CommentList), Hover Cards (expand to show details), and Zebra Striping for better list readability.
-- **Phase 34**: Comment Focus & Navigation — Active comments now have a distinct box highlight. Click-to-focus enables keyboard navigation (`Arrow Keys`, `j`/`k`) within the discussion pane. Fixed keyboard context switching issues.
-- **Phase 33**: Persistent AI Chat & Lazy Summarization — Chat history is now saved to the database (`chat_messages` table) and restored across sessions. "Summarize Discussion" is now an on-demand action to save costs and tokens. Backend v2.2 with proper JSON error handling for AI quota limits.
-- **Phase 31**: Hidden Articles — Users can now "delete" stories (hide them from feed) using `Delete` key. Hidden state is persisted in DB and can be toggled via "Show All" UI.
-- **Phase 30**: AKS Deployment Stability — PGVector support (`000007_add_vectors`), correct secret management (`secrets.yaml` with base64 encoded credentials), and robust ingestion restart policy.
-- **Phase 29**: High-Density UI & AI Features — Compact, single-line story list for maximum information density (15+ visible items). AI-powered Thread Summarization (`s` key). Enhanced keyboard navigation (`Left`/`Right` to collapse/expand, `Ctrl+Left` to focus list, `Del` to hide story). Visual cursor improvements.
-- **Phase 27**: Collapsible threaded comments (click-to-collapse header row, descendant count), GitHub iframe fix (redirects to Readme tab), prose-invert comment styling.
-- **Phase 26**: Site favicons in StoryCard (Google Favicons API), dark mode scrollbars (8px, slate-themed, Firefox support), reader typography (Merriweather font, `prose-invert`, `max-w-3xl` constraint), `@tailwindcss/typography` plugin.
-- **Phase 25**: GitHub-style navigation tabs with icons (TrendingUp, Clock, Trophy, Monitor, Bookmark), quick filter chips (Postgres/Rust/AI/LLM/Go), visual de-congestion with `h-16` header, `space-y-3` story gaps, and `p-4` card padding.
-- **Phase 24**: Readme Viewer — tabbed reader pane (Discussion/Readme/Article), backend GitHub README proxy (`/api/content/readme`), auto-switches to Readme for Show HN + GitHub stories, rendered with `react-markdown` + `rehype-highlight`.
-- **Phase 23**: Keyboard navigation refinements — header focus mode, arrow key pill navigation, PageUp/PageDown for 5-story jumps, compact story layout, stronger zebra striping.
-- **Phase 22**: User interactions — bookmarks (save/unsave with star icon), read history tracking, `user_interactions` table with composite PK, optimistic UI updates, "Bookmarks" mode.
-- **Phase 21**: Google OAuth login with JWT sessions, user avatars, `is_admin` column for future admin panel. Site fully usable without login.
-- **Phase 19**: Zen Mode 2-pane layout (feed + reader), Article/Discussion tabs with iframe preview.
-- **Phase 18**: Resizable 3-pane IDE layout with `react-resizable-panels`, persistent sizing, and Space/Esc keyboard shortcuts.
-- **Phase 17**: Header redesign, simplified navigation, and data cleanup.
-- **Phase 16**: Visual polish (bold selection) and full keyboard accessibility (Tab/Enter).
-- **Phase 15**: Layout density, centered header, and arrow-key navigation.
-- **Phase 11-14**: Dark focus, Glassmorphism UI, and compact list design.
-- **Phase 10**: Enterprise Security with Azure Key Vault & Managed Identity (Secrets Store CSI).
-- **Phase 9**: Production Ingress with Let's Encrypt TLS (https://hnstation.dev).
-- **Phase 8**: AKS Deployment, Ranking Consistency Fixes (Atomic Updates), and Ingestion improvements.
-- **Phase 7**: Sidebar visual enhancements (contrast) and custom topic management.
+- **Phase 40** — Local k8s deployment via `kind` with host-Postgres ExternalName service; Azure manifests moved to `infrastructure/azure/`; one-command `deploy_local.sh`.
+- **Phase 38** — Reader Mode: server-side article fetch + sanitize (`go-readability` + `dompurify`), smart iframe fallback.
+- **Phase 36** — Admin Panel v2: Grafana-style analytics dashboard with user list and activity metrics at `/admin`.
+- **Phase 35** — Full light mode support, hover-expand story cards, zebra striping.
+- **Phase 33** — Persistent AI chat history saved to DB (`chat_messages`); on-demand discussion summarization.
+- **Phase 31** — Hide stories with `Delete` key; persisted in DB with "Show All" toggle.
+- **Phase 29** — High-density single-line story list (15+ visible items); AI thread summarizer (`s` key).
