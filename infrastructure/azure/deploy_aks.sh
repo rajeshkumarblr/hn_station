@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-ACR_NAME="myhnregistry31509"
+ACR_NAME="myhnregistry270"
 ACR_SERVER="${ACR_NAME}.azurecr.io"
 
 echo "1. Logging into ACR..."

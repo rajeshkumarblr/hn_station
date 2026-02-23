@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: ingest
-          image: myhnregistry31509.azurecr.io/backend:latest
+          image: myhnregistry270.azurecr.io/backend:latest
           command: ["/app/ingest"]
           env:
             - name: DATABASE_URL
