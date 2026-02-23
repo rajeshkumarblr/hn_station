@@ -97,6 +97,7 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 
 ## Recent Updates
 
+- **Phase 41** — Redeployed to Azure AKS (`eastus`), upgraded Key Vault CSI integration, configured proper Load Balancer health probes, and enabled automated Let's Encrypt SSL.
 - **Phase 40** — Local k8s deployment via `kind` with host-Postgres ExternalName service; Azure manifests moved to `infrastructure/azure/`; one-command `deploy_local.sh`.
 - **Phase 38** — Reader Mode: server-side article fetch + sanitize (`go-readability` + `dompurify`), smart iframe fallback.
 - **Phase 36** — Admin Panel v2: Grafana-style analytics dashboard with user list and activity metrics at `/admin`.

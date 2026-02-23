@@ -3,7 +3,7 @@ set -e
 
 # Configuration
 RG_NAME="my-hn-rg"
-LOCATION="eastus2"
+LOCATION="eastus"
 AKS_CLUSTER_NAME="my-hn-cluster"
 ACR_NAME="myhnregistry$RANDOM" # Random suffix to ensure uniqueness
 
