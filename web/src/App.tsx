@@ -6,7 +6,7 @@ import { ReaderPane } from './components/ReaderPane';
 import { SettingsModal } from './components/SettingsModal';
 import { AISidebar } from './components/AISidebar';
 import { AdminDashboard } from './components/AdminDashboard';
-import { RefreshCw, X, Moon, Sun, Star, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Sparkles, Shield } from 'lucide-react';
+import { RefreshCw, X, Moon, Sun, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Sparkles, Shield } from 'lucide-react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
 interface Story {
@@ -153,7 +153,8 @@ function App() {
 
   // Keyboard Nav
   const [focusMode, setFocusMode] = useState<'stories' | 'reader' | 'header'>('stories');
-  const [isZenMode, setIsZenMode] = useState(false);
+  const [currentView, setCurrentView] = useState<'feed' | 'reader'>('feed');
+  const [readingQueue, setReadingQueue] = useState<number[]>([]);
   const readerContainerRef = useRef<HTMLElement>(null);
   // Resize Handle
   const ResizeHandle = () => (
@@ -194,6 +195,13 @@ function App() {
     root.classList.add(theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // AI Sidebar hover trigger effect
+  useEffect(() => {
+    const handleOpenAI = () => setIsAIOpen(true);
+    window.addEventListener('open-ai-sidebar', handleOpenAI);
+    return () => window.removeEventListener('open-ai-sidebar', handleOpenAI);
+  }, []);
 
   // Persist topic chips
   useEffect(() => {
@@ -244,33 +252,34 @@ function App() {
 
 
 
-  // Sidebar Collapse state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-  // Auto-collapse when opening a story (reader mode)
-  useEffect(() => {
-    if (focusMode === 'reader') {
-      setIsSidebarCollapsed(true);
-    }
-  }, [focusMode]);
+
+  // Queue handler
+  const handleToggleQueue = (id: number) => {
+    setReadingQueue(prev => {
+      if (prev.includes(id)) return prev.filter(q => q !== id);
+      return [...prev, id];
+    });
+  };
 
   const handleNextStory = useCallback(() => {
-    if (stories.length === 0) return;
-    const idx = stories.findIndex(s => s.id === selectedStoryId);
+    const queue = readingQueue.length > 0 ? readingQueue : stories.map(s => s.id);
+    if (queue.length === 0) return;
+    const idx = queue.indexOf(selectedStoryId as number);
     if (idx === -1) return;
-    const next = Math.min(stories.length - 1, idx + 1);
-    setSelectedStoryId(stories[next].id);
-    storyRefs.current[next]?.focus();
-  }, [stories, selectedStoryId]);
+    const next = Math.min(queue.length - 1, idx + 1);
+    setSelectedStoryId(queue[next]);
+    // The reader component will re-render and grab the newly selected story
+  }, [stories, selectedStoryId, readingQueue]);
 
   const handlePrevStory = useCallback(() => {
-    if (stories.length === 0) return;
-    const idx = stories.findIndex(s => s.id === selectedStoryId);
+    const queue = readingQueue.length > 0 ? readingQueue : stories.map(s => s.id);
+    if (queue.length === 0) return;
+    const idx = queue.indexOf(selectedStoryId as number);
     if (idx === -1) return;
     const prev = Math.max(0, idx - 1);
-    setSelectedStoryId(stories[prev].id);
-    storyRefs.current[prev]?.focus();
-  }, [stories, selectedStoryId]);
+    setSelectedStoryId(queue[prev]);
+  }, [stories, selectedStoryId, readingQueue]);
 
   // Keyboard handler
   useEffect(() => {
@@ -297,19 +306,20 @@ function App() {
         if (focusMode === 'stories' && selectedStoryId) {
           e.preventDefault();
           setFocusMode('reader');
-          setIsSidebarCollapsed(true); // Auto-collapse on enter
+          setCurrentView('reader');
           setTimeout(() => readerContainerRef.current?.focus(), 50);
           return;
         }
       }
 
       if (e.key === 'Escape') {
-        e.preventDefault();
-        setFocusMode('stories');
-        setIsZenMode(false); // Restore panels on escape
-        setIsSidebarCollapsed(false); // Auto-expand on escape back to list
-        const idx = stories.findIndex(s => s.id === selectedStoryId);
-        if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
+        if (currentView === 'reader') {
+          e.preventDefault();
+          setFocusMode('stories');
+          setCurrentView('feed');
+          const idx = stories.findIndex(s => s.id === selectedStoryId);
+          if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
+        }
         return;
       }
 
@@ -321,21 +331,12 @@ function App() {
 
       if (e.key === 'ArrowRight' && focusMode === 'stories' && selectedStoryId) {
         setFocusMode('reader');
-        setIsSidebarCollapsed(true); // Auto-collapse
+        setCurrentView('reader');
         e.preventDefault();
         setTimeout(() => readerContainerRef.current?.focus(), 50);
       } else if (e.key === 'ArrowLeft' && focusMode === 'reader') {
-        // Ctrl+Left to expand sidebar mentioned by user?
-        // User said: "expand only when mouse moved there are user pressing ctrl + left arrow"
-        // Let's support both simple Left Arrow to go back to list (standard) OR specific expand
-
-        if (e.ctrlKey) {
-          setIsSidebarCollapsed(false);
-          return;
-        }
-
         setFocusMode('stories');
-        setIsSidebarCollapsed(false); // Auto-expand
+        setCurrentView('feed');
         e.preventDefault();
         const idx = stories.findIndex(s => s.id === selectedStoryId);
         if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
@@ -395,7 +396,7 @@ function App() {
         topicInputRef.current?.focus();
       } else if (e.key === 'z' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        setIsZenMode(prev => !prev);
+        // Zen mode replaced by Reader View flow
       } else if (e.key === 'n' && focusMode === 'reader' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         const container = readerContainerRef.current;
@@ -438,7 +439,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stories, selectedStoryId, focusMode, isZenMode, handleNextStory, handlePrevStory]);
+  }, [stories, selectedStoryId, focusMode, currentView, handleNextStory, handlePrevStory]);
 
   // Build API URL
   const buildUrl = useCallback((currentOffset: number) => {
@@ -490,8 +491,8 @@ function App() {
           } else {
             setSelectedStoryId(data[0].id);
           }
-          setFocusMode('reader'); // Focus reader automatically
-          setIsZenMode(true); // Default to Zen Mode fully expanded
+          setFocusMode('stories');
+          setCurrentView('feed');
         }
       })
       .catch(err => {
@@ -574,8 +575,7 @@ function App() {
   const handleStorySelect = (id: number) => {
     setSelectedStoryId(id);
     setFocusMode('reader'); // Focus reader immediately
-    setIsAIOpen(true); // Auto-open AI
-    setIsZenMode(true); // Auto-maximize the reader pane
+    setCurrentView('reader');
     // Mark as read (local)
     setReadIds(prev => {
       const next = new Set(prev);
@@ -620,9 +620,6 @@ function App() {
   const removeTopicChip = (topic: string) => {
     setActiveTopics(prev => prev.filter(t => t !== topic));
   };
-
-  // Layout configuration
-  const layoutId = isAIOpen ? 'hn-zen-v3-ai-layout' : 'hn-zen-v3-std-layout';
 
   return (
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
@@ -779,127 +776,105 @@ function App() {
         </div>
       </header>
 
-      {/* ─── 2-Pane Layout ─── */}
+      {/* ─── Main Content Area ─── */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Sidebar Hover Trigger (when collapsed) */}
-        {isSidebarCollapsed && !isZenMode && (
-          <div
-            className="absolute left-0 top-0 bottom-0 w-6 z-[60] hover:bg-blue-500/10 transition-colors cursor-e-resize"
-            onMouseEnter={() => setIsSidebarCollapsed(false)}
-            onClick={() => setIsSidebarCollapsed(false)}
-            title="Show Sidebar (Ctrl + Left)"
-          />
-        )}
 
-        <PanelGroup
-          key={`${layoutId}-${isSidebarCollapsed}`} // Force remount to handle size changes correctly
-          orientation="horizontal"
-          autoSave={`hn-layout-v5-${mode}`}
-        >
+        {currentView === 'feed' ? (
+          <main
+            className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-white dark:bg-slate-950 flex justify-center focus:outline-none"
+            tabIndex={-1}
+          >
+            <div className="w-full max-w-5xl flex flex-col">
+              {loading && (
+                <div className="p-20 text-center text-gray-400 dark:text-slate-500 flex flex-col items-center gap-4">
+                  <div className="animate-spin text-blue-500"><RefreshCw size={32} /></div>
+                  <p className="font-medium animate-pulse">Loading stories...</p>
+                </div>
+              )}
 
-          {/* Story List Sidebar */}
-          {(!isZenMode || focusMode === 'stories') && !isSidebarCollapsed && (
-            <Panel
-              defaultSize={selectedStory ? 25 : 35}
-              minSize={15}
-              id="stories"
-              className="flex flex-col border-r border-slate-200 dark:border-white/5 transition-all duration-300"
-            >
-              <div className="h-full flex flex-col bg-white dark:bg-slate-950">
-                <main
-                  className={`flex-1 overflow-y-auto custom-scrollbar p-3 transition-all ${focusMode === 'stories' ? 'shadow-[inset_0_0_0_2px_rgba(59,130,246,0.3)]' : ''}`}
-                >
-                  {loading && (
-                    <div className="p-20 text-center text-gray-400 dark:text-slate-500 flex flex-col items-center gap-4">
-                      <div className="animate-spin text-blue-500"><RefreshCw size={32} /></div>
-                      <p className="font-medium animate-pulse">Loading stories...</p>
-                    </div>
-                  )}
+              {error && (
+                <div className="p-6 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-xl flex items-center gap-3 shadow-sm">
+                  <X size={20} />
+                  <p>{error}</p>
+                </div>
+              )}
 
-                  {error && (
-                    <div className="p-6 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-xl flex items-center gap-3 shadow-sm">
-                      <X size={20} />
-                      <p>{error}</p>
-                    </div>
-                  )}
-
-                  {!loading && !error && (
-                    <div className="space-y-1">
-                      {stories
-                        // If showHidden is false, we filter out locally hidden stories AND logic from server (though server shouldn't send them)
-                        // If showHidden is true, we show everything
-                        .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
-                        .map((story, index) => {
-                          const isSelected = selectedStoryId === story.id;
-                          const isRead = readIds.has(story.id) || story.is_read;
-                          const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
-                          const topicAccent = matchedTopic ? getTopicColor(matchedTopic).accent : null;
-                          return (
-                            <div
-                              key={story.id}
-                              ref={el => storyRefs.current[index] = el}
-                              tabIndex={0}
-                              role="button"
-                              aria-selected={isSelected}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  handleStorySelect(story.id);
-                                  setFocusMode('reader');
-                                  setTimeout(() => readerContainerRef.current?.focus(), 50);
-                                }
-                              }}
-                              onClick={() => handleStorySelect(story.id)}
-                              onDoubleClick={() => {
-                                const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
-                                window.open(url, '_blank', 'noopener,noreferrer');
-                              }}
-                              className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
-                              style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
-                            >
-                              <StoryCard
-                                story={story}
-                                index={index}
-                                isSelected={isSelected}
-                                isRead={isRead}
-                                onSelect={(id) => handleStorySelect(id)}
-                                onToggleSave={user ? handleToggleSave : undefined}
-                                onHide={handleHideStory}
-                              />
-                            </div>
-                          );
-                        })}
-
-                      {/* Infinite Scroll Sentinel */}
-                      <div ref={sentinelRef} className="h-4" />
-                      {loadingMore && (
-                        <div className="flex items-center justify-center py-6 gap-2 text-gray-400 dark:text-slate-500">
-                          <RefreshCw size={16} className="animate-spin" />
-                          <span className="text-sm">Loading more...</span>
+              {!loading && !error && (
+                <div className="space-y-1">
+                  {stories
+                    .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
+                    .map((story, index) => {
+                      const isSelected = selectedStoryId === story.id;
+                      const isRead = readIds.has(story.id) || story.is_read;
+                      const isQueued = readingQueue.includes(story.id);
+                      const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
+                      const topicAccent = matchedTopic ? getTopicColor(matchedTopic).accent : null;
+                      return (
+                        <div
+                          key={story.id}
+                          ref={el => storyRefs.current[index] = el}
+                          tabIndex={0}
+                          role="button"
+                          aria-selected={isSelected}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              // Add to queue implicitly if not queued, then select
+                              if (!isQueued) {
+                                setReadingQueue(prev => [...prev.filter(q => q !== story.id), story.id]);
+                              }
+                              handleStorySelect(story.id);
+                              setTimeout(() => readerContainerRef.current?.focus(), 50);
+                            }
+                          }}
+                          onClick={() => handleStorySelect(story.id)}
+                          onDoubleClick={() => {
+                            const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                          }}
+                          className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
+                          style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
+                        >
+                          <StoryCard
+                            story={story}
+                            index={index}
+                            isSelected={isSelected}
+                            isRead={isRead}
+                            isQueued={isQueued}
+                            onSelect={(id) => handleStorySelect(id)}
+                            onToggleSave={user ? handleToggleSave : undefined}
+                            onHide={handleHideStory}
+                            onQueueToggle={handleToggleQueue}
+                          />
                         </div>
-                      )}
-                      {!hasMore && stories.length > 0 && (
-                        <div className="text-center py-4 text-xs text-gray-400 dark:text-slate-600">
-                          All stories loaded
-                        </div>
-                      )}
+                      );
+                    })}
+
+                  {/* Infinite Scroll Sentinel */}
+                  <div ref={sentinelRef} className="h-4" />
+                  {loadingMore && (
+                    <div className="flex items-center justify-center py-6 gap-2 text-gray-400 dark:text-slate-500">
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span className="text-sm">Loading more...</span>
                     </div>
                   )}
-                </main>
-              </div>
-            </Panel>
-          )}
-
-          {!isZenMode && !isSidebarCollapsed && <ResizeHandle />}
-
-          {/* Reader Pane */}
-          {selectedStory ? (
-            <>
-              <Panel defaultSize={75} minSize={30} id="reader">
+                  {!hasMore && stories.length > 0 && (
+                    <div className="text-center py-4 text-xs text-gray-400 dark:text-slate-600">
+                      All stories loaded
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </main>
+        ) : (
+          <PanelGroup orientation="horizontal" autoSave="hn-reader-layout">
+            <Panel id="reader" defaultSize={isAIOpen && selectedStory ? 70 : 100} minSize={30}>
+              {selectedStory ? (
                 <aside
                   ref={readerContainerRef}
                   tabIndex={-1}
-                  className={`h-full bg-[#111d2e] overflow-y-auto custom-scrollbar focus:outline-none transition-all ${focusMode === 'reader' ? 'shadow-[inset_4px_0_0_0_#3b82f6]' : ''}`}
+                  className="h-full bg-[#111d2e] overflow-y-auto custom-scrollbar focus:outline-none transition-all shadow-[inset_4px_0_0_0_#3b82f6]"
                 >
                   <ReaderPane
                     story={selectedStory}
@@ -911,11 +886,7 @@ function App() {
                         return progress[selectedStory.id] || null;
                       } catch { return null; }
                     })()}
-                    onFocusList={() => {
-                      setFocusMode('stories');
-                      const idx = stories.findIndex(s => s.id === selectedStoryId);
-                      if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
-                    }}
+                    onFocusList={() => setCurrentView('feed')}
                     onSummarize={() => setIsAIOpen(true)}
                     onTakeFocus={() => setFocusMode('reader')}
                     onSaveProgress={(commentId) => {
@@ -926,48 +897,40 @@ function App() {
                       } catch { }
                     }}
                     onToggleSave={user ? handleToggleSave : undefined}
-                    onPrev={stories.findIndex(s => s.id === selectedStoryId) > 0 ? handlePrevStory : undefined}
-                    onNext={stories.findIndex(s => s.id === selectedStoryId) < stories.length - 1 ? handleNextStory : undefined}
-                    onSkip={selectedStoryId ? () => handleHideStory(selectedStoryId) : undefined}
-                    onSelectStory={handleStorySelect}
+                    onPrev={readingQueue.length > 0 || stories.findIndex(s => s.id === selectedStoryId) > 0 ? handlePrevStory : undefined}
+                    onNext={readingQueue.length > 0 || stories.findIndex(s => s.id === selectedStoryId) < stories.length - 1 ? handleNextStory : undefined}
                     stories={stories}
+                    onBackToFeed={() => setCurrentView('feed')}
                   />
                 </aside>
-              </Panel>
-            </>
-          ) : (
-            <Panel defaultSize={isZenMode ? 100 : 70} minSize={30} id="reader">
-              <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 p-8 text-center">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
-                  <Star size={32} className="opacity-50" />
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-500 bg-[#111d2e]">
+                  Loading story...
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-slate-200 mb-1">Select a Story</h3>
-                <p className="text-sm max-w-xs mx-auto">Choose a story from the feed to read its discussion.</p>
-              </div>
+              )}
             </Panel>
-          )}
 
-          {/* AI Sidebar Panel */}
-          {isAIOpen && selectedStory && (
-            <>
-              <ResizeHandle />
-              <Panel defaultSize={25} minSize={20} id="ai-sidebar">
-                <AISidebar
-                  storyId={selectedStory.id}
-                  isOpen={isAIOpen}
-                  onClose={() => setIsAIOpen(false)}
-                  initialSummary={selectedStory.summary}
-                />
-              </Panel>
-            </>
-          )}
+            {/* AI Sidebar Panel */}
+            {isAIOpen && selectedStory && (
+              <>
+                <ResizeHandle />
+                <Panel id="ai-sidebar" defaultSize={30} minSize={20}>
+                  <AISidebar
+                    storyId={selectedStory.id}
+                    isOpen={isAIOpen}
+                    onClose={() => setIsAIOpen(false)}
+                    initialSummary={selectedStory.summary}
+                  />
+                </Panel>
+              </>
+            )}
+          </PanelGroup>
+        )}
 
-          {/* Admin Modal Panel */}
-          {isAdminModalOpen && (
-            <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />
-          )}
-
-        </PanelGroup>
+        {/* Admin Modal Panel */}
+        {isAdminModalOpen && (
+          <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />
+        )}
       </div>
 
       <SettingsModal

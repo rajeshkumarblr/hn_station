@@ -22,11 +22,13 @@ interface StoryCardProps {
     onSelect?: (id: number) => void;
     onToggleSave?: (id: number, saved: boolean) => void;
     onHide?: (id: number) => void;
+    onQueueToggle?: (id: number) => void;
     isSelected?: boolean;
     isRead?: boolean;
+    isQueued?: boolean;
 }
 
-export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSelected, isRead }: StoryCardProps) {
+export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isRead, isQueued }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -82,6 +84,20 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSele
         >
             {/* Action Buttons Container - Top Right */}
             <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
+                {/* Queue button */}
+                {onQueueToggle && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onQueueToggle(story.id); }}
+                        className={`p-1 rounded-md transition-all duration-150 ${isQueued
+                            ? 'text-blue-500 dark:text-blue-400 hover:text-blue-600 hover:scale-110 bg-blue-50 dark:bg-blue-900/30'
+                            : 'text-gray-400 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:scale-110'
+                            }`}
+                        title={isQueued ? 'Remove from Queue' : 'Add to Queue'}
+                    >
+                        {isQueued ? <Check size={14} /> : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
+                    </button>
+                )}
+
                 {/* Save/Star button */}
                 {onToggleSave && (
                     <button

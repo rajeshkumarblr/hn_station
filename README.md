@@ -97,7 +97,7 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 
 ## Recent Updates
 
-- **Phase 42** — Reader Pane UX overhaul: Next/Prev adjacent article dropdowns with title truncation, auto-Zen mode, AI sidebar declutter, shortened auto-summaries, and header icon simplification.
+- **Phase 42** — Index -> Show Architecture Refactor: Dedicated Feed & Zen Reader views. Explicit reading queue, minimalist browser-like ReaderPane navigation (centered title hyperlink, flanking prev/next arrows), and hover-triggered AI sidebar.
 - **Phase 41** — Redeployed to Azure AKS (`eastus`), upgraded Key Vault CSI integration, configured proper Load Balancer health probes, and enabled automated Let's Encrypt SSL.
 - **Phase 38** — Reader Mode: server-side article fetch + sanitize (`go-readability` + `dompurify`), smart iframe fallback.
 - **Phase 36** — Admin Panel v2: Grafana-style analytics dashboard with user list and activity metrics at `/admin`.

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { Check, ArrowLeft, ArrowRight, ExternalLink, Link, MessageSquare, RefreshCw, Trash2, Bookmark } from 'lucide-react';
+import { Check, ArrowLeft, ArrowRight, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Home } from 'lucide-react';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { getStoryColor } from '../utils/colors';
@@ -28,12 +28,11 @@ interface ReaderPaneProps {
     onToggleSave?: (id: number, saved: boolean) => void;
     onPrev?: () => void;
     onNext?: () => void;
-    onSkip?: () => void;
-    onSelectStory?: (id: number) => void;
     stories?: Story[];
+    onBackToFeed?: () => void;
 }
 
-export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, onPrev, onNext, onSkip, onSelectStory, stories = [] }: ReaderPaneProps) {
+export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, onPrev, onNext, stories = [], onBackToFeed }: ReaderPaneProps) {
     const storyUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const containerRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'discussion' | 'article'>('article');
@@ -49,11 +48,6 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
     const prevStory = currentIndex > 0 ? stories[currentIndex - 1] : null;
     const nextStory = currentIndex >= 0 && currentIndex < stories.length - 1 ? stories[currentIndex + 1] : null;
 
-    // Helper to truncate text
-    const truncate = (text: string, length: number) => {
-        if (text.length <= length) return text;
-        return text.substring(0, length) + '...';
-    };
 
     const handleCopyLink = () => {
         navigator.clipboard.writeText(storyUrl);
@@ -148,14 +142,59 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
         <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] border-t border-slate-200 dark:border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)]">
 
             {/* Compact Sticky Title Bar */}
-            <div className="flex items-center justify-between px-6 py-2 bg-white dark:bg-[#152238] border-b border-slate-200 dark:border-white/5 shadow-sm shrink-0 z-20">
-                <div className="flex flex-col gap-1 mr-4 flex-1 min-w-0">
-                    <h2 className={`font-bold text-sm ${titleColor}`} title={story.title}>
-                        {story.title}
-                    </h2>
+            <div className="flex flex-col px-6 py-3 bg-white dark:bg-[#152238] border-b border-slate-200 dark:border-white/5 shadow-sm shrink-0 z-20">
 
-                    {/* Tab Switcher */}
-                    <div className="flex items-center gap-4">
+                {/* Top Row: Title and Navigation */}
+                <div className="flex items-center relative w-full mb-3 justify-center min-h-[32px]">
+                    {/* Left: Home Button */}
+                    {onBackToFeed && (
+                        <button
+                            onClick={onBackToFeed}
+                            className="absolute left-0 p-1.5 -ml-2 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors flex items-center shrink-0 group gap-1.5"
+                            title="Back to Feed (Esc)"
+                        >
+                            <Home size={18} />
+                            <span className="text-sm font-medium hidden sm:inline">Home</span>
+                        </button>
+                    )}
+
+                    {/* Center: Prev - Title - Next */}
+                    <div className="flex items-center justify-center max-w-[70%]">
+                        <button
+                            onClick={onPrev}
+                            disabled={!onPrev}
+                            className={`p-1.5 rounded-full transition-colors shrink-0 mr-2 ${!onPrev ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                            title={prevStory ? `Previous: ${prevStory.title}` : "Previous article"}
+                        >
+                            <ArrowLeft size={18} />
+                        </button>
+
+                        <a
+                            href={storyUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`font-bold text-base truncate px-2 hover:underline decoration-2 underline-offset-4 ${titleColor}`}
+                            title={`Open "${story.title}" in a new tab`}
+                        >
+                            {story.title}
+                        </a>
+
+                        <button
+                            onClick={onNext}
+                            disabled={!onNext}
+                            className={`p-1.5 rounded-full transition-colors shrink-0 ml-2 ${!onNext ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                            title={nextStory ? `Next: ${nextStory.title}` : "Next article"}
+                        >
+                            <ArrowRight size={18} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Bottom Row: Controls */}
+                <div className="flex items-center justify-between w-full">
+
+                    {/* Left: Tab Switcher */}
+                    <div className="flex items-center gap-4 shrink-0 flex-1">
                         <button
                             onClick={() => setActiveTab('article')}
                             className={`text-xs font-semibold pb-0.5 border-b-2 transition-colors ${activeTab === 'article'
@@ -175,134 +214,61 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                             Discussion
                         </button>
                     </div>
-                </div>
 
-                {/* Center: Navigation Buttons & Dropdown */}
-                <div className="flex items-center justify-center shrink-0 mx-4">
-                    <div className="flex items-center gap-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1.5 border border-slate-200 dark:border-slate-700 shadow-sm">
-
-                        {/* Prev 10 articles dropdown */}
-                        {stories && stories.length > 0 && onSelectStory && (
-                            <select
-                                className="mr-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md py-1 px-2 text-slate-700 dark:text-slate-300 w-48 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate cursor-pointer outline-none"
-                                value={story.id}
-                                onChange={(e) => onSelectStory(Number(e.target.value))}
-                                title="Jump to previous article"
+                    {/* Right Actions */}
+                    <div className="flex items-center justify-end gap-2 shrink-0 flex-1">
+                        <a
+                            href={storyUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md"
+                            title="Open in new tab"
+                        >
+                            <ExternalLink size={14} />
+                        </a>
+                        <button
+                            onClick={handleCopyLink}
+                            className={`p-1 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md mr-1 ${isCopied ? 'text-green-500' : 'text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                            title={isCopied ? 'Copied!' : 'Copy Link'}
+                        >
+                            {isCopied ? <Check size={14} /> : <Link size={14} />}
+                        </button>
+                        {onToggleSave && (
+                            <button
+                                onClick={() => onToggleSave(story.id, !!story.is_saved)}
+                                className={`p-1 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md mr-1 ${story.is_saved ? 'text-blue-500' : 'text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                                title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
                             >
-                                <option value={story.id} disabled className="italic">
-                                    {prevStory ? truncate(prevStory.title, 30) : "No prev articles"}
-                                </option>
-                                {stories
-                                    .slice(Math.max(0, currentIndex - 10), Math.max(0, currentIndex))
-                                    .map(s => (
-                                        <option key={s.id} value={s.id} title={s.title}>
-                                            {s.title}
-                                        </option>
-                                    ))}
-                            </select>
+                                <Bookmark size={14} fill={story.is_saved ? "currentColor" : "none"} />
+                            </button>
                         )}
 
-                        <button
-                            onClick={onPrev}
-                            disabled={!onPrev}
-                            className={`p-1.5 rounded transition-colors ${!onPrev ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm'}`}
-                            title="prev article"
-                        >
-                            <ArrowLeft size={18} />
-                        </button>
-                        <button
-                            onClick={onSkip}
-                            disabled={!onSkip}
-                            className={`p-1.5 rounded transition-colors ${!onSkip ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-red-500 dark:hover:text-red-400 shadow-sm'}`}
-                            title="Skip article"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                        <button
-                            onClick={onNext}
-                            disabled={!onNext}
-                            className={`p-1.5 rounded transition-colors ${!onNext ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm'}`}
-                            title="next article)"
-                        >
-                            <ArrowRight size={18} />
-                        </button>
-
-                        {/* Next 10 articles dropdown */}
-                        {stories && stories.length > 0 && onSelectStory && (
-                            <select
-                                className="ml-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md py-1 px-2 text-slate-700 dark:text-slate-300 w-48 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate cursor-pointer outline-none"
-                                value={story.id}
-                                onChange={(e) => onSelectStory(Number(e.target.value))}
-                                title="Jump to next article"
-                            >
-                                <option value={story.id} disabled className="italic">
-                                    {nextStory ? truncate(nextStory.title, 30) : "No next articles"}
-                                </option>
-                                {stories
-                                    .slice(Math.max(0, currentIndex + 1), currentIndex + 11)
-                                    .map(s => (
-                                        <option key={s.id} value={s.id} title={s.title}>
-                                            {s.title}
-                                        </option>
-                                    ))}
-                            </select>
+                        {/* Mode Toggle (only visible in Article tab) */}
+                        {activeTab === 'article' && !articleLoading && !articleError && (
+                            <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg mr-2">
+                                <button
+                                    onClick={() => setUseIframe(false)}
+                                    className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${!useIframe
+                                        ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                        }`}
+                                    title="Reader View (Text)"
+                                >
+                                    Reader
+                                </button>
+                                <button
+                                    onClick={() => setUseIframe(true)}
+                                    className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${useIframe
+                                        ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                        }`}
+                                    title="Web View (Original)"
+                                >
+                                    Web
+                                </button>
+                            </div>
                         )}
                     </div>
-                </div>
-
-                {/* Right Actions */}
-                <div className="flex items-center justify-end gap-2 shrink-0 flex-1">
-                    <a
-                        href={storyUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md"
-                        title="Open in new tab"
-                    >
-                        <ExternalLink size={14} />
-                    </a>
-                    <button
-                        onClick={handleCopyLink}
-                        className={`p-1 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md mr-1 ${isCopied ? 'text-green-500' : 'text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
-                        title={isCopied ? 'Copied!' : 'Copy Link'}
-                    >
-                        {isCopied ? <Check size={14} /> : <Link size={14} />}
-                    </button>
-                    {onToggleSave && (
-                        <button
-                            onClick={() => onToggleSave(story.id, !!story.is_saved)}
-                            className={`p-1 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md mr-1 ${story.is_saved ? 'text-blue-500' : 'text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
-                            title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
-                        >
-                            <Bookmark size={14} fill={story.is_saved ? "currentColor" : "none"} />
-                        </button>
-                    )}
-
-                    {/* Mode Toggle (only visible in Article tab) */}
-                    {activeTab === 'article' && !articleLoading && !articleError && (
-                        <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg mr-2">
-                            <button
-                                onClick={() => setUseIframe(false)}
-                                className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${!useIframe
-                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                                    }`}
-                                title="Reader View (Text)"
-                            >
-                                Reader
-                            </button>
-                            <button
-                                onClick={() => setUseIframe(true)}
-                                className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${useIframe
-                                    ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                                    }`}
-                                title="Web View (Original)"
-                            >
-                                Web
-                            </button>
-                        </div>
-                    )}
                 </div>
             </div>
 
