@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import { MessageSquare, ExternalLink, Sparkles, RefreshCw } from 'lucide-react';
+import { Check, ArrowLeft, ArrowRight, ExternalLink, Link, MessageSquare, RefreshCw, Trash2, Bookmark } from 'lucide-react';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { getStoryColor } from '../utils/colors';
@@ -13,6 +13,7 @@ interface Story {
     by: string;
     descendants: number;
     time: string;
+    is_saved?: boolean;
 }
 
 interface ReaderPaneProps {
@@ -22,12 +23,17 @@ interface ReaderPaneProps {
     onFocusList?: () => void;
     onSummarize?: () => void;
     onTakeFocus?: () => void;
-    onToggleAI?: () => void;
     initialActiveCommentId?: string | null;
     onSaveProgress?: (commentId: string) => void;
+    onToggleSave?: (id: number, saved: boolean) => void;
+    onPrev?: () => void;
+    onNext?: () => void;
+    onSkip?: () => void;
+    onSelectStory?: (id: number) => void;
+    stories?: Story[];
 }
 
-export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, onToggleAI, initialActiveCommentId, onSaveProgress }: ReaderPaneProps) {
+export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, onPrev, onNext, onSkip, onSelectStory, stories = [] }: ReaderPaneProps) {
     const storyUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const containerRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'discussion' | 'article'>('article');
@@ -36,6 +42,24 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
     const [articleError, setArticleError] = useState<string | null>(null);
     const [useIframe, setUseIframe] = useState(false);
     const [canIframe, setCanIframe] = useState(true);
+    const [isCopied, setIsCopied] = useState(false);
+
+    // Dropdown helpers
+    const currentIndex = stories.findIndex(s => s.id === story.id);
+    const prevStory = currentIndex > 0 ? stories[currentIndex - 1] : null;
+    const nextStory = currentIndex >= 0 && currentIndex < stories.length - 1 ? stories[currentIndex + 1] : null;
+
+    // Helper to truncate text
+    const truncate = (text: string, length: number) => {
+        if (text.length <= length) return text;
+        return text.substring(0, length) + '...';
+    };
+
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(storyUrl);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+    };
 
     const handleCollapse = (commentId: string) => {
         // finding the button via DOM is the most reliable way without complex state lifting
@@ -56,13 +80,6 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
     // Tab shortcuts & Navigation
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Ctrl + Space: Toggle AI Sidebar
-            if (e.ctrlKey && e.code === 'Space') {
-                e.preventDefault();
-                onToggleAI?.();
-                return;
-            }
-
             // Ctrl + Right: Switch to Discussion
             if (e.ctrlKey && e.key === 'ArrowRight') {
                 setActiveTab('discussion');
@@ -148,15 +165,6 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                         >
                             Article
                         </button>
-                        <a
-                            href={storyUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                            title="Open in new tab"
-                        >
-                            <ExternalLink size={12} />
-                        </a>
                         <button
                             onClick={() => setActiveTab('discussion')}
                             className={`text-xs font-semibold pb-0.5 border-b-2 transition-colors ${activeTab === 'discussion'
@@ -169,7 +177,107 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                {/* Center: Navigation Buttons & Dropdown */}
+                <div className="flex items-center justify-center shrink-0 mx-4">
+                    <div className="flex items-center gap-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1.5 border border-slate-200 dark:border-slate-700 shadow-sm">
+
+                        {/* Prev 10 articles dropdown */}
+                        {stories && stories.length > 0 && onSelectStory && (
+                            <select
+                                className="mr-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md py-1 px-2 text-slate-700 dark:text-slate-300 w-48 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate cursor-pointer outline-none"
+                                value={story.id}
+                                onChange={(e) => onSelectStory(Number(e.target.value))}
+                                title="Jump to previous article"
+                            >
+                                <option value={story.id} disabled className="italic">
+                                    {prevStory ? truncate(prevStory.title, 30) : "No prev articles"}
+                                </option>
+                                {stories
+                                    .slice(Math.max(0, currentIndex - 10), Math.max(0, currentIndex))
+                                    .map(s => (
+                                        <option key={s.id} value={s.id} title={s.title}>
+                                            {s.title}
+                                        </option>
+                                    ))}
+                            </select>
+                        )}
+
+                        <button
+                            onClick={onPrev}
+                            disabled={!onPrev}
+                            className={`p-1.5 rounded transition-colors ${!onPrev ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm'}`}
+                            title="prev article"
+                        >
+                            <ArrowLeft size={18} />
+                        </button>
+                        <button
+                            onClick={onSkip}
+                            disabled={!onSkip}
+                            className={`p-1.5 rounded transition-colors ${!onSkip ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-red-500 dark:hover:text-red-400 shadow-sm'}`}
+                            title="Skip article"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                        <button
+                            onClick={onNext}
+                            disabled={!onNext}
+                            className={`p-1.5 rounded transition-colors ${!onNext ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm'}`}
+                            title="next article)"
+                        >
+                            <ArrowRight size={18} />
+                        </button>
+
+                        {/* Next 10 articles dropdown */}
+                        {stories && stories.length > 0 && onSelectStory && (
+                            <select
+                                className="ml-1 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-md py-1 px-2 text-slate-700 dark:text-slate-300 w-48 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate cursor-pointer outline-none"
+                                value={story.id}
+                                onChange={(e) => onSelectStory(Number(e.target.value))}
+                                title="Jump to next article"
+                            >
+                                <option value={story.id} disabled className="italic">
+                                    {nextStory ? truncate(nextStory.title, 30) : "No next articles"}
+                                </option>
+                                {stories
+                                    .slice(Math.max(0, currentIndex + 1), currentIndex + 11)
+                                    .map(s => (
+                                        <option key={s.id} value={s.id} title={s.title}>
+                                            {s.title}
+                                        </option>
+                                    ))}
+                            </select>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right Actions */}
+                <div className="flex items-center justify-end gap-2 shrink-0 flex-1">
+                    <a
+                        href={storyUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md"
+                        title="Open in new tab"
+                    >
+                        <ExternalLink size={14} />
+                    </a>
+                    <button
+                        onClick={handleCopyLink}
+                        className={`p-1 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md mr-1 ${isCopied ? 'text-green-500' : 'text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                        title={isCopied ? 'Copied!' : 'Copy Link'}
+                    >
+                        {isCopied ? <Check size={14} /> : <Link size={14} />}
+                    </button>
+                    {onToggleSave && (
+                        <button
+                            onClick={() => onToggleSave(story.id, !!story.is_saved)}
+                            className={`p-1 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md mr-1 ${story.is_saved ? 'text-blue-500' : 'text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                            title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
+                        >
+                            <Bookmark size={14} fill={story.is_saved ? "currentColor" : "none"} />
+                        </button>
+                    )}
+
                     {/* Mode Toggle (only visible in Article tab) */}
                     {activeTab === 'article' && !articleLoading && !articleError && (
                         <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg mr-2">
@@ -195,15 +303,6 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                             </button>
                         </div>
                     )}
-
-                    <button
-                        onClick={onSummarize}
-                        className="flex items-center gap-1.5 text-xs font-bold transition-all px-2 py-1 rounded border bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-200 dark:border-transparent hover:border-slate-300 dark:hover:border-slate-700"
-                        title="Open AI Assistant (Shortcut: s)"
-                    >
-                        <Sparkles size={12} />
-                        <span>AI Assistant</span>
-                    </button>
                 </div>
             </div>
 

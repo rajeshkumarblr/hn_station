@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useLocation, Link } from 'react-router-dom';
 import './App.css';
 import { StoryCard } from './components/StoryCard';
 import { FilterComboBox } from './components/FilterComboBox';
@@ -186,8 +185,6 @@ function App() {
       .catch(() => { }); // Silently ignore — anonymous usage is fine
   }, []);
 
-  const location = useLocation();
-
 
 
   // Theme effect
@@ -249,12 +246,31 @@ function App() {
 
   // Sidebar Collapse state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   // Auto-collapse when opening a story (reader mode)
   useEffect(() => {
     if (focusMode === 'reader') {
       setIsSidebarCollapsed(true);
     }
   }, [focusMode]);
+
+  const handleNextStory = useCallback(() => {
+    if (stories.length === 0) return;
+    const idx = stories.findIndex(s => s.id === selectedStoryId);
+    if (idx === -1) return;
+    const next = Math.min(stories.length - 1, idx + 1);
+    setSelectedStoryId(stories[next].id);
+    storyRefs.current[next]?.focus();
+  }, [stories, selectedStoryId]);
+
+  const handlePrevStory = useCallback(() => {
+    if (stories.length === 0) return;
+    const idx = stories.findIndex(s => s.id === selectedStoryId);
+    if (idx === -1) return;
+    const prev = Math.max(0, idx - 1);
+    setSelectedStoryId(stories[prev].id);
+    storyRefs.current[prev]?.focus();
+  }, [stories, selectedStoryId]);
 
   // Keyboard handler
   useEffect(() => {
@@ -290,13 +306,14 @@ function App() {
       if (e.key === 'Escape') {
         e.preventDefault();
         setFocusMode('stories');
+        setIsZenMode(false); // Restore panels on escape
         setIsSidebarCollapsed(false); // Auto-expand on escape back to list
         const idx = stories.findIndex(s => s.id === selectedStoryId);
         if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
         return;
       }
 
-      if (e.key === 'Delete' && focusMode === 'stories' && selectedStoryId) {
+      if (e.key === 'Delete' && (focusMode === 'stories' || focusMode === 'reader') && selectedStoryId) {
         e.preventDefault();
         handleHideStory(selectedStoryId);
         return;
@@ -410,12 +427,18 @@ function App() {
             break;
           }
         }
+      } else if (e.ctrlKey && e.key === 'ArrowDown' && focusMode === 'reader' && stories.length > 0) {
+        e.preventDefault();
+        handleNextStory();
+      } else if (e.ctrlKey && e.key === 'ArrowUp' && focusMode === 'reader' && stories.length > 0) {
+        e.preventDefault();
+        handlePrevStory();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stories, selectedStoryId, focusMode, isZenMode]);
+  }, [stories, selectedStoryId, focusMode, isZenMode, handleNextStory, handlePrevStory]);
 
   // Build API URL
   const buildUrl = useCallback((currentOffset: number) => {
@@ -467,6 +490,8 @@ function App() {
           } else {
             setSelectedStoryId(data[0].id);
           }
+          setFocusMode('reader'); // Focus reader automatically
+          setIsZenMode(true); // Default to Zen Mode fully expanded
         }
       })
       .catch(err => {
@@ -550,6 +575,7 @@ function App() {
     setSelectedStoryId(id);
     setFocusMode('reader'); // Focus reader immediately
     setIsAIOpen(true); // Auto-open AI
+    setIsZenMode(true); // Auto-maximize the reader pane
     // Mark as read (local)
     setReadIds(prev => {
       const next = new Set(prev);
@@ -597,10 +623,6 @@ function App() {
 
   // Layout configuration
   const layoutId = isAIOpen ? 'hn-zen-v3-ai-layout' : 'hn-zen-v3-std-layout';
-
-  if (location.pathname === '/admin' || location.pathname === '/admin/') {
-    return <AdminDashboard />;
-  }
 
   return (
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
@@ -721,14 +743,13 @@ function App() {
             {user ? (
               <div className="flex items-center gap-2 ml-1">
                 {user.is_admin && (
-                  <Link
-                    to="/admin"
-                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-all active:scale-95 shadow-sm"
+                  <button
+                    onClick={() => setIsAdminModalOpen(true)}
+                    className="flex items-center justify-center p-2 mr-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all active:scale-95 shadow-sm"
                     title="Admin Dashboard"
                   >
                     <Shield size={14} />
-                    Admin
-                  </Link>
+                  </button>
                 )}
                 <img
                   src={user.avatar_url}
@@ -904,6 +925,12 @@ function App() {
                         localStorage.setItem('hn_story_progress', JSON.stringify(progress));
                       } catch { }
                     }}
+                    onToggleSave={user ? handleToggleSave : undefined}
+                    onPrev={stories.findIndex(s => s.id === selectedStoryId) > 0 ? handlePrevStory : undefined}
+                    onNext={stories.findIndex(s => s.id === selectedStoryId) < stories.length - 1 ? handleNextStory : undefined}
+                    onSkip={selectedStoryId ? () => handleHideStory(selectedStoryId) : undefined}
+                    onSelectStory={handleStorySelect}
+                    stories={stories}
                   />
                 </aside>
               </Panel>
@@ -933,6 +960,11 @@ function App() {
                 />
               </Panel>
             </>
+          )}
+
+          {/* Admin Modal Panel */}
+          {isAdminModalOpen && (
+            <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />
           )}
 
         </PanelGroup>

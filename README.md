@@ -97,8 +97,8 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 
 ## Recent Updates
 
+- **Phase 42** — Reader Pane UX overhaul: Next/Prev adjacent article dropdowns with title truncation, auto-Zen mode, AI sidebar declutter, shortened auto-summaries, and header icon simplification.
 - **Phase 41** — Redeployed to Azure AKS (`eastus`), upgraded Key Vault CSI integration, configured proper Load Balancer health probes, and enabled automated Let's Encrypt SSL.
-- **Phase 40** — Local k8s deployment via `kind` with host-Postgres ExternalName service; Azure manifests moved to `infrastructure/azure/`; one-command `deploy_local.sh`.
 - **Phase 38** — Reader Mode: server-side article fetch + sanitize (`go-readability` + `dompurify`), smart iframe fallback.
 - **Phase 36** — Admin Panel v2: Grafana-style analytics dashboard with user list and activity metrics at `/admin`.
 - **Phase 35** — Full light mode support, hover-expand story cards, zebra striping.
