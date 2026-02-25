@@ -1,4 +1,5 @@
-import { Star, Terminal } from 'lucide-react';
+import { useState } from 'react';
+import { Star, Terminal, Link, Check } from 'lucide-react';
 import { getStoryColor } from '../utils/colors';
 
 export interface Story {
@@ -34,6 +35,15 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSele
     } catch (e) {
         // ignore invalid urls
     }
+
+    const [isCopied, setIsCopied] = useState(false);
+    const handleCopyLink = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const urlToCopy = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+        navigator.clipboard.writeText(urlToCopy);
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+    };
 
     const date = new Date(story.time);
     const timeAgo = getTimeAgo(date);
@@ -99,7 +109,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSele
             </div>
 
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
-                <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate'} transition-all duration-200`}>
+                <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate group-hover:whitespace-normal group-hover:leading-snug group-hover:mb-1.5 group-hover:overflow-visible transition-[margin,line-height] duration-200'} transition-all duration-200`}>
                     {displayRank && (
                         <span className="text-slate-400 dark:text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
                             {displayRank}.
@@ -109,6 +119,14 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, isSele
                     <span className={`${titleColorClass} ${dimmed && !isSelected ? 'text-slate-600 dark:text-slate-400/80 font-normal mix-blend-luminosity' : ''} hover:opacity-80 transition-opacity cursor-pointer`}>
                         {story.title}
                     </span>
+                    {/* Copy Link button */}
+                    <button
+                        onClick={handleCopyLink}
+                        className={`inline-flex ml-1.5 align-text-bottom transition-all duration-150 ${isCopied ? 'text-green-500 scale-110' : 'text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:scale-110'}`}
+                        title={isCopied ? 'Copied!' : 'Copy Link'}
+                    >
+                        {isCopied ? <Check size={14} /> : <Link size={14} />}
+                    </button>
                 </h3>
 
                 {/* Details Row - Visible on selection OR hover */}

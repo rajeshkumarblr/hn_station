@@ -36,7 +36,7 @@ func (c *GeminiClient) GenerateSummary(ctx context.Context, apiKey string, text 
 			return "", err
 		}
 
-		prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Text: %s", text)
+		prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Do not include any introductory text or conversational filler. Output the bullet points directly. Text: %s", text)
 
 		resp, err := model.GenerateContent(ctx, genai.Text(prompt))
 		if err != nil {

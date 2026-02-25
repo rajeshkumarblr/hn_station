@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, X, Bot, User as UserIcon, Sparkles } from 'lucide-react';
+import { Send, X, Bot, User as UserIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -52,33 +52,14 @@ export function AISidebar({ storyId, isOpen, onClose, initialSummary }: AISideba
                         console.log("AISidebar: Using initialSummary");
                         setMessages([{
                             role: 'model',
-                            content: `**Auto-generated Summary:**\n\n${initialSummary}`
+                            content: `Discussion Summary:\n\n${initialSummary}`
                         }]);
-                    } else {
-                        // No history AND no initial summary.
-                        // Try to fetch fresh story details first (maybe ingest finished)
-                        console.log("AISidebar: Fetching fresh story details");
-                        try {
-                            const storyRes = await fetch(`${baseUrl}/api/stories/${storyId}`);
-                            if (storyRes.ok) {
-                                const data = await storyRes.json();
-                                if (data.story && data.story.summary) {
-                                    console.log("AISidebar: Found summary in story details");
-                                    setMessages([{
-                                        role: 'model',
-                                        content: `**Auto-generated Summary:**\n\n${data.story.summary}`
-                                    }]);
-                                    return;
-                                }
-                            }
-                        } catch (e) {
-                            console.error("Failed to fetch fresh story details", e);
-                        }
-
-                        // If still no summary, forcefully generate it on-demand
-                        console.log("AISidebar: Calling ensureSummary");
-                        ensureSummary();
+                        return;
                     }
+
+                    // If still no summary, forcefully generate it on-demand
+                    console.log("AISidebar: Calling ensureSummary");
+                    ensureSummary();
                 }
             }
         } catch (err) {
@@ -86,7 +67,7 @@ export function AISidebar({ storyId, isOpen, onClose, initialSummary }: AISideba
             if (initialSummary) {
                 setMessages([{
                     role: 'model',
-                    content: `**Auto-generated Summary:**\n\n${initialSummary}`
+                    content: `Discussion Summary:\n\n${initialSummary}`
                 }]);
             }
         } finally {
@@ -101,7 +82,7 @@ export function AISidebar({ storyId, isOpen, onClose, initialSummary }: AISideba
 
         try {
             const baseUrl = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${baseUrl}/api/stories/${storyId}/summarize`, {
+            const res = await fetch(`${baseUrl} /api/stories / ${storyId}/summarize`, {
                 method: 'POST',
                 credentials: 'include',
             });
@@ -111,7 +92,7 @@ export function AISidebar({ storyId, isOpen, onClose, initialSummary }: AISideba
                 if (data.summary) {
                     setMessages([{
                         role: 'model',
-                        content: `**Auto-generated Summary:**\n\n${data.summary}`
+                        content: `Discussion Summary:\n\n${data.summary}`
                     }]);
                 }
             } else {
@@ -198,16 +179,15 @@ export function AISidebar({ storyId, isOpen, onClose, initialSummary }: AISideba
 
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                        <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${msg.role === 'user'
-                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
-                            : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300'
-                            }`}>
-                            {msg.role === 'user' ? <UserIcon size={16} /> : <Bot size={16} />}
-                        </div>
+                        {msg.role === 'user' && (
+                            <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300">
+                                <UserIcon size={16} />
+                            </div>
+                        )}
 
-                        <div className={`flex-1 max-w-[85%] text-sm rounded-2xl px-4 py-3 ${msg.role === 'user'
-                            ? 'bg-blue-600 text-white rounded-tr-sm'
-                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-tl-sm shadow-sm'
+                        <div className={`text-sm rounded-2xl px-4 py-3 ${msg.role === 'user'
+                            ? 'flex-1 max-w-[85%] bg-blue-600 text-white rounded-tr-sm'
+                            : 'w-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-900 dark:text-emerald-100 border border-emerald-200 dark:border-emerald-800 rounded-tl-sm shadow-sm'
                             }`}>
                             <div className="prose dark:prose-invert max-w-none prose-sm prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-md">
                                 <ReactMarkdown>
@@ -220,13 +200,10 @@ export function AISidebar({ storyId, isOpen, onClose, initialSummary }: AISideba
 
                 {loading && (
                     <div className="flex gap-3">
-                        <div className="shrink-0 w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">
-                            <Bot size={16} />
-                        </div>
-                        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
-                            <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <div className="w-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
+                            <div className="w-2 h-2 bg-emerald-400 dark:bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <div className="w-2 h-2 bg-emerald-400 dark:bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <div className="w-2 h-2 bg-emerald-400 dark:bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                     </div>
                 )}
@@ -235,18 +212,6 @@ export function AISidebar({ storyId, isOpen, onClose, initialSummary }: AISideba
             {/* Input */}
             <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
                 <form onSubmit={handleSend} className="relative">
-                    {/* Helper Chips */}
-                    <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
-                        <button
-                            type="button"
-                            onClick={() => setInput("Summarize this story")}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-xs font-medium text-slate-600 dark:text-slate-300 transition-colors whitespace-nowrap"
-                        >
-                            <Sparkles size={12} className="text-purple-500" />
-                            Summarize Story
-                        </button>
-                    </div>
-
                     <div className="relative">
                         <input
                             ref={inputRef}
