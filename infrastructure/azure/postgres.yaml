@@ -12,6 +12,22 @@ spec:
     app: postgres
   clusterIP: None # Headless service for stable network identity
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-lb
+  labels:
+    app: postgres
+spec:
+  type: LoadBalancer
+  loadBalancerSourceRanges:
+    - 49.206.15.4/32
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: postgres
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

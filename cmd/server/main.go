@@ -47,9 +47,9 @@ func main() {
 	authCfg := auth.NewConfig()
 	log.Printf("OAuth2 callback URL: %s", authCfg.OAuth2Config.RedirectURL)
 
-	// Initialize Gemini client (stateless, acts as a factory/wrapper)
-	aiClient := ai.NewGeminiClient()
-	log.Println("Gemini client initialized")
+	// Initialize Ollama client
+	aiClient := ai.NewOllamaClient()
+	log.Println("Ollama client initialized")
 
 	store := storage.New(dbpool)
 	server := api.NewServer(store, authCfg, aiClient)

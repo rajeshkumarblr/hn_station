@@ -21,7 +21,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 | **Reading** | 3-pane resizable layout · Reader Mode (`go-readability`) · Smart iframe fallback |
 | **Comments** | Recursive collapsible threads · Keyboard nav (`n`/`p` root comments) |
 | **Discovery** | Topic filters (Postgres, LLM, Rust, …) · Full-text search (PostgreSQL `tsvector`) |
-| **AI (BYOK)** | Discussion & article summarizer · Multi-turn contextual chat · Auto-summarization |
+| **AI (BYOK)** | "Zen" Summary Overlay (pre-cached) · Semantic Topic Tagging · Local GPU Ingestion |
 | **Auth** | Google OAuth · Bookmarks · Read/hidden state synced to DB |
 | **Navigation** | Full keyboard control · `j`/`k`, `/` search, `z` Zen mode, `Delete` to hide |
 | **Infra** | Docker Compose · Kubernetes (AKS + local Kind) |
@@ -34,7 +34,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 |-------|-----------|
 | Backend API | Go · `go-chi/chi` |
 | Ingestion | Go worker pool · HN Firebase REST API |
-| AI | Google Gemini 2.5 Flash (`google/generative-ai-go`) |
+| AI | Ollama (`qwen2.5-coder`) · Local GPU · Discussion Context |
 | Database | PostgreSQL · `pgx/v5` · `pgvector` |
 | Auth | Google OAuth 2.0 · JWT (HS256) cookies |
 | Frontend | React 18 · TypeScript · Tailwind CSS · Vite |
@@ -90,14 +90,15 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 | `GOOGLE_CLIENT_ID` | ✅ | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | ✅ | Google OAuth client secret |
 | `OAUTH_CALLBACK_URL` | ✅ | Full callback URL (e.g. `https://hnstation.dev/auth/google/callback`) |
-| `GEMINI_API_KEY` | ⬜ | Server-side key for auto-summarization in the ingest service |
+| `OLLAMA_URL` | ⬜ | URL for local Ollama instance (e.g. `http://localhost:11434`) |
 | `FRONTEND_URL` | ⬜ | Redirect URL after OAuth (defaults to `/`) |
 
 ---
 
 ## Recent Updates
 
-- **Phase 42** — Index -> Show Architecture Refactor: Dedicated Feed & Zen Reader views. Explicit reading queue, minimalist browser-like ReaderPane navigation (centered title hyperlink, flanking prev/next arrows), and hover-triggered AI sidebar.
+- **Zen AI & Local Automation** — Decommissioned heavy interactive sidebar and chat backend. Integrated sleek "Zen" summary overlay into ReaderPane with pre-cached content. Automated local ingestion via `flock`-protected scripts, moving expensive AI workloads from Azure to local GPU.
+- **Phase 42** — Index -> Show Architecture Refactor: Dedicated Feed & Zen Reader views. Explicit reading queue, minimalist browser-like ReaderPane navigation.
 - **Phase 41** — Redeployed to Azure AKS (`eastus`), upgraded Key Vault CSI integration, configured proper Load Balancer health probes, and enabled automated Let's Encrypt SSL.
 - **Phase 38** — Reader Mode: server-side article fetch + sanitize (`go-readability` + `dompurify`), smart iframe fallback.
 - **Phase 36** — Admin Panel v2: Grafana-style analytics dashboard with user list and activity metrics at `/admin`.

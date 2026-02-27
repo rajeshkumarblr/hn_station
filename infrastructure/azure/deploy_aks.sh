@@ -26,7 +26,8 @@ echo "Deploying Postgres..."
 kubectl apply -f infrastructure/k8s/postgres.yaml
 
 # Wait for Postgres (optional check, or just proceed)
-echo "Deploying Backend, Frontend, and Ingestion..."
+echo "Deploying Ollama, Backend, Frontend, and Ingestion..."
+kubectl apply -f infrastructure/k8s/ollama.yaml
 kubectl apply -f infrastructure/k8s/backend.yaml
 kubectl apply -f infrastructure/k8s/frontend.yaml
 kubectl apply -f infrastructure/k8s/ingest.yaml

@@ -2,10 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"sort"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -19,11 +23,16 @@ import (
 )
 
 const (
-	WorkerCount  = 2
-	TotalStories = 500
+	WorkerCount  = 1
+	TotalStories = 100
 )
 
 func main() {
+	// Parse CLI flags
+	interval := flag.Duration("interval", 1*time.Minute, "Interval between ingestion runs (e.g. 5m, 1h)")
+	oneShot := flag.Bool("one-shot", false, "Run once and exit")
+	flag.Parse()
+
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, relying on environment variables")
@@ -55,28 +64,51 @@ func main() {
 
 	store := storage.New(dbpool)
 	client := hn.NewClient()
-	aiClient := ai.NewGeminiClient()
+	aiClient := ai.NewOllamaClient()
 
-	log.Println("Starting Ingestion Service...")
+	log.Printf("Starting Ingestion Service (Interval: %v, One-shot: %v)...", *interval, *oneShot)
 
-	// Run initially
+	// Start Summary Workers
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://ollama:11434"
+	}
+	summaryQueue := make(chan SummaryJob, 500)
 
-	// Start Summary Worker
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	summaryQueue := make(chan SummaryJob, 500) // Buffer for pending summaries
-	go startSummaryWorker(ctx, store, aiClient, apiKey, summaryQueue)
+	// Create a shared rate limiter for Ollama
+	limiter := time.NewTicker(5 * time.Second)
+	defer limiter.Stop()
+
+	var workerWg sync.WaitGroup
+	for i := 0; i < WorkerCount; i++ {
+		workerWg.Add(1)
+		go func(workerID int) {
+			defer workerWg.Done()
+			startWorker(workerID, ctx, store, aiClient, ollamaURL, summaryQueue, limiter)
+		}(i)
+	}
 
 	// Run initially
 	runIngestion(ctx, client, store, aiClient, summaryQueue)
 
-	// Ticker for periodic updates (every 1 minute)
-	ticker := time.NewTicker(1 * time.Minute)
+	if *oneShot {
+		log.Println("One-shot mode: waiting for summary queue to drain...")
+		close(summaryQueue)
+		workerWg.Wait()
+		log.Println("One-shot run completed.")
+		return
+	}
+
+	// Ticker for periodic updates
+	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Shutting down ingestion service...")
+			close(summaryQueue)
+			workerWg.Wait()
 			return
 		case <-ticker.C:
 			runIngestion(ctx, client, store, aiClient, summaryQueue)
@@ -90,35 +122,27 @@ type SummaryJob struct {
 	Title string
 }
 
-func startSummaryWorker(ctx context.Context, store *storage.Store, aiClient *ai.GeminiClient, apiKey string, jobs <-chan SummaryJob) {
-	if apiKey == "" {
-		log.Println("No API key, summary worker disabled.")
-		return
-	}
-
-	log.Println("Summary worker started (Rate Limit: 1 request/10s)")
-
-	// Rate Limiter: 1 request every 10 seconds to stay safely under 15 RPM free tier
-	limiter := time.NewTicker(10 * time.Second)
-	defer limiter.Stop()
-
+func startWorker(id int, ctx context.Context, store *storage.Store, aiClient *ai.OllamaClient, ollamaURL string, jobs <-chan SummaryJob, limiter *time.Ticker) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case job := <-jobs:
+		case job, ok := <-jobs:
+			if !ok {
+				return
+			}
 			// Wait for tick before processing
 			<-limiter.C
-			processSummary(ctx, store, aiClient, apiKey, job)
+			processSummary(ctx, store, aiClient, ollamaURL, job)
 		}
 	}
 }
 
-func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.GeminiClient, apiKey string, job SummaryJob) {
+func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.OllamaClient, ollamaURL string, job SummaryJob) {
 	log.Printf("Processing summary for story %d: %s", job.ID, job.Title)
 
 	// Use a new context with timeout for the actual work
-	workCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	workCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
 	fetchRes, err := content.FetchArticle(job.URL)
@@ -132,27 +156,67 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Gemi
 		return
 	}
 
-	prompt := fmt.Sprintf("Summarize this Hacker News story/discussion in 3-5 bullet points. Focus on the unique technical details or controversy. Title: %s\n\nText: %s", job.Title, fetchRes.Content)
+	// Truncate content for CPU inference speed (6000 chars ~ 1500 words)
+	textContent := fetchRes.Content
+	if len(textContent) > 20000 {
+		textContent = textContent[:20000] + "..."
+	}
 
-	summary, err := aiClient.GenerateSummary(workCtx, apiKey, prompt)
+	// Use unified GenerateSummary which takes title and text
+	responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Title, textContent)
 	if err != nil {
 		log.Printf("Failed to generate summary (story %d): %v", job.ID, err)
 		return
 	}
 
-	if err := store.UpdateStorySummary(workCtx, job.ID, summary); err != nil {
-		log.Printf("Failed to save summary (story %d): %v", job.ID, err)
+	// Try to parse the JSON (assuming Ollama phi3 outputs it directly)
+	cleanJSON := strings.TrimSpace(responseStr)
+	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
+	cleanJSON = strings.TrimPrefix(cleanJSON, "```")
+	cleanJSON = strings.TrimSuffix(cleanJSON, "```")
+	cleanJSON = strings.TrimSpace(cleanJSON)
+
+	var intermediate struct {
+		Summary interface{} `json:"summary"`
+		Topics  []string    `json:"topics"`
+	}
+
+	var result struct {
+		Summary string
+		Topics  []string
+	}
+
+	if err := json.Unmarshal([]byte(cleanJSON), &intermediate); err != nil {
+		log.Printf("Failed to parse JSON for story %d. Error: %v. Raw response: %s", job.ID, err, responseStr)
+		result.Summary = responseStr // Fallback
+		result.Topics = []string{}
 	} else {
-		log.Printf("Successfully saved summary for story %d", job.ID)
+		// Handle Summary being either a string or an array of strings
+		switch v := intermediate.Summary.(type) {
+		case string:
+			result.Summary = v
+		case []interface{}:
+			var parts []string
+			for _, part := range v {
+				if s, ok := part.(string); ok {
+					parts = append(parts, s)
+				}
+			}
+			result.Summary = strings.Join(parts, " ")
+		default:
+			result.Summary = fmt.Sprintf("%v", v)
+		}
+		result.Topics = intermediate.Topics
+	}
+
+	if err := store.UpdateStorySummaryAndTopics(workCtx, job.ID, result.Summary, result.Topics); err != nil {
+		log.Printf("Failed to save summary/topics (story %d): %v", job.ID, err)
+	} else {
+		log.Printf("Successfully saved summary and %d topics for story %d", len(result.Topics), job.ID)
 	}
 }
 
-func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.GeminiClient, summaryQueue chan<- SummaryJob) {
-	// ... (Same fetching logic) ...
-	// Try to get an admin API key for summarization
-	// (Note: apiKey is passed to worker, but we check here just to log status)
-	// We can simplify this since worker handles it, but let's keep the initial fetch log
-
+func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.OllamaClient, summaryQueue chan<- SummaryJob) {
 	log.Println("Fetching stories...")
 
 	// Fetch Top Stories (Ranked)
@@ -195,12 +259,39 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 		uniqueIDs[id] = struct{}{}
 	}
 
+	// Sort IDs by Rank before processing
 	var ids []int
 	for id := range uniqueIDs {
 		ids = append(ids, id)
 	}
+	sort.Slice(ids, func(i, j int) bool {
+		rI, hasI := rankMap[ids[i]]
+		rJ, hasJ := rankMap[ids[j]]
+		if hasI && hasJ {
+			return rI < rJ
+		}
+		if hasI {
+			return true
+		}
+		if hasJ {
+			return false
+		}
+		return ids[i] > ids[j] // Fallback to newer IDs
+	})
 
-	log.Printf("Queuing %d unique stories for ingestion...", len(ids))
+	// Truncate to a reasonable number to avoid heavy backlogs (e.g. 200)
+	if len(ids) > 200 {
+		ids = ids[:200]
+	}
+
+	log.Printf("Queuing %d unique stories for ingestion (prioritizing by rank)...", len(ids))
+
+	// OPTIMIZATION: Check which stories already have summaries in the DB
+	statusMap, err := store.GetStoriesStatus(ctx, ids)
+	if err != nil {
+		log.Printf("Failed to fetch story statuses: %v", err)
+		statusMap = make(map[int]bool) // Fallback to processing all
+	}
 
 	jobs := make(chan int, len(ids))
 	var wg sync.WaitGroup
@@ -216,6 +307,15 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 					return
 				default:
 					rank, hasRank := rankMap[id]
+					hasSummary := statusMap[id]
+
+					// SKIP CRITERIA:
+					// 1. If it has a summary AND it's not in the top 50 (to keep top stories fresh)
+					// 2. OR if it has a summary and no rank (older "New" stories)
+					if hasSummary && (!hasRank || rank > 50) {
+						continue
+					}
+
 					var rankPtr *int
 					if hasRank {
 						rankPtr = &rank
@@ -234,7 +334,18 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 	}
 	close(jobs)
 	wg.Wait()
+
+	// Cleanup old stories: Keep only top 100
+	log.Println("Cleaning up old stories (keeping only top 100)...")
+	cleanupOldStories(ctx, store)
+
 	log.Println("Ingestion run completed.")
+}
+
+func cleanupOldStories(ctx context.Context, store *storage.Store) {
+	if err := store.PruneStories(ctx, 100); err != nil {
+		log.Printf("Failed to prune old stories: %v", err)
+	}
 }
 
 func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int, rank *int, summaryQueue chan<- SummaryJob) error {
