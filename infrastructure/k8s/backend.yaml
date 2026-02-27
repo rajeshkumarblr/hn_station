@@ -56,6 +56,8 @@ spec:
               value: "https://hnstation.dev/auth/google/callback"
             - name: FRONTEND_URL
               value: "/"
+            - name: OLLAMA_URL
+              value: "http://ollama:11434"
           volumeMounts:
           - name: secrets-store-inline
             mountPath: "/mnt/secrets-store"

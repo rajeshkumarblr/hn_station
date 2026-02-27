@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
-import { Check, ArrowLeft, ArrowRight, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Home } from 'lucide-react';
+import { Check, ArrowLeft, ArrowRight, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Home, Sparkles, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { getStoryColor } from '../utils/colors';
@@ -14,6 +15,7 @@ interface Story {
     descendants: number;
     time: string;
     is_saved?: boolean;
+    summary?: string;
 }
 
 interface ReaderPaneProps {
@@ -42,6 +44,8 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
     const [useIframe, setUseIframe] = useState(false);
     const [canIframe, setCanIframe] = useState(true);
     const [isCopied, setIsCopied] = useState(false);
+    const [bookmarkToast, setBookmarkToast] = useState<'saved' | 'removed' | null>(null);
+    const [showSummary, setShowSummary] = useState(false);
 
     // Dropdown helpers
     const currentIndex = stories.findIndex(s => s.id === story.id);
@@ -234,13 +238,26 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                             {isCopied ? <Check size={14} /> : <Link size={14} />}
                         </button>
                         {onToggleSave && (
-                            <button
-                                onClick={() => onToggleSave(story.id, !!story.is_saved)}
-                                className={`p-1 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md mr-1 ${story.is_saved ? 'text-blue-500' : 'text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
-                                title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
-                            >
-                                <Bookmark size={14} fill={story.is_saved ? "currentColor" : "none"} />
-                            </button>
+                            <div className="relative flex items-center">
+                                <button
+                                    onClick={() => {
+                                        const nextSaved = !story.is_saved;
+                                        onToggleSave(story.id, nextSaved);
+                                        setBookmarkToast(nextSaved ? 'saved' : 'removed');
+                                        setTimeout(() => setBookmarkToast(null), 2000);
+                                    }}
+                                    className={`p-1 transition-colors bg-slate-100 dark:bg-slate-800 rounded-md mr-1 ${story.is_saved ? 'text-blue-500' : 'text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                                    title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
+                                >
+                                    <Bookmark size={14} fill={story.is_saved ? "currentColor" : "none"} />
+                                </button>
+                                {bookmarkToast && (
+                                    <div className={`absolute -bottom-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-[10px] font-bold shadow-sm z-30 transition-all animate-in fade-in slide-in-from-top-1 ${bookmarkToast === 'saved' ? 'bg-blue-500 text-white' : 'bg-slate-500 text-white'
+                                        }`}>
+                                        {bookmarkToast === 'saved' ? 'Saved' : 'Removed'}
+                                    </div>
+                                )}
+                            </div>
                         )}
 
                         {/* Mode Toggle (only visible in Article tab) */}
@@ -268,12 +285,51 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                                 </button>
                             </div>
                         )}
+
+                        {/* AI Summary Toggle */}
+                        {story.summary && (
+                            <button
+                                onClick={() => setShowSummary(!showSummary)}
+                                className={`p-1 transition-colors rounded-md mr-1 ${showSummary
+                                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 border border-transparent'}`}
+                                title={showSummary ? "Hide AI Summary" : "Show AI Summary"}
+                            >
+                                <Sparkles size={14} className={showSummary ? 'fill-current' : ''} />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Content Container */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 pt-3">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 pt-3 relative">
+                {/* AI Summary Zen Overlay */}
+                {showSummary && story.summary && (
+                    <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20 rounded-xl p-5 shadow-sm relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={() => setShowSummary(false)}
+                                    className="p-1 text-emerald-500/50 hover:text-emerald-500 transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="mt-0.5 bg-emerald-500/10 dark:bg-emerald-500/20 p-1.5 rounded-lg shrink-0">
+                                    <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-emerald-600/70 dark:text-emerald-400/70 mb-2">AI Insights</h4>
+                                    <div className="prose prose-sm prose-emerald dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed">
+                                        <ReactMarkdown>{story.summary}</ReactMarkdown>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {activeTab === 'discussion' ? (
                     <div
                         ref={containerRef}

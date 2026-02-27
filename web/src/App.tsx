@@ -1,13 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import './App.css';
 import { StoryCard } from './components/StoryCard';
-import { FilterComboBox } from './components/FilterComboBox';
 import { ReaderPane } from './components/ReaderPane';
+import { FilterSidebar } from './components/FilterSidebar';
 import { SettingsModal } from './components/SettingsModal';
-import { AISidebar } from './components/AISidebar';
 import { AdminDashboard } from './components/AdminDashboard';
-import { RefreshCw, X, Moon, Sun, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Sparkles, Shield } from 'lucide-react';
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
+import { RefreshCw, X, Moon, Sun, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Shield } from 'lucide-react';
 
 interface Story {
   id: number;
@@ -24,6 +22,7 @@ interface Story {
   is_saved?: boolean;
   is_hidden?: boolean;
   summary?: string;
+  topics?: string[];
 }
 
 interface User {
@@ -42,11 +41,9 @@ const MODES = [
   { key: 'saved', label: 'Bookmarks', icon: Bookmark },
 ] as const;
 
-const QUICK_FILTERS = ['Postgres', 'Rust', 'AI', 'LLM', 'Go'];
-
 type ModeKey = typeof MODES[number]['key'];
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 16;
 const MAX_READ_IDS = 500;
 
 // Color palette for topic chips — visually distinct, muted for dark mode
@@ -62,19 +59,39 @@ const TOPIC_COLORS = [
 ];
 
 function getTopicColor(topic: string) {
+  const HARDCODED_COLORS: Record<string, number> = {
+    'ai': 0, // emerald
+    'llm': 1, // violet
+    'go': 2, // amber
+    'rust': 3, // sky
+    'postgres': 4, // rose
+    'react': 5, // teal
+    'linux': 6, // orange
+    'apple': 7, // indigo
+    'google': 2, // amber
+  };
+
+  const lowerTopic = topic.toLowerCase();
+  if (lowerTopic in HARDCODED_COLORS) {
+    return TOPIC_COLORS[HARDCODED_COLORS[lowerTopic]];
+  }
+
   // Deterministic hash → color index
   let hash = 0;
   for (let i = 0; i < topic.length; i++) {
-    hash = topic.charCodeAt(i) + ((hash << 5) - hash);
+    hash = topic.charCodeAt(i) + ((hash << 5) - hash) + topic.length * 13;
   }
   return TOPIC_COLORS[Math.abs(hash) % TOPIC_COLORS.length];
 }
 
-// Check which active topic (if any) matches a story title
-function getStoryTopicMatch(title: string, topics: string[]): string | null {
-  const lowerTitle = title.toLowerCase();
-  for (const topic of topics) {
-    if (lowerTitle.includes(topic.toLowerCase())) return topic;
+// Check which active topic (if any) matches a story's tags
+function getStoryTopicMatch(storyTopics: string[] | undefined, activeTopics: string[]): string | null {
+  if (!storyTopics || storyTopics.length === 0) return null;
+  for (const active of activeTopics) {
+    const activeLower = active.toLowerCase();
+    for (const t of storyTopics) {
+      if (t.toLowerCase() === activeLower) return active;
+    }
   }
   return null;
 }
@@ -119,8 +136,6 @@ function App() {
   // Infinite scroll
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Read tracking
   const [readIds, setReadIds] = useState<Set<number>>(loadReadIds);
@@ -148,20 +163,11 @@ function App() {
   // Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // AI Sidebar
-  const [isAIOpen, setIsAIOpen] = useState(false);
-
   // Keyboard Nav
   const [focusMode, setFocusMode] = useState<'stories' | 'reader' | 'header'>('stories');
   const [currentView, setCurrentView] = useState<'feed' | 'reader'>('feed');
   const [readingQueue, setReadingQueue] = useState<number[]>([]);
   const readerContainerRef = useRef<HTMLElement>(null);
-  // Resize Handle
-  const ResizeHandle = () => (
-    <PanelResizeHandle className="w-2 flex justify-center items-stretch group focus:outline-none">
-      <div className="w-[1px] bg-gray-200 dark:bg-slate-800 transition-colors group-hover:bg-blue-500 group-active:bg-blue-600 dark:group-hover:bg-blue-500 delay-75 h-full"></div>
-    </PanelResizeHandle>
-  );
   const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const topicInputRef = useRef<HTMLInputElement>(null);
   const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -175,7 +181,7 @@ function App() {
   // Fetch current user on load
   useEffect(() => {
     const baseUrl = import.meta.env.VITE_API_URL || '';
-    fetch(`${baseUrl}/api/me`, { credentials: 'include' })
+    fetch(`${baseUrl} /api/me`, { credentials: 'include' })
       .then(res => {
         if (res.ok) return res.json();
         return null;
@@ -196,13 +202,6 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // AI Sidebar hover trigger effect
-  useEffect(() => {
-    const handleOpenAI = () => setIsAIOpen(true);
-    window.addEventListener('open-ai-sidebar', handleOpenAI);
-    return () => window.removeEventListener('open-ai-sidebar', handleOpenAI);
-  }, []);
-
   // Persist topic chips
   useEffect(() => {
     saveTopicChips(activeTopics);
@@ -219,7 +218,7 @@ function App() {
     // Persist hidden state to server
     if (user) {
       const baseUrl = import.meta.env.VITE_API_URL || '';
-      fetch(`${baseUrl}/api/stories/${id}/interact`, {
+      fetch(`${baseUrl} /api/stories / ${id}/interact`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -439,7 +438,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stories, selectedStoryId, focusMode, currentView, handleNextStory, handlePrevStory]);
+  }, [stories, selectedStoryId, focusMode, currentView, handleNextStory, handlePrevStory, mode]);
 
   // Build API URL
   const buildUrl = useCallback((currentOffset: number) => {
@@ -448,24 +447,20 @@ function App() {
       return `${baseUrl}/api/stories/saved?limit=${PAGE_SIZE}&offset=${currentOffset}&_t=${Date.now()}`;
     }
     let url = `${baseUrl}/api/stories?limit=${PAGE_SIZE}&offset=${currentOffset}&sort=${mode}`;
-    activeTopics.forEach(t => {
-      url += `&topic=${encodeURIComponent(t)}`;
-    });
     if (showHidden) {
       url += `&show_hidden=true`;
     }
     url += `&_t=${Date.now()}`;
     return url;
-  }, [mode, activeTopics, showHidden]);
+  }, [mode, showHidden]);
 
-  // Initial fetch (reset on mode/topics change)
+  // Fetch stories logic
   useEffect(() => {
     setLoading(true);
     setError(null);
-    setOffset(0);
     setHasMore(true);
 
-    fetch(buildUrl(0))
+    fetch(buildUrl(offset))
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch stories');
         return res.json();
@@ -478,10 +473,6 @@ function App() {
           const lastId = localStorage.getItem('hn_last_story_id');
           if (lastId) {
             const id = parseInt(lastId);
-            // Check if story exists in current list (it might not if list changed)
-            // But we probably want to try loading it regardless? 
-            // Ideally we just select it if it's in the list, or fetch it specifically if not. 
-            // For now, let's select it if it's in the feed to be safe.
             const exists = data.find((s: Story) => s.id === id);
             if (exists) {
               setSelectedStoryId(id);
@@ -500,45 +491,19 @@ function App() {
         setError(err.message);
         setLoading(false);
       });
-  }, [mode, activeTopics, refreshKey, showHidden, buildUrl]);
+  }, [offset, mode, refreshKey, showHidden, buildUrl]);
 
-  // Load more (infinite scroll)
-  const loadMore = useCallback(() => {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    const nextOffset = offset + PAGE_SIZE;
-
-    fetch(buildUrl(nextOffset))
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load more');
-        return res.json();
-      })
-      .then(data => {
-        setStories(prev => [...prev, ...data]);
-        setOffset(nextOffset);
-        setHasMore(data.length >= PAGE_SIZE);
-        setLoadingMore(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoadingMore(false);
-      });
-  }, [offset, hasMore, loadingMore, buildUrl]);
-
-  // IntersectionObserver for infinite scroll
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        loadMore();
+  // Reset offset logic: only happens on explicit mode/filter changes done by user handlers
+  // Extract available tags from current page
+  const availableTags = useMemo(() => {
+    const tags = new Set<string>();
+    stories.forEach(story => {
+      if (story.topics) {
+        story.topics.forEach(t => tags.add(t));
       }
-    }, { threshold: 0.1 });
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [loadMore]);
+    });
+    return Array.from(tags).sort();
+  }, [stories]);
 
   // Fetch comments
   useEffect(() => {
@@ -549,7 +514,12 @@ function App() {
     }
 
     const storyInList = stories.find(s => s.id === selectedStoryId);
-    if (storyInList) setSelectedStory(storyInList);
+    if (storyInList) {
+      setSelectedStory(storyInList);
+    } else if (stories.length > 0 && mode === 'saved') {
+      // If in bookmarks mode and current story is not in list (unbookmarked?), select first one
+      setSelectedStoryId(stories[0].id);
+    }
 
     setCommentsLoading(true);
     const baseUrl = import.meta.env.VITE_API_URL || '';
@@ -599,11 +569,58 @@ function App() {
     }
   };
 
+  const handleQueueAllFiltered = () => {
+    if (activeTopics.length === 0) return;
+
+    const matchedIds = stories
+      .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
+      .filter(s => {
+        const matched = getStoryTopicMatch(s.topics, activeTopics);
+        return matched !== null && !readingQueue.includes(s.id);
+      })
+      .map(s => s.id);
+
+    if (matchedIds.length > 0) {
+      setReadingQueue(prev => [...prev, ...matchedIds]);
+    }
+  };
+
+  const handleStoryInteractWithQueue = (storyId: number, matchedTopic: string | null) => {
+    let newQueue = [...readingQueue];
+    const isQueued = readingQueue.includes(storyId);
+
+    // If this story is colored (matches a topic), inject all currently matching stories into queue
+    if (matchedTopic) {
+      const matchingIds = stories
+        .filter(s => getStoryTopicMatch(s.topics, [matchedTopic]) !== null)
+        .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
+        .map(s => s.id);
+
+      matchingIds.forEach(id => {
+        if (!newQueue.includes(id)) newQueue.push(id);
+      });
+      // Ensure the clicked story is in the queue
+      if (!newQueue.includes(storyId)) newQueue.push(storyId);
+    } else if (!isQueued) {
+      newQueue.push(storyId);
+    }
+
+    setReadingQueue(newQueue);
+    handleStorySelect(storyId);
+  };
+
   // Toggle save/unsave a story
   const handleToggleSave = (id: number, saved: boolean) => {
     if (!user) return;
-    // Optimistic update
+
+    // Optimistic update for stories list
     setStories(prev => prev.map(s => s.id === id ? { ...s, is_saved: saved } : s));
+
+    // ALSO update selectedStory if it's the one being toggled for immediate UI feedback in ReaderPane
+    if (selectedStory && selectedStory.id === id) {
+      setSelectedStory(prev => prev ? { ...prev, is_saved: saved } : null);
+    }
+
     const baseUrl = import.meta.env.VITE_API_URL || '';
     fetch(`${baseUrl}/api/stories/${id}/interact`, {
       method: 'POST',
@@ -613,6 +630,9 @@ function App() {
     }).catch(() => {
       // Revert on failure
       setStories(prev => prev.map(s => s.id === id ? { ...s, is_saved: !saved } : s));
+      if (selectedStory && selectedStory.id === id) {
+        setSelectedStory(prev => prev ? { ...prev, is_saved: !saved } : null);
+      }
     });
   };
 
@@ -628,8 +648,14 @@ function App() {
       <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-16">
         <div className="flex items-center h-full gap-8">
 
-          {/* Brand */}
-          <span className="font-bold text-lg tracking-tight text-white">HN Station <span className="text-xs text-slate-500 font-normal ml-1">v2.17</span></span>
+          {/* Brand / Home Link */}
+          <button
+            onClick={() => { setCurrentView('feed'); setFocusMode('stories'); }}
+            className="font-bold text-lg tracking-tight text-white hover:text-orange-400 transition-colors cursor-pointer text-left"
+            title="Return to Feed"
+          >
+            HN Station <span className="text-xs text-slate-500 font-normal ml-1">v2.17</span>
+          </button>
 
           {/* GitHub-Style Nav Tabs */}
           <nav className="h-full flex items-center gap-6">
@@ -640,7 +666,15 @@ function App() {
                 <button
                   key={m.key}
                   ref={el => modeButtonRefs.current[i] = el}
-                  onClick={() => { setMode(m.key); setFocusMode('stories'); }}
+                  onClick={() => {
+                    if (mode === m.key) {
+                      handleRefresh();
+                    } else {
+                      setMode(m.key);
+                      setOffset(0);
+                    }
+                    setFocusMode('stories');
+                  }}
                   className={`h-full flex items-center gap-1.5 text-sm font-medium border-b-2 transition-all outline-none ${isActive
                     ? 'text-white border-orange-500 pb-3 mt-3'
                     : 'text-gray-500 border-transparent hover:text-gray-300 hover:border-b-2 hover:border-gray-600'
@@ -653,41 +687,13 @@ function App() {
             })}
           </nav>
 
-          {/* Search + Quick Filters */}
-          <div className="flex-1 flex items-center gap-2 min-w-0">
-            {/* Filter Combo Box */}
-            <div className="flex-1 max-w-[300px]">
-              <FilterComboBox
-                options={QUICK_FILTERS}
-                selected={activeTopics}
-                onSelect={setActiveTopics}
-              />
-            </div>
-
-            {/* Active custom topic chips */}
-            {activeTopics.filter(t => !QUICK_FILTERS.map(f => f.toLowerCase()).includes(t)).map(topic => {
-              const color = getTopicColor(topic);
-              return (
-                <span
-                  key={topic}
-                  className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md border shrink-0 ${color.bg} ${color.text} ${color.border}`}
-                >
-                  {topic}
-                  <button
-                    onClick={() => removeTopicChip(topic)}
-                    className="ml-0.5 hover:text-red-400 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
+          {/* Spacer to replace removed search bar */}
+          <div className="flex-1 min-w-0"></div>
 
           {/* Right controls */}
           <div className="flex items-center gap-1.5 shrink-0">
             <button
-              onClick={handleRefresh}
+              onClick={() => { handleRefresh(); setOffset(0); }}
               className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition-all active:scale-95"
               title="Refresh"
             >
@@ -717,7 +723,7 @@ function App() {
               <Settings size={16} />
             </button>
             <button
-              onClick={() => setShowHidden(!showHidden)}
+              onClick={() => { setShowHidden(!showHidden); setOffset(0); }}
               className={`p-2 rounded-lg transition-all active:scale-95 ${showHidden ? 'bg-orange-500/20 text-orange-500' : 'hover:bg-slate-800 text-slate-400'}`}
               title={showHidden ? "Hide deleted stories" : "Show all stories"}
             >
@@ -727,13 +733,6 @@ function App() {
               ) : (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></svg>
               )}
-            </button>
-            <button
-              onClick={() => setIsAIOpen(!isAIOpen)}
-              className={`p-2 rounded-lg transition-all active:scale-95 ${isAIOpen ? 'bg-blue-600 text-white' : 'hover:bg-slate-800 text-slate-400'}`}
-              title="Toggle AI Assistant"
-            >
-              <Sparkles size={16} />
             </button>
 
             {/* User Auth */}
@@ -781,164 +780,179 @@ function App() {
 
         {currentView === 'feed' ? (
           <main
-            className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-white dark:bg-slate-950 flex justify-center focus:outline-none"
+            className="flex-1 overflow-hidden bg-white dark:bg-slate-950 flex justify-center focus:outline-none"
             tabIndex={-1}
           >
-            <div className="w-full max-w-5xl flex flex-col">
-              {loading && (
-                <div className="p-20 text-center text-gray-400 dark:text-slate-500 flex flex-col items-center gap-4">
-                  <div className="animate-spin text-blue-500"><RefreshCw size={32} /></div>
-                  <p className="font-medium animate-pulse">Loading stories...</p>
-                </div>
-              )}
-
-              {error && (
-                <div className="p-6 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-xl flex items-center gap-3 shadow-sm">
-                  <X size={20} />
-                  <p>{error}</p>
-                </div>
-              )}
-
-              {!loading && !error && (
-                <div className="space-y-1">
-                  {stories
-                    .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
-                    .map((story, index) => {
-                      const isSelected = selectedStoryId === story.id;
-                      const isRead = readIds.has(story.id) || story.is_read;
-                      const isQueued = readingQueue.includes(story.id);
-                      const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, activeTopics) : null;
-                      const topicAccent = matchedTopic ? getTopicColor(matchedTopic).accent : null;
-                      return (
-                        <div
-                          key={story.id}
-                          ref={el => storyRefs.current[index] = el}
-                          tabIndex={0}
-                          role="button"
-                          aria-selected={isSelected}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              // Add to queue implicitly if not queued, then select
-                              if (!isQueued) {
-                                setReadingQueue(prev => [...prev.filter(q => q !== story.id), story.id]);
-                              }
-                              handleStorySelect(story.id);
-                              setTimeout(() => readerContainerRef.current?.focus(), 50);
-                            }
-                          }}
-                          onClick={() => handleStorySelect(story.id)}
-                          onDoubleClick={() => {
-                            const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
-                            window.open(url, '_blank', 'noopener,noreferrer');
-                          }}
-                          className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
-                          style={topicAccent ? { borderLeft: `3px solid ${topicAccent}` } : undefined}
-                        >
-                          <StoryCard
-                            story={story}
-                            index={index}
-                            isSelected={isSelected}
-                            isRead={isRead}
-                            isQueued={isQueued}
-                            onSelect={(id) => handleStorySelect(id)}
-                            onToggleSave={user ? handleToggleSave : undefined}
-                            onHide={handleHideStory}
-                            onQueueToggle={handleToggleQueue}
-                          />
+            <div className="flex w-full max-w-[85rem] h-full relative">
+              {/* Main Feed Column */}
+              <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                  <div className="w-full flex justify-center">
+                    <div className="w-full max-w-4xl flex flex-col">
+                      {loading && (
+                        <div className="p-20 text-center text-gray-400 dark:text-slate-500 flex flex-col items-center gap-4">
+                          <div className="animate-spin text-blue-500"><RefreshCw size={32} /></div>
+                          <p className="font-medium animate-pulse">Loading stories...</p>
                         </div>
-                      );
-                    })}
+                      )}
 
-                  {/* Infinite Scroll Sentinel */}
-                  <div ref={sentinelRef} className="h-4" />
-                  {loadingMore && (
-                    <div className="flex items-center justify-center py-6 gap-2 text-gray-400 dark:text-slate-500">
-                      <RefreshCw size={16} className="animate-spin" />
-                      <span className="text-sm">Loading more...</span>
+                      {error && (
+                        <div className="p-6 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-xl flex items-center gap-3 shadow-sm">
+                          <X size={20} />
+                          <p>{error}</p>
+                        </div>
+                      )}
+
+                      {!loading && !error && (
+                        <div className="space-y-1">
+                          {stories
+                            .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
+                            .map((story, index) => {
+                              const isSelected = selectedStoryId === story.id;
+                              const isRead = readIds.has(story.id) || story.is_read;
+                              const isQueued = readingQueue.includes(story.id);
+
+                              const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.topics, activeTopics) : null;
+                              const topicColorObj = matchedTopic ? getTopicColor(matchedTopic) : null;
+                              const topicTextClass = topicColorObj ? topicColorObj.text : null;
+
+                              return (
+                                <div
+                                  key={story.id}
+                                  ref={el => storyRefs.current[index] = el}
+                                  tabIndex={0}
+                                  role="button"
+                                  aria-selected={isSelected}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleStoryInteractWithQueue(story.id, matchedTopic);
+                                      setTimeout(() => readerContainerRef.current?.focus(), 50);
+                                    }
+                                  }}
+                                  onClick={() => handleStoryInteractWithQueue(story.id, matchedTopic)}
+                                  onDoubleClick={() => {
+                                    const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                  }}
+                                  className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
+                                  style={topicColorObj ? { borderLeft: `3px solid ${topicColorObj.accent}` } : undefined}
+                                >
+                                  <StoryCard
+                                    story={story}
+                                    index={index}
+                                    isSelected={isSelected}
+                                    isRead={isRead}
+                                    isQueued={isQueued}
+                                    topicTextClass={topicTextClass}
+                                    onSelect={(id) => handleStorySelect(id)}
+                                    onToggleSave={user ? handleToggleSave : undefined}
+                                    onHide={handleHideStory}
+                                    onQueueToggle={handleToggleQueue}
+                                  />
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {!hasMore && stories.length > 0 && (
-                    <div className="text-center py-4 text-xs text-gray-400 dark:text-slate-600">
-                      All stories loaded
-                    </div>
-                  )}
+                  </div>
                 </div>
-              )}
+
+                {/* Pagination Controls Fixed at Bottom */}
+                {stories.length > 0 && !loading && !error && (
+                  <div className="shrink-0 w-full bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/60 flex justify-center">
+                    <div className="w-full max-w-4xl flex justify-between items-center px-6 py-4">
+                      <button
+                        onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                        disabled={offset === 0 || loading}
+                        className="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+                      >
+                        Previous Page
+                      </button>
+                      <div className="text-sm font-semibold text-slate-400">
+                        Page {Math.floor(offset / PAGE_SIZE) + 1}
+                      </div>
+                      <button
+                        onClick={() => setOffset(offset + PAGE_SIZE)}
+                        disabled={!hasMore || loading}
+                        className="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+                      >
+                        Next Page
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Filter Sidebar */}
+              <FilterSidebar
+                activeTopics={activeTopics}
+                setActiveTopics={setActiveTopics}
+                removeTopicChip={removeTopicChip}
+                getTopicColor={getTopicColor}
+                getQueuedCount={() => readingQueue.length}
+                onQueueAll={handleQueueAllFiltered}
+                availableTags={availableTags}
+              />
             </div>
           </main>
         ) : (
-          <PanelGroup orientation="horizontal" autoSave="hn-reader-layout">
-            <Panel id="reader" defaultSize={isAIOpen && selectedStory ? 70 : 100} minSize={30}>
-              {selectedStory ? (
-                <aside
-                  ref={readerContainerRef}
-                  tabIndex={-1}
-                  className="h-full bg-[#111d2e] overflow-y-auto custom-scrollbar focus:outline-none transition-all shadow-[inset_4px_0_0_0_#3b82f6]"
-                >
-                  <ReaderPane
-                    story={selectedStory}
-                    comments={comments}
-                    commentsLoading={commentsLoading}
-                    initialActiveCommentId={(() => {
-                      try {
-                        const progress = JSON.parse(localStorage.getItem('hn_story_progress') || '{}');
-                        return progress[selectedStory.id] || null;
-                      } catch { return null; }
-                    })()}
-                    onFocusList={() => setCurrentView('feed')}
-                    onSummarize={() => setIsAIOpen(true)}
-                    onTakeFocus={() => setFocusMode('reader')}
-                    onSaveProgress={(commentId) => {
-                      try {
-                        const progress = JSON.parse(localStorage.getItem('hn_story_progress') || '{}');
-                        progress[selectedStory.id] = commentId;
-                        localStorage.setItem('hn_story_progress', JSON.stringify(progress));
-                      } catch { }
-                    }}
-                    onToggleSave={user ? handleToggleSave : undefined}
-                    onPrev={readingQueue.length > 0 || stories.findIndex(s => s.id === selectedStoryId) > 0 ? handlePrevStory : undefined}
-                    onNext={readingQueue.length > 0 || stories.findIndex(s => s.id === selectedStoryId) < stories.length - 1 ? handleNextStory : undefined}
-                    stories={stories}
-                    onBackToFeed={() => setCurrentView('feed')}
-                  />
-                </aside>
-              ) : (
-                <div className="h-full flex items-center justify-center text-slate-500 bg-[#111d2e]">
-                  Loading story...
-                </div>
-              )}
-            </Panel>
-
-            {/* AI Sidebar Panel */}
-            {isAIOpen && selectedStory && (
-              <>
-                <ResizeHandle />
-                <Panel id="ai-sidebar" defaultSize={30} minSize={20}>
-                  <AISidebar
-                    storyId={selectedStory.id}
-                    isOpen={isAIOpen}
-                    onClose={() => setIsAIOpen(false)}
-                    initialSummary={selectedStory.summary}
-                  />
-                </Panel>
-              </>
+          <div className="h-full bg-[#111d2e]">
+            {selectedStory ? (
+              <aside
+                ref={readerContainerRef}
+                tabIndex={-1}
+                className="h-full overflow-y-auto custom-scrollbar focus:outline-none transition-all"
+              >
+                <ReaderPane
+                  story={selectedStory}
+                  comments={comments}
+                  commentsLoading={commentsLoading}
+                  initialActiveCommentId={(() => {
+                    try {
+                      const progress = JSON.parse(localStorage.getItem('hn_story_progress') || '{}');
+                      return progress[selectedStory.id] || null;
+                    } catch { return null; }
+                  })()}
+                  onFocusList={() => setCurrentView('feed')}
+                  onTakeFocus={() => setFocusMode('reader')}
+                  onSaveProgress={(commentId) => {
+                    try {
+                      const progress = JSON.parse(localStorage.getItem('hn_story_progress') || '{}');
+                      progress[selectedStory.id] = commentId;
+                      localStorage.setItem('hn_story_progress', JSON.stringify(progress));
+                    } catch { }
+                  }}
+                  onToggleSave={user ? handleToggleSave : undefined}
+                  onPrev={readingQueue.length > 0 || stories.findIndex(s => s.id === selectedStoryId) > 0 ? handlePrevStory : undefined}
+                  onNext={readingQueue.length > 0 || stories.findIndex(s => s.id === selectedStoryId) < stories.length - 1 ? handleNextStory : undefined}
+                  stories={stories}
+                  onBackToFeed={() => setCurrentView('feed')}
+                />
+              </aside>
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-500 bg-[#111d2e]">
+                Loading story...
+              </div>
             )}
-          </PanelGroup>
+          </div>
         )}
 
         {/* Admin Modal Panel */}
-        {isAdminModalOpen && (
-          <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />
-        )}
-      </div>
+        {
+          isAdminModalOpen && (
+            <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />
+          )
+        }
+      </div >
 
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         user={user}
       />
-    </div>
+    </div >
   );
 }
 

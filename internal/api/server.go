@@ -24,10 +24,10 @@ type Server struct {
 	store    *storage.Store
 	router   *chi.Mux
 	auth     *auth.Config
-	aiClient *ai.GeminiClient
+	aiClient *ai.OllamaClient
 }
 
-func NewServer(store *storage.Store, authCfg *auth.Config, aiClient *ai.GeminiClient) *Server {
+func NewServer(store *storage.Store, authCfg *auth.Config, aiClient *ai.OllamaClient) *Server {
 	s := &Server{
 		store:    store,
 		router:   chi.NewRouter(),
@@ -46,7 +46,7 @@ func (s *Server) middlewares() {
 	s.router.Use(middleware.RealIP)
 	s.router.Use(middleware.Logger)
 	s.router.Use(middleware.Recoverer)
-	s.router.Use(middleware.Timeout(60 * time.Second))
+	s.router.Use(middleware.Timeout(10 * time.Minute))
 
 	allowedOrigins := []string{"http://localhost:5173", "https://hnstation.dev"}
 	s.router.Use(cors.Handler(cors.Options{
@@ -81,8 +81,6 @@ func (s *Server) routes() {
 	// AI routes
 	s.router.Post("/api/stories/{id}/summarize", s.handleSummarizeStory)
 	s.router.Post("/api/stories/{id}/summarize_article", s.handleSummarizeArticle)
-	s.router.Get("/api/chat/{id}", s.handleGetChatHistory)
-	s.router.Post("/api/chat", s.handleChat)
 
 	// Admin routes
 	s.router.Group(func(r chi.Router) {
@@ -472,23 +470,6 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := s.auth.GetUserIDFromRequest(r)
-	if userID == "" {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	user, err := s.store.GetAuthUser(r.Context(), userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
-		return
-	}
-
-	if user.GeminiAPIKey == "" {
-		http.Error(w, "Please set your Gemini API Key in Settings to use this feature.", http.StatusBadRequest)
-		return
-	}
-
 	story, err := s.store.GetStory(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Story not found", http.StatusNotFound)
@@ -496,18 +477,23 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. Check Global Cache (Short-circuit if already summarized)
+	// This part is allowed for anonymous users.
 	if story.Summary != nil && *story.Summary != "" {
-		// Save to chat history so user sees it in their thread too (if not already there)
-		// We can't easily check if it's there without fetching history, but duplicate consecutive messages are fine-ish.
-		// Better: just return it. The frontend 'fetchHistory' will see the summary if we don't add it here?
-		// No, frontend logic: if history empty, check story.summary.
-		// So we don't strictly need to add to history if it's in story.summary, BUT for consistency in chat view we might want it.
-		// Let's add it to history to be safe and consistent with "Summarize" action.
-		if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Summary of \"%s\":**\n\n%s", story.Title, *story.Summary)); err != nil {
-			log.Printf("Failed to save cached summary to history: %v", err)
+		userID := s.auth.GetUserIDFromRequest(r)
+		if userID != "" {
+			if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Summary of \"%s\":**\n\n%s", story.Title, *story.Summary)); err != nil {
+				log.Printf("Failed to save cached summary to history: %v", err)
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"summary": *story.Summary})
+		return
+	}
+
+	// 2. We skip generation for anonymous users to prevent abuse
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		http.Error(w, "Authentication required to generate new summary", http.StatusUnauthorized)
 		return
 	}
 
@@ -526,11 +512,8 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Title: %s\n\nDiscussion:\n", story.Title))
 
-	// Limit to reasonable amount of text to avoid excessive processing time
-	// A naive truncation strategy
 	totalChars := 0
-	maxChars := 12000 // roughly 3-4k tokens
-
+	maxChars := 20000 // Increased for local GPU
 	for _, c := range comments {
 		text := fmt.Sprintf("- %s: %s\n", c.By, c.Text)
 		if totalChars+len(text) > maxChars {
@@ -540,8 +523,14 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		totalChars += len(text)
 	}
 
-	// Pass user's API key
-	summary, err := s.aiClient.GenerateSummary(r.Context(), user.GeminiAPIKey, sb.String())
+	// Use system global Ollama URL
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://ollama:11434"
+	}
+
+	// Use unified GenerateSummary which takes title and text
+	responseStr, err := s.aiClient.GenerateSummary(r.Context(), ollamaURL, story.Title, sb.String())
 	if err != nil {
 		log.Printf("Summarization failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -550,19 +539,61 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Save to Global Cache (Stories table)
-	if err := s.store.UpdateStorySummary(r.Context(), id, summary); err != nil {
-		log.Printf("Failed to update story summary cache: %v", err)
+	// Try to parse the JSON
+	cleanJSON := strings.TrimSpace(responseStr)
+	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
+	cleanJSON = strings.TrimPrefix(cleanJSON, "```")
+	cleanJSON = strings.TrimSuffix(cleanJSON, "```")
+	cleanJSON = strings.TrimSpace(cleanJSON)
+
+	var intermediate struct {
+		Summary interface{} `json:"summary"`
+		Topics  []string    `json:"topics"`
+	}
+
+	var result struct {
+		Summary string
+		Topics  []string
+	}
+
+	if err := json.Unmarshal([]byte(cleanJSON), &intermediate); err != nil {
+		log.Printf("Failed to parse JSON in manual summary. Error: %v. Raw: %s", err, responseStr)
+		result.Summary = responseStr // Fallback
+		result.Topics = []string{}
+	} else {
+		// Handle Summary being either a string or an array of strings
+		switch v := intermediate.Summary.(type) {
+		case string:
+			result.Summary = v
+		case []interface{}:
+			var parts []string
+			for _, part := range v {
+				if s, ok := part.(string); ok {
+					parts = append(parts, s)
+				}
+			}
+			result.Summary = strings.Join(parts, " ")
+		default:
+			result.Summary = fmt.Sprintf("%v", v)
+		}
+		result.Topics = intermediate.Topics
+	}
+
+	// 2. Save both Summary and Topics to Global Cache
+	if err := s.store.UpdateStorySummaryAndTopics(r.Context(), id, result.Summary, result.Topics); err != nil {
+		log.Printf("Failed to update story summary/topics cache: %v", err)
 	}
 
 	// Save summary to chat history
-	if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Summary of \"%s\":**\n\n%s", story.Title, summary)); err != nil {
+	if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Summary of \"%s\":**\n\n%s", story.Title, result.Summary)); err != nil {
 		log.Printf("Failed to save summary to history: %v", err)
-		// Don't fail the request, just log
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"summary": summary})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"summary": result.Summary,
+		"topics":  result.Topics,
+	})
 }
 
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -587,151 +618,6 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-}
-
-func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
-	userID := s.auth.GetUserIDFromRequest(r)
-	if userID == "" {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	user, err := s.store.GetAuthUser(r.Context(), userID)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusInternalServerError)
-		return
-	}
-
-	if user.GeminiAPIKey == "" {
-		http.Error(w, "Please set your Gemini API Key in Settings to use this feature.", http.StatusBadRequest)
-		return
-	}
-
-	var body struct {
-		StoryID int    `json:"story_id"`
-		Message string `json:"message"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if body.Message == "" {
-		http.Error(w, "Message is required", http.StatusBadRequest)
-		return
-	}
-
-	// Save user message
-	if err := s.store.SaveChatMessage(r.Context(), userID, body.StoryID, "user", body.Message); err != nil {
-		log.Printf("Failed to save user message: %v", err)
-		http.Error(w, "Failed to save message", http.StatusInternalServerError)
-		return
-	}
-
-	// Fetch story context
-	story, err := s.store.GetStory(r.Context(), body.StoryID)
-	if err != nil {
-		http.Error(w, "Story not found", http.StatusNotFound)
-		return
-	}
-
-	comments, err := s.store.GetComments(r.Context(), body.StoryID)
-	if err != nil {
-		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
-		return
-	}
-
-	// Fetch chat history from DB
-	dbHistory, err := s.store.GetChatHistory(r.Context(), userID, body.StoryID)
-	if err != nil {
-		log.Printf("Failed to fetch chat history: %v", err)
-		http.Error(w, "Failed to fetch history", http.StatusInternalServerError)
-		return
-	}
-
-	// Convert DB history to AI client history
-	var aiHistory []ai.ChatMessage
-	for _, msg := range dbHistory {
-		aiHistory = append(aiHistory, ai.ChatMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
-		})
-	}
-	// Note: aiHistory now includes the message we just saved.
-	// GenerateChatResponse expects history EXCLUDING the new message, and the new message as separate arg?
-	// Actually, looking at client.go: GenerateChatResponse(ctx, apiKey, context, history, newMessage)
-	// So we should exclude the very last user message from 'history' passed to AI,
-	// OR just pass it as 'newMessage' and existing history.
-
-	// Let's filter aiHistory to exclude the last message we just added?
-	// No, better to just use the `body.Message` as new message.
-	// But `aiHistory` contains it now.
-	// We need to pass `aiHistory` WITHOUT the last message to the client, if we want to follow that pattern.
-	// OR, we can just pass `aiHistory` excluding the last item.
-
-	effectiveHistory := aiHistory[:len(aiHistory)-1]
-
-	// Prepare context text
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Title: %s\nURL: %s\n\nDiscussion:\n", story.Title, story.URL))
-
-	totalChars := 0
-	maxChars := 15000
-	for _, c := range comments {
-		text := fmt.Sprintf("- %s: %s\n", c.By, c.Text)
-		if totalChars+len(text) > maxChars {
-			break
-		}
-		sb.WriteString(text)
-		totalChars += len(text)
-	}
-
-	response, err := s.aiClient.GenerateChatResponse(r.Context(), user.GeminiAPIKey, sb.String(), effectiveHistory, body.Message)
-	if err != nil {
-		log.Printf("Chat generation failed: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to generate response: " + err.Error()})
-		return
-	}
-
-	// Save model response
-	if err := s.store.SaveChatMessage(r.Context(), userID, body.StoryID, "model", response); err != nil {
-		log.Printf("Failed to save model response: %v", err)
-		// Don't fail, return response
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"response": response})
-}
-
-func (s *Server) handleGetChatHistory(w http.ResponseWriter, r *http.Request) {
-	userID := s.auth.GetUserIDFromRequest(r)
-	if userID == "" {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
-	}
-
-	storyIDStr := chi.URLParam(r, "id")
-	storyID, err := strconv.Atoi(storyIDStr)
-	if err != nil {
-		http.Error(w, "Invalid story ID", http.StatusBadRequest)
-		return
-	}
-
-	history, err := s.store.GetChatHistory(r.Context(), userID, storyID)
-	if err != nil {
-		log.Printf("Failed to fetch chat history: %v", err)
-		http.Error(w, "Failed to fetch history", http.StatusInternalServerError)
-		return
-	}
-
-	if history == nil {
-		history = []storage.ChatMessage{}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(history)
 }
 
 // ─── Admin Handlers ───

@@ -25,6 +25,7 @@ type Story struct {
 	IsSaved     *bool            `json:"is_saved,omitempty"`
 	IsHidden    *bool            `json:"is_hidden,omitempty"`
 	Summary     *string          `json:"summary,omitempty"`
+	Topics      []string         `json:"topics,omitempty"`
 	Embedding   *pgvector.Vector `json:"-"`
 	Similarity  *float64         `json:"similarity,omitempty"`
 }
@@ -59,8 +60,8 @@ func New(db *pgxpool.Pool) *Store {
 
 func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 	query := `
-		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, hn_rank, embedding, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, hn_rank, embedding, topics, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, '{}'::text[]), NOW())
 		ON CONFLICT (id) DO UPDATE
 		SET title = EXCLUDED.title,
 			url = EXCLUDED.url,
@@ -69,15 +70,16 @@ func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 			descendants = EXCLUDED.descendants,
 			posted_at = EXCLUDED.posted_at,
 			hn_rank = EXCLUDED.hn_rank,
+			topics = COALESCE(EXCLUDED.topics, stories.topics),
 			embedding = COALESCE(EXCLUDED.embedding, stories.embedding);
 	`
-	_, err := s.db.Exec(ctx, query, story.ID, story.Title, story.URL, story.Score, story.By, story.Descendants, story.PostedAt, story.HNRank, story.Embedding)
+	_, err := s.db.Exec(ctx, query, story.ID, story.Title, story.URL, story.Score, story.By, story.Descendants, story.PostedAt, story.HNRank, story.Embedding, story.Topics)
 	return err
 }
 
 func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, error) {
 	// Base select — optionally LEFT JOIN user_interactions for logged-in users
-	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary`
+	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.topics`
 	fromClause := `FROM stories s`
 	hasUser := userID != ""
 
@@ -139,11 +141,11 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	for rows.Next() {
 		var story Story
 		if hasUser {
-			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.IsRead, &story.IsSaved, &story.IsHidden); err != nil {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IsRead, &story.IsSaved, &story.IsHidden); err != nil {
 				return nil, err
 			}
 		} else {
-			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary); err != nil {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics); err != nil {
 				return nil, err
 			}
 		}
@@ -153,13 +155,38 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 }
 
 func (s *Store) GetStory(ctx context.Context, id int) (*Story, error) {
-	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary FROM stories WHERE id = $1`
+	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics FROM stories WHERE id = $1`
 	var story Story
-	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary)
+	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics)
 	if err != nil {
 		return nil, err
 	}
 	return &story, nil
+}
+
+// GetStoriesStatus returns a map of IDs to their summary status for a list of story IDs.
+func (s *Store) GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, error) {
+	if len(ids) == 0 {
+		return make(map[int]bool), nil
+	}
+
+	query := `SELECT id, (summary IS NOT NULL AND summary != '') FROM stories WHERE id = ANY($1)`
+	rows, err := s.db.Query(ctx, query, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	status := make(map[int]bool)
+	for rows.Next() {
+		var id int
+		var hasSummary bool
+		if err := rows.Scan(&id, &hasSummary); err != nil {
+			return nil, err
+		}
+		status[id] = hasSummary
+	}
+	return status, nil
 }
 
 func (s *Store) GetComments(ctx context.Context, storyID int) ([]Comment, error) {
@@ -255,6 +282,12 @@ func (s *Store) UpdateRanks(ctx context.Context, rankMap map[int]int) error {
 func (s *Store) UpdateStorySummary(ctx context.Context, id int, summary string) error {
 	query := `UPDATE stories SET summary = $1 WHERE id = $2`
 	_, err := s.db.Exec(ctx, query, summary, id)
+	return err
+}
+
+func (s *Store) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error {
+	query := `UPDATE stories SET summary = $1, topics = $2 WHERE id = $3`
+	_, err := s.db.Exec(ctx, query, summary, topics, id)
 	return err
 }
 
@@ -476,4 +509,24 @@ func (s *Store) GetAnyAdminAPIKey(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return key, nil
+}
+
+// PruneStories removes stories that are not in the top N and are not bookmarked.
+func (s *Store) PruneStories(ctx context.Context, limit int) error {
+	query := `
+		DELETE FROM stories 
+		WHERE id NOT IN (
+			SELECT id FROM stories 
+			ORDER BY hn_rank ASC NULLS LAST, posted_at DESC 
+			LIMIT $1
+		)
+		AND id NOT IN (
+			SELECT story_id FROM user_interactions WHERE is_saved = TRUE
+		)
+	`
+	_, err := s.db.Exec(ctx, query, limit)
+	if err != nil {
+		return fmt.Errorf("failed to prune stories: %w", err)
+	}
+	return nil
 }

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Star, Terminal, Link, Check } from 'lucide-react';
-import { getStoryColor } from '../utils/colors';
 
 export interface Story {
     id: number;
@@ -26,9 +25,10 @@ interface StoryCardProps {
     isSelected?: boolean;
     isRead?: boolean;
     isQueued?: boolean;
+    topicTextClass?: string | null;
 }
 
-export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isRead, isQueued }: StoryCardProps) {
+export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isRead, isQueued, topicTextClass }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -54,28 +54,17 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
     const dimmed = story.is_read || isRead;
     const saved = story.is_saved || false;
 
-    // Check if odd row for zebra striping
-    const isOdd = index !== undefined && index % 2 !== 0;
-
-    // Deterministic color generation based on Story ID
-    const titleColorClass = getStoryColor(story.id);
-
-    // Background logic
-    // Light mode: Odd = slate-100, Even = transparent
-    // Dark mode: Odd = slate-900/40, Even = transparent
-    // READ STATE: Overrides zebra striping with a subtle gray
-    let bgClass = isOdd
-        ? 'bg-slate-100 dark:bg-slate-800/40'
-        : 'bg-transparent';
+    // Light mode: plain white. Dark mode: transparent/slate
+    let bgClass = 'bg-white dark:bg-slate-900/40';
 
     if (dimmed && !isSelected) {
-        bgClass = 'bg-gray-100 dark:bg-[#161b22] opacity-85';
+        bgClass = 'bg-gray-50 dark:bg-[#161b22] opacity-85';
     }
 
     // Active state overrides everything
     const activeBg = isSelected
         ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-blue-600 dark:border-l-blue-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10 z-10'
-        : `${bgClass} hover:bg-white dark:hover:bg-white/[0.06] border-l-4 border-l-transparent`;
+        : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 border-l-transparent`;
 
     return (
         <div
@@ -131,8 +120,8 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                             {displayRank}.
                         </span>
                     )}
-                    {/* Title - Read state is just colored text now, not line-through/dimmed */}
-                    <span className={`${titleColorClass} ${dimmed && !isSelected ? 'text-slate-600 dark:text-slate-400/80 font-normal mix-blend-luminosity' : ''} hover:opacity-80 transition-opacity cursor-pointer`}>
+                    {/* Title */}
+                    <span className={`${topicTextClass ? topicTextClass : 'text-slate-800 dark:text-slate-200'} ${dimmed && !isSelected ? 'text-slate-600 dark:text-slate-400/80 font-normal mix-blend-luminosity' : ''} hover:opacity-80 transition-opacity cursor-pointer font-bold`}>
                         {story.title}
                     </span>
                     {/* Copy Link button */}
