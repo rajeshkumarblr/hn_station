@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -23,8 +22,8 @@ import (
 )
 
 const (
-	WorkerCount  = 1
-	TotalStories = 100
+	WorkerCount  = 3
+	TotalStories = 20 // Only keep top 20 front-page stories
 )
 
 func main() {
@@ -71,16 +70,18 @@ func main() {
 	// Start Summary Workers
 	ollamaURL := os.Getenv("OLLAMA_URL")
 	if ollamaURL == "" {
-		ollamaURL = "http://ollama:11434"
+		ollamaURL = "http://localhost:11434"
 	}
-	summaryQueue := make(chan SummaryJob, 500)
+	summaryQueue := make(chan SummaryJob, 100)
 
 	// Create a shared rate limiter for Ollama
-	limiter := time.NewTicker(5 * time.Second)
+	// 500ms interval for faster local processing
+	limiter := time.NewTicker(500 * time.Millisecond)
 	defer limiter.Stop()
 
 	var workerWg sync.WaitGroup
-	for i := 0; i < WorkerCount; i++ {
+	// 5 workers for local power
+	for i := 0; i < 5; i++ {
 		workerWg.Add(1)
 		go func(workerID int) {
 			defer workerWg.Done()
@@ -156,10 +157,10 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 		return
 	}
 
-	// Truncate content for CPU inference speed (6000 chars ~ 1500 words)
+	// Truncate content for Llama3 success (8k chars)
 	textContent := fetchRes.Content
-	if len(textContent) > 20000 {
-		textContent = textContent[:20000] + "..."
+	if len(textContent) > 8000 {
+		textContent = textContent[:8000] + "..."
 	}
 
 	// Use unified GenerateSummary which takes title and text
@@ -171,6 +172,14 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 
 	// Try to parse the JSON (assuming Ollama phi3 outputs it directly)
 	cleanJSON := strings.TrimSpace(responseStr)
+
+	// Robust JSON extraction: Find first { and last }
+	firstBrace := strings.Index(cleanJSON, "{")
+	lastBrace := strings.LastIndex(cleanJSON, "}")
+	if firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace {
+		cleanJSON = cleanJSON[firstBrace : lastBrace+1]
+	}
+
 	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
 	cleanJSON = strings.TrimPrefix(cleanJSON, "```")
 	cleanJSON = strings.TrimSuffix(cleanJSON, "```")
@@ -191,22 +200,29 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 		result.Summary = responseStr // Fallback
 		result.Topics = []string{}
 	} else {
-		// Handle Summary being either a string or an array of strings
-		switch v := intermediate.Summary.(type) {
-		case string:
-			result.Summary = v
-		case []interface{}:
-			var parts []string
-			for _, part := range v {
-				if s, ok := part.(string); ok {
-					parts = append(parts, s)
+		// Flatten summary (could be string, []string, or [][]string)
+		summaryParts := flattenStringArray(intermediate.Summary)
+		if len(summaryParts) > 0 {
+			var bulletPoints []string
+			for _, s := range summaryParts {
+				s = strings.TrimSpace(s)
+				if s == "" {
+					continue
 				}
+				if !strings.HasPrefix(s, "-") && !strings.HasPrefix(s, "•") {
+					s = "- " + s
+				}
+				bulletPoints = append(bulletPoints, s)
 			}
-			result.Summary = strings.Join(parts, " ")
-		default:
-			result.Summary = fmt.Sprintf("%v", v)
+			result.Summary = strings.Join(bulletPoints, "\n")
+		} else if s, ok := intermediate.Summary.(string); ok {
+			result.Summary = s
+		} else {
+			result.Summary = fmt.Sprintf("%v", intermediate.Summary)
 		}
-		result.Topics = intermediate.Topics
+
+		// Flatten topics
+		result.Topics = flattenStringArray(intermediate.Topics)
 	}
 
 	if err := store.UpdateStorySummaryAndTopics(workCtx, job.ID, result.Summary, result.Topics); err != nil {
@@ -217,87 +233,44 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 }
 
 func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.OllamaClient, summaryQueue chan<- SummaryJob) {
-	log.Println("Fetching stories...")
+	log.Println("Fetching top stories from HN front page...")
 
-	// Fetch Top Stories (Ranked)
+	// Fetch Top Stories (Ranked) - only top 20
 	topIDs, err := client.GetTopStories(ctx)
 	if err != nil {
 		log.Printf("Failed to fetch top stories: %v", err)
-	} else {
-		log.Printf("Fetched %d top stories", len(topIDs))
-		if err := store.ClearRanksNotIn(ctx, topIDs); err != nil {
-			log.Printf("Failed to clear old ranks: %v", err)
-		}
+		return
 	}
 
-	// Fetch New Stories
-	newIDs, err := client.GetNewStories(ctx)
-	if err != nil {
-		log.Printf("Failed to fetch new stories: %v", err)
-	} else {
-		log.Printf("Fetched %d new stories", len(newIDs))
+	// Limit to top 20 only
+	if len(topIDs) > TotalStories {
+		topIDs = topIDs[:TotalStories]
 	}
+	log.Printf("Processing top %d front-page stories", len(topIDs))
 
-	// Map IDs to their Rank
+	// Build rank map
 	rankMap := make(map[int]int)
 	for i, id := range topIDs {
 		rankMap[id] = i + 1
 	}
 
-	// IMMEDIATE UPDATE: Update ranks
-	log.Println("Updating ranks for existing stories...")
+	// Clear ranks that are no longer in top list
+	if err := store.ClearRanksNotIn(ctx, topIDs); err != nil {
+		log.Printf("Failed to clear old ranks: %v", err)
+	}
+
+	// Update ranks for existing stories
+	log.Println("Updating ranks...")
 	if err := store.UpdateRanks(ctx, rankMap); err != nil {
 		log.Printf("Failed to update ranks: %v", err)
 	}
 
-	// Combine and Deduplicate
-	uniqueIDs := make(map[int]struct{})
-	for _, id := range topIDs {
-		uniqueIDs[id] = struct{}{}
-	}
-	for _, id := range newIDs {
-		uniqueIDs[id] = struct{}{}
-	}
-
-	// Sort IDs by Rank before processing
-	var ids []int
-	for id := range uniqueIDs {
-		ids = append(ids, id)
-	}
-	sort.Slice(ids, func(i, j int) bool {
-		rI, hasI := rankMap[ids[i]]
-		rJ, hasJ := rankMap[ids[j]]
-		if hasI && hasJ {
-			return rI < rJ
-		}
-		if hasI {
-			return true
-		}
-		if hasJ {
-			return false
-		}
-		return ids[i] > ids[j] // Fallback to newer IDs
-	})
-
-	// Truncate to a reasonable number to avoid heavy backlogs (e.g. 200)
-	if len(ids) > 200 {
-		ids = ids[:200]
-	}
-
-	log.Printf("Queuing %d unique stories for ingestion (prioritizing by rank)...", len(ids))
-
-	// OPTIMIZATION: Check which stories already have summaries in the DB
-	statusMap, err := store.GetStoriesStatus(ctx, ids)
-	if err != nil {
-		log.Printf("Failed to fetch story statuses: %v", err)
-		statusMap = make(map[int]bool) // Fallback to processing all
-	}
-
-	jobs := make(chan int, len(ids))
+	// Start jobs
+	jobs := make(chan int, len(topIDs))
 	var wg sync.WaitGroup
 
 	// Start workers
-	for i := 0; i < WorkerCount; i++ {
+	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
@@ -306,21 +279,9 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 				case <-ctx.Done():
 					return
 				default:
-					rank, hasRank := rankMap[id]
-					hasSummary := statusMap[id]
-
-					// SKIP CRITERIA:
-					// 1. If it has a summary AND it's not in the top 50 (to keep top stories fresh)
-					// 2. OR if it has a summary and no rank (older "New" stories)
-					if hasSummary && (!hasRank || rank > 50) {
-						continue
-					}
-
-					var rankPtr *int
-					if hasRank {
-						rankPtr = &rank
-					}
-
+					rank := rankMap[id]
+					// Always summarize for top 20 in clean re-ingest
+					rankPtr := &rank
 					if err := processStory(ctx, client, store, id, rankPtr, summaryQueue); err != nil {
 						log.Printf("Worker %d: Failed to process story %d: %v", workerID, id, err)
 					}
@@ -329,21 +290,24 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 		}(i)
 	}
 
-	for _, id := range ids {
+	for _, id := range topIDs {
 		jobs <- id
 	}
 	close(jobs)
 	wg.Wait()
 
-	// Cleanup old stories: Keep only top 100
-	log.Println("Cleaning up old stories (keeping only top 100)...")
-	cleanupOldStories(ctx, store)
+	// Prune DB: keep only top 20 (protected: saved stories)
+	log.Println("Pruning stories to top 20...")
+	if err := store.PruneStories(ctx, TotalStories); err != nil {
+		log.Printf("Failed to prune stories: %v", err)
+	}
 
 	log.Println("Ingestion run completed.")
 }
 
+// cleanupOldStories is kept for compatibility but no longer used in main flow.
 func cleanupOldStories(ctx context.Context, store *storage.Store) {
-	if err := store.PruneStories(ctx, 100); err != nil {
+	if err := store.PruneStories(ctx, TotalStories); err != nil {
 		log.Printf("Failed to prune old stories: %v", err)
 	}
 }
@@ -381,13 +345,18 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 	// 3. No existing summary (Checked by worker? Or here? Better here to save queue space)
 
 	if item.URL != "" && item.Score > 10 {
-		// Optimization: Check if summary exists before queuing
-		// This adds a DB read, but saves the queue from being flooded with already-summarized items
+		// Queue for summarization if:
+		// 1. No summary exists yet, OR
+		// 2. Summary exists but topics are missing (re-process to get tags)
 		existing, err := store.GetStory(ctx, id)
-		if err == nil && (existing.Summary == nil || *existing.Summary == "") {
+		needsSummary := err != nil || existing.Summary == nil || *existing.Summary == ""
+		needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0
+		if needsSummary || needsTopics {
 			select {
 			case summaryQueue <- SummaryJob{ID: id, URL: item.URL, Title: item.Title}:
-				// Queued successfully
+				if needsTopics {
+					log.Printf("Re-queuing story %d for topic tagging", id)
+				}
 			default:
 				log.Printf("Summary queue full, skipping story %d", id)
 			}
@@ -483,4 +452,36 @@ func processUser(ctx context.Context, client *hn.Client, store *storage.Store, u
 	if err := store.UpsertUser(ctx, user); err != nil {
 		log.Printf("Failed to upsert user %s: %v", username, err)
 	}
+}
+
+// flattenStringArray handles various hallucinated JSON formats from LLMs (e.g., nested arrays like [["string"]])
+func flattenStringArray(input interface{}) []string {
+	if input == nil {
+		return nil
+	}
+	var result []string
+	switch v := input.(type) {
+	case string:
+		return []string{v}
+	case []string:
+		return v
+	case []interface{}:
+		for _, item := range v {
+			if item == nil {
+				continue
+			}
+			switch tv := item.(type) {
+			case string:
+				result = append(result, tv)
+			case []interface{}:
+				// Handle nested array: [["string"]] -> take first element
+				if len(tv) > 0 {
+					if s, ok := tv[0].(string); ok {
+						result = append(result, s)
+					}
+				}
+			}
+		}
+	}
+	return result
 }

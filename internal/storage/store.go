@@ -77,31 +77,21 @@ func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 	return err
 }
 
-func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, error) {
-	// Base select — optionally LEFT JOIN user_interactions for logged-in users
-	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.topics`
-	fromClause := `FROM stories s`
-	hasUser := userID != ""
-
-	if hasUser {
-		selectCols += `, ui.is_read, ui.is_saved, ui.is_hidden`
-		fromClause += ` LEFT JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1`
-	}
-
-	query := `SELECT ` + selectCols + ` ` + fromClause + ` WHERE 1=1`
+func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, int, error) {
+	// 1. Build common WHERE clause
+	whereClause := " WHERE 1=1"
 	var args []interface{}
 	argID := 1
+	hasUser := userID != ""
 
 	if hasUser {
 		args = append(args, userID)
 		argID = 2
-
 		if !showHidden {
-			query += ` AND (ui.is_hidden IS NULL OR ui.is_hidden = FALSE)`
+			whereClause += ` AND (ui.is_hidden IS NULL OR ui.is_hidden = FALSE)`
 		}
 	}
 
-	// Multi-topic OR filter
 	if len(topics) > 0 {
 		tsqueryParts := make([]string, len(topics))
 		for i, t := range topics {
@@ -109,12 +99,31 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 			args = append(args, t)
 			argID++
 		}
-		query += ` AND s.search_vector @@ (` + strings.Join(tsqueryParts, " || ") + `)`
+		whereClause += ` AND s.search_vector @@ (` + strings.Join(tsqueryParts, " || ") + `)`
 	}
 
-	// Show HN filter
 	if sortStrategy == "show" {
-		query += ` AND s.title ILIKE 'Show HN:%'`
+		whereClause += ` AND s.title ILIKE 'Show HN:%'`
+	}
+
+	// 2. Get Total Count
+	countQuery := `SELECT COUNT(*) FROM stories s`
+	if hasUser {
+		countQuery += ` LEFT JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1`
+	}
+	countQuery += whereClause
+
+	var total int
+	if err := s.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	// 3. Get Stories
+	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.topics`
+	fromClause := `FROM stories s`
+	if hasUser {
+		selectCols += `, ui.is_read, ui.is_saved, ui.is_hidden`
+		fromClause += ` LEFT JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1`
 	}
 
 	orderBy := "s.hn_rank ASC NULLS LAST"
@@ -126,14 +135,14 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	case "show":
 		orderBy = "s.posted_at DESC"
 	}
-	query += ` ORDER BY ` + orderBy
 
+	query := `SELECT ` + selectCols + ` ` + fromClause + whereClause + ` ORDER BY ` + orderBy
 	query += fmt.Sprintf(` LIMIT $%d OFFSET $%d`, argID, argID+1)
-	args = append(args, limit, offset)
+	finalArgs := append(args, limit, offset)
 
-	rows, err := s.db.Query(ctx, query, args...)
+	rows, err := s.db.Query(ctx, query, finalArgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -142,16 +151,16 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 		var story Story
 		if hasUser {
 			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IsRead, &story.IsSaved, &story.IsHidden); err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 		} else {
 			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics); err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 		}
 		stories = append(stories, story)
 	}
-	return stories, nil
+	return stories, total, nil
 }
 
 func (s *Store) GetStory(ctx context.Context, id int) (*Story, error) {
@@ -348,9 +357,15 @@ func (s *Store) UpsertInteraction(ctx context.Context, userID string, storyID in
 }
 
 // GetSavedStories returns stories saved by a user, newest first.
-func (s *Store) GetSavedStories(ctx context.Context, userID string, limit, offset int) ([]Story, error) {
+func (s *Store) GetSavedStories(ctx context.Context, userID string, limit, offset int) ([]Story, int, error) {
+	countQuery := `SELECT COUNT(*) FROM user_interactions WHERE user_id = $1 AND is_saved = TRUE`
+	var total int
+	if err := s.db.QueryRow(ctx, countQuery, userID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
 	query := `
-		SELECT s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, ui.is_read, ui.is_saved
+		SELECT s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.topics, ui.is_read, ui.is_saved
 		FROM stories s
 		INNER JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1
 		WHERE ui.is_saved = TRUE
@@ -359,19 +374,19 @@ func (s *Store) GetSavedStories(ctx context.Context, userID string, limit, offse
 	`
 	rows, err := s.db.Query(ctx, query, userID, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var stories []Story
 	for rows.Next() {
 		var story Story
-		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.IsRead, &story.IsSaved); err != nil {
-			return nil, err
+		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IsRead, &story.IsSaved); err != nil {
+			return nil, 0, err
 		}
 		stories = append(stories, story)
 	}
-	return stories, nil
+	return stories, total, nil
 }
 
 // SearchStories performs a semantic similarity search using a query embedding vector.

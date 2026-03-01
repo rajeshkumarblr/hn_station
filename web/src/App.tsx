@@ -7,7 +7,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { RefreshCw, X, Moon, Sun, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Shield } from 'lucide-react';
 
-interface Story {
+export interface Story {
   id: number;
   title: string;
   url: string;
@@ -43,54 +43,21 @@ const MODES = [
 
 type ModeKey = typeof MODES[number]['key'];
 
-const PAGE_SIZE = 16;
+const PAGE_SIZE = 10;
 const MAX_READ_IDS = 500;
 
-// Color palette for topic chips — visually distinct, muted for dark mode
-const TOPIC_COLORS = [
-  { bg: 'bg-emerald-100 dark:bg-emerald-500/15', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-300 dark:border-emerald-500/30', accent: '#10b981' },
-  { bg: 'bg-violet-100 dark:bg-violet-500/15', text: 'text-violet-700 dark:text-violet-400', border: 'border-violet-300 dark:border-violet-500/30', accent: '#8b5cf6' },
-  { bg: 'bg-amber-100 dark:bg-amber-500/15', text: 'text-amber-700 dark:text-amber-400', border: 'border-amber-300 dark:border-amber-500/30', accent: '#f59e0b' },
-  { bg: 'bg-sky-100 dark:bg-sky-500/15', text: 'text-sky-700 dark:text-sky-400', border: 'border-sky-300 dark:border-sky-500/30', accent: '#0ea5e9' },
-  { bg: 'bg-rose-100 dark:bg-rose-500/15', text: 'text-rose-700 dark:text-rose-400', border: 'border-rose-300 dark:border-rose-500/30', accent: '#f43f5e' },
-  { bg: 'bg-teal-100 dark:bg-teal-500/15', text: 'text-teal-700 dark:text-teal-400', border: 'border-teal-300 dark:border-teal-500/30', accent: '#14b8a6' },
-  { bg: 'bg-orange-100 dark:bg-orange-500/15', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-300 dark:border-orange-500/30', accent: '#f97316' },
-  { bg: 'bg-indigo-100 dark:bg-indigo-500/15', text: 'text-indigo-700 dark:text-indigo-400', border: 'border-indigo-300 dark:border-indigo-500/30', accent: '#6366f1' },
-];
-
-function getTopicColor(topic: string) {
-  const HARDCODED_COLORS: Record<string, number> = {
-    'ai': 0, // emerald
-    'llm': 1, // violet
-    'go': 2, // amber
-    'rust': 3, // sky
-    'postgres': 4, // rose
-    'react': 5, // teal
-    'linux': 6, // orange
-    'apple': 7, // indigo
-    'google': 2, // amber
-  };
-
-  const lowerTopic = topic.toLowerCase();
-  if (lowerTopic in HARDCODED_COLORS) {
-    return TOPIC_COLORS[HARDCODED_COLORS[lowerTopic]];
-  }
-
-  // Deterministic hash → color index
-  let hash = 0;
-  for (let i = 0; i < topic.length; i++) {
-    hash = topic.charCodeAt(i) + ((hash << 5) - hash) + topic.length * 13;
-  }
-  return TOPIC_COLORS[Math.abs(hash) % TOPIC_COLORS.length];
-}
-
 // Check which active topic (if any) matches a story's tags
-function getStoryTopicMatch(storyTopics: string[] | undefined, activeTopics: string[]): string | null {
-  if (!storyTopics || storyTopics.length === 0) return null;
+function getStoryTopicMatch(storyTitle: string, storyTopics: string[] | undefined, activeTopics: string[]): string | null {
+  const titleLower = storyTitle.toLowerCase();
   for (const active of activeTopics) {
     const activeLower = active.toLowerCase();
-    for (const t of storyTopics) {
-      if (t.toLowerCase() === activeLower) return active;
+    // Match in title
+    if (titleLower.includes(activeLower)) return active;
+    // Match in topics
+    if (storyTopics) {
+      for (const t of storyTopics) {
+        if (t.toLowerCase() === activeLower) return active;
+      }
     }
   }
   return null;
@@ -131,6 +98,7 @@ function App() {
 
   const [mode, setMode] = useState<ModeKey>('default');
   const [activeTopics, setActiveTopics] = useState<string[]>(loadTopicChips);
+  const [totalStories, setTotalStories] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Infinite scroll
@@ -151,6 +119,8 @@ function App() {
   // Comments
   const [selectedStoryId, setSelectedStoryId] = useState<number | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [highlightedStoryId, setHighlightedStoryId] = useState<number | null>(null);
+  const [readerTab, setReaderTab] = useState<'discussion' | 'article'>('article');
   const [comments, setComments] = useState<any[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
 
@@ -162,14 +132,12 @@ function App() {
 
   // Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  // Keyboard Nav
-  const [focusMode, setFocusMode] = useState<'stories' | 'reader' | 'header'>('stories');
   const [currentView, setCurrentView] = useState<'feed' | 'reader'>('feed');
   const [readingQueue, setReadingQueue] = useState<number[]>([]);
+
   const readerContainerRef = useRef<HTMLElement>(null);
-  const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const topicInputRef = useRef<HTMLInputElement>(null);
+  const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
   const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
 
@@ -181,7 +149,7 @@ function App() {
   // Fetch current user on load
   useEffect(() => {
     const baseUrl = import.meta.env.VITE_API_URL || '';
-    fetch(`${baseUrl} /api/me`, { credentials: 'include' })
+    fetch(`${baseUrl}/api/me`, { credentials: 'include' })
       .then(res => {
         if (res.ok) return res.json();
         return null;
@@ -218,7 +186,7 @@ function App() {
     // Persist hidden state to server
     if (user) {
       const baseUrl = import.meta.env.VITE_API_URL || '';
-      fetch(`${baseUrl} /api/stories / ${id}/interact`, {
+      fetch(`${baseUrl}/api/stories/${id}/interact`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -262,289 +230,44 @@ function App() {
   };
 
   const handleNextStory = useCallback(() => {
-    const queue = readingQueue.length > 0 ? readingQueue : stories.map(s => s.id);
-    if (queue.length === 0) return;
-    const idx = queue.indexOf(selectedStoryId as number);
-    if (idx === -1) return;
-    const next = Math.min(queue.length - 1, idx + 1);
-    setSelectedStoryId(queue[next]);
-    // The reader component will re-render and grab the newly selected story
+    // If user has a custom reading queue, navigate within it
+    if (readingQueue.length > 0) {
+      const idx = readingQueue.indexOf(selectedStoryId as number);
+      if (idx === -1) return;
+      const next = Math.min(readingQueue.length - 1, idx + 1);
+      if (readingQueue[next] !== selectedStoryId) {
+        handleStorySelect(readingQueue[next]);
+      }
+      return;
+    }
+    // Default: navigate within the full stories list
+    const idx = stories.findIndex(s => s.id === selectedStoryId);
+    if (idx === -1 || idx >= stories.length - 1) return;
+    handleStorySelect(stories[idx + 1].id);
   }, [stories, selectedStoryId, readingQueue]);
 
   const handlePrevStory = useCallback(() => {
-    const queue = readingQueue.length > 0 ? readingQueue : stories.map(s => s.id);
-    if (queue.length === 0) return;
-    const idx = queue.indexOf(selectedStoryId as number);
-    if (idx === -1) return;
-    const prev = Math.max(0, idx - 1);
-    setSelectedStoryId(queue[prev]);
-  }, [stories, selectedStoryId, readingQueue]);
-
-  // Keyboard handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
-      if ((e.target as HTMLElement).tagName === 'INPUT') return;
-
-      if (e.key === ' ') {
-        // Space in Stories List -> Toggle Bookmark
-        if (focusMode === 'stories' && selectedStoryId) {
-          e.preventDefault();
-          const story = stories.find(s => s.id === selectedStoryId);
-          if (story) {
-            // Toggle saved status
-            handleToggleSave(story.id, !story.is_saved);
-          }
-        }
-        // Space in Reader Mode -> Let it scroll (default)
-        return;
+    // If user has a custom reading queue, navigate within it
+    if (readingQueue.length > 0) {
+      const idx = readingQueue.indexOf(selectedStoryId as number);
+      if (idx === -1) return;
+      const prev = Math.max(0, idx - 1);
+      if (readingQueue[prev] !== selectedStoryId) {
+        handleStorySelect(readingQueue[prev]);
       }
-
-      if (e.key === 'Enter') {
-        // Enter in Stories List -> Focus Reader Pane
-        if (focusMode === 'stories' && selectedStoryId) {
-          e.preventDefault();
-          setFocusMode('reader');
-          setCurrentView('reader');
-          setTimeout(() => readerContainerRef.current?.focus(), 50);
-          return;
-        }
-      }
-
-      if (e.key === 'Escape') {
-        if (currentView === 'reader') {
-          e.preventDefault();
-          setFocusMode('stories');
-          setCurrentView('feed');
-          const idx = stories.findIndex(s => s.id === selectedStoryId);
-          if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
-        }
-        return;
-      }
-
-      if (e.key === 'Delete' && (focusMode === 'stories' || focusMode === 'reader') && selectedStoryId) {
-        e.preventDefault();
-        handleHideStory(selectedStoryId);
-        return;
-      }
-
-      if (e.key === 'ArrowRight' && focusMode === 'stories' && selectedStoryId) {
-        setFocusMode('reader');
-        setCurrentView('reader');
-        e.preventDefault();
-        setTimeout(() => readerContainerRef.current?.focus(), 50);
-      } else if (e.key === 'ArrowLeft' && focusMode === 'reader') {
-        setFocusMode('stories');
-        setCurrentView('feed');
-        e.preventDefault();
-        const idx = stories.findIndex(s => s.id === selectedStoryId);
-        if (idx !== -1) setTimeout(() => storyRefs.current[idx]?.focus(), 50);
-      } else if (e.key === 'ArrowUp' && focusMode === 'stories' && stories.length > 0) {
-        e.preventDefault();
-        const idx = stories.findIndex(s => s.id === selectedStoryId);
-        if (idx <= 0) {
-          // At first story — move focus to header mode pills
-          setFocusMode('header');
-          const modeIdx = MODES.findIndex(m => m.key === mode);
-          setTimeout(() => modeButtonRefs.current[modeIdx]?.focus(), 50);
-        } else {
-          const prev = idx - 1;
-          setSelectedStoryId(stories[prev].id);
-          storyRefs.current[prev]?.focus();
-        }
-      } else if (e.key === 'ArrowDown' && focusMode === 'header') {
-        // From header pills, go back to first story
-        e.preventDefault();
-        setFocusMode('stories');
-        if (stories.length > 0) {
-          setSelectedStoryId(stories[0].id);
-          setTimeout(() => storyRefs.current[0]?.focus(), 50);
-        }
-      } else if (e.key === 'ArrowLeft' && focusMode === 'header') {
-        e.preventDefault();
-        const modeIdx = MODES.findIndex(m => m.key === mode);
-        const prev = Math.max(0, modeIdx - 1);
-        setMode(MODES[prev].key);
-        setTimeout(() => modeButtonRefs.current[prev]?.focus(), 50);
-      } else if (e.key === 'ArrowRight' && focusMode === 'header') {
-        e.preventDefault();
-        const modeIdx = MODES.findIndex(m => m.key === mode);
-        const next = Math.min(MODES.length - 1, modeIdx + 1);
-        setMode(MODES[next].key);
-        setTimeout(() => modeButtonRefs.current[next]?.focus(), 50);
-      } else if (e.key === 'ArrowDown' && focusMode === 'stories' && stories.length > 0) {
-        e.preventDefault();
-        const idx = stories.findIndex(s => s.id === selectedStoryId);
-        const next = Math.min(stories.length - 1, idx + 1);
-        setSelectedStoryId(stories[next].id);
-        storyRefs.current[next]?.focus();
-      } else if (e.key === 'PageDown' && focusMode === 'stories' && stories.length > 0) {
-        e.preventDefault();
-        const idx = stories.findIndex(s => s.id === selectedStoryId);
-        const next = Math.min(stories.length - 1, idx + 5);
-        setSelectedStoryId(stories[next].id);
-        storyRefs.current[next]?.focus();
-      } else if (e.key === 'PageUp' && focusMode === 'stories' && stories.length > 0) {
-        e.preventDefault();
-        const idx = stories.findIndex(s => s.id === selectedStoryId);
-        const prev = Math.max(0, idx - 5);
-        setSelectedStoryId(stories[prev].id);
-        storyRefs.current[prev]?.focus();
-      } else if (e.key === '/') {
-        e.preventDefault();
-        topicInputRef.current?.focus();
-      } else if (e.key === 'z' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        // Zen mode replaced by Reader View flow
-      } else if (e.key === 'n' && focusMode === 'reader' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        const container = readerContainerRef.current;
-        if (!container) return;
-        const roots = container.querySelectorAll('[data-root-comment]');
-        const scrollTop = container.scrollTop;
-        for (const el of roots) {
-          const rect = el.getBoundingClientRect();
-          const containerRect = container.getBoundingClientRect();
-          const offset = rect.top - containerRect.top + scrollTop;
-          if (offset > scrollTop + 10) {
-            container.scrollTo({ top: offset - 80, behavior: 'smooth' });
-            break;
-          }
-        }
-      } else if (e.key === 'p' && focusMode === 'reader' && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        const container = readerContainerRef.current;
-        if (!container) return;
-        const roots = Array.from(container.querySelectorAll('[data-root-comment]'));
-        const scrollTop = container.scrollTop;
-        for (let i = roots.length - 1; i >= 0; i--) {
-          const el = roots[i];
-          const rect = el.getBoundingClientRect();
-          const containerRect = container.getBoundingClientRect();
-          const offset = rect.top - containerRect.top + scrollTop;
-          if (offset < scrollTop - 10) {
-            container.scrollTo({ top: offset - 80, behavior: 'smooth' });
-            break;
-          }
-        }
-      } else if (e.ctrlKey && e.key === 'ArrowDown' && focusMode === 'reader' && stories.length > 0) {
-        e.preventDefault();
-        handleNextStory();
-      } else if (e.ctrlKey && e.key === 'ArrowUp' && focusMode === 'reader' && stories.length > 0) {
-        e.preventDefault();
-        handlePrevStory();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stories, selectedStoryId, focusMode, currentView, handleNextStory, handlePrevStory, mode]);
-
-  // Build API URL
-  const buildUrl = useCallback((currentOffset: number) => {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
-    if (mode === 'saved') {
-      return `${baseUrl}/api/stories/saved?limit=${PAGE_SIZE}&offset=${currentOffset}&_t=${Date.now()}`;
-    }
-    let url = `${baseUrl}/api/stories?limit=${PAGE_SIZE}&offset=${currentOffset}&sort=${mode}`;
-    if (showHidden) {
-      url += `&show_hidden=true`;
-    }
-    url += `&_t=${Date.now()}`;
-    return url;
-  }, [mode, showHidden]);
-
-  // Fetch stories logic
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    setHasMore(true);
-
-    fetch(buildUrl(offset))
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch stories');
-        return res.json();
-      })
-      .then(data => {
-        setStories(data);
-        setLoading(false);
-        setHasMore(data.length >= PAGE_SIZE);
-        if (data && data.length > 0 && !selectedStoryId) {
-          const lastId = localStorage.getItem('hn_last_story_id');
-          if (lastId) {
-            const id = parseInt(lastId);
-            const exists = data.find((s: Story) => s.id === id);
-            if (exists) {
-              setSelectedStoryId(id);
-            } else {
-              setSelectedStoryId(data[0].id);
-            }
-          } else {
-            setSelectedStoryId(data[0].id);
-          }
-          setFocusMode('stories');
-          setCurrentView('feed');
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [offset, mode, refreshKey, showHidden, buildUrl]);
-
-  // Reset offset logic: only happens on explicit mode/filter changes done by user handlers
-  // Extract available tags from current page
-  const availableTags = useMemo(() => {
-    const tags = new Set<string>();
-    stories.forEach(story => {
-      if (story.topics) {
-        story.topics.forEach(t => tags.add(t));
-      }
-    });
-    return Array.from(tags).sort();
-  }, [stories]);
-
-  // Fetch comments
-  useEffect(() => {
-    if (!selectedStoryId) {
-      setComments([]);
-      setSelectedStory(null);
       return;
     }
-
-    const storyInList = stories.find(s => s.id === selectedStoryId);
-    if (storyInList) {
-      setSelectedStory(storyInList);
-    } else if (stories.length > 0 && mode === 'saved') {
-      // If in bookmarks mode and current story is not in list (unbookmarked?), select first one
-      setSelectedStoryId(stories[0].id);
-    }
-
-    setCommentsLoading(true);
-    const baseUrl = import.meta.env.VITE_API_URL || '';
-    fetch(`${baseUrl}/api/stories/${selectedStoryId}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch comments');
-        return res.json();
-      })
-      .then(data => {
-        setComments(data.comments || []);
-        if (data.story) setSelectedStory(data.story);
-        setCommentsLoading(false);
-      })
-      .catch(err => {
-        console.error("Failed to fetch comments", err);
-        setCommentsLoading(false);
-      });
-  }, [selectedStoryId, stories]);
+    // Default: navigate within the full stories list
+    const idx = stories.findIndex(s => s.id === selectedStoryId);
+    if (idx <= 0) return;
+    handleStorySelect(stories[idx - 1].id);
+  }, [stories, selectedStoryId, readingQueue]);
 
   const handleRefresh = () => setRefreshKey(prev => prev + 1);
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
-  const handleStorySelect = (id: number) => {
+  const handleStorySelect = useCallback((id: number) => {
     setSelectedStoryId(id);
-    setFocusMode('reader'); // Focus reader immediately
     setCurrentView('reader');
     // Mark as read (local)
     setReadIds(prev => {
@@ -557,60 +280,19 @@ function App() {
     // Mark as read (server, if logged in)
     if (user) {
       const baseUrl = import.meta.env.VITE_API_URL || '';
-      const t = true;
       fetch(`${baseUrl}/api/stories/${id}/interact`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ read: t }),
+        body: JSON.stringify({ read: true }),
       }).catch(() => { });
       // Update local story state
       setStories(prev => prev.map(s => s.id === id ? { ...s, is_read: true } : s));
     }
-  };
-
-  const handleQueueAllFiltered = () => {
-    if (activeTopics.length === 0) return;
-
-    const matchedIds = stories
-      .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
-      .filter(s => {
-        const matched = getStoryTopicMatch(s.topics, activeTopics);
-        return matched !== null && !readingQueue.includes(s.id);
-      })
-      .map(s => s.id);
-
-    if (matchedIds.length > 0) {
-      setReadingQueue(prev => [...prev, ...matchedIds]);
-    }
-  };
-
-  const handleStoryInteractWithQueue = (storyId: number, matchedTopic: string | null) => {
-    let newQueue = [...readingQueue];
-    const isQueued = readingQueue.includes(storyId);
-
-    // If this story is colored (matches a topic), inject all currently matching stories into queue
-    if (matchedTopic) {
-      const matchingIds = stories
-        .filter(s => getStoryTopicMatch(s.topics, [matchedTopic]) !== null)
-        .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
-        .map(s => s.id);
-
-      matchingIds.forEach(id => {
-        if (!newQueue.includes(id)) newQueue.push(id);
-      });
-      // Ensure the clicked story is in the queue
-      if (!newQueue.includes(storyId)) newQueue.push(storyId);
-    } else if (!isQueued) {
-      newQueue.push(storyId);
-    }
-
-    setReadingQueue(newQueue);
-    handleStorySelect(storyId);
-  };
+  }, [user]);
 
   // Toggle save/unsave a story
-  const handleToggleSave = (id: number, saved: boolean) => {
+  const handleToggleSave = useCallback((id: number, saved: boolean) => {
     if (!user) return;
 
     // Optimistic update for stories list
@@ -634,12 +316,226 @@ function App() {
         setSelectedStory(prev => prev ? { ...prev, is_saved: !saved } : null);
       }
     });
+  }, [user, selectedStory]);
+
+  const handleStoryInteractWithQueue = useCallback((storyId: number, matchedTopic: string | null) => {
+    let newQueue = [...readingQueue];
+    const isQueued = readingQueue.includes(storyId);
+
+    // If this story is colored (matches a topic), inject all currently matching stories into queue
+    if (matchedTopic) {
+      const matchingIds = stories
+        .filter(s => getStoryTopicMatch(s.title, s.topics, [matchedTopic]) !== null)
+        .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
+        .map(s => s.id);
+
+      matchingIds.forEach(id => {
+        if (!newQueue.includes(id)) newQueue.push(id);
+      });
+      // Ensure the clicked story is in the queue
+      if (!newQueue.includes(storyId)) newQueue.push(storyId);
+    } else if (!isQueued) {
+      newQueue.push(storyId);
+    }
+
+    setReadingQueue(newQueue);
+    handleStorySelect(storyId);
+  }, [readingQueue, stories, showHidden, hiddenStories, handleStorySelect]);
+
+  const handleQueueAllFiltered = () => {
+    if (activeTopics.length === 0) return;
+
+    const matchedIds = stories
+      .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
+      .filter(s => {
+        const matched = getStoryTopicMatch(s.title, s.topics, activeTopics);
+        return matched !== null && !readingQueue.includes(s.id);
+      })
+      .map(s => s.id);
+
+    if (matchedIds.length > 0) {
+      setReadingQueue(prev => [...prev, ...matchedIds]);
+    }
   };
 
-  // Topic chip handlers
-  const removeTopicChip = (topic: string) => {
-    setActiveTopics(prev => prev.filter(t => t !== topic));
-  };
+  // Keyboard Navigation Logic
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if typing in input
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        if (e.key === 'Escape') target.blur();
+        return;
+      }
+
+      // 1. Navigation within Feed (Up/Down)
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        if (!selectedStoryId) {
+          e.preventDefault();
+          setHighlightedStoryId(prev => {
+            if (!prev && stories.length > 0) return stories[0].id;
+            const idx = stories.findIndex(s => s.id === prev);
+            if (idx === -1) return stories[0]?.id || null;
+            const nextIdx = Math.min(stories.length - 1, idx + 1);
+            return stories[nextIdx].id;
+          });
+        }
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        if (!selectedStoryId) {
+          e.preventDefault();
+          setHighlightedStoryId(prev => {
+            if (!prev && stories.length > 0) return stories[0].id;
+            const idx = stories.findIndex(s => s.id === prev);
+            if (idx <= 0) return stories[0]?.id || null;
+            return stories[idx - 1].id;
+          });
+        }
+      }
+
+      // 2. Open Highlighted Story (Enter)
+      else if (e.key === 'Enter' && highlightedStoryId && !selectedStoryId) {
+        e.preventDefault();
+        handleStorySelect(highlightedStoryId);
+      }
+
+      // 3. Close Reader (Escape or Ctrl+Left)
+      else if (e.key === 'Escape' || (e.ctrlKey && e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        if (selectedStoryId) {
+          setSelectedStoryId(null);
+          setSelectedStory(null);
+          setCurrentView('feed');
+        }
+      }
+
+      // 4. Tab Switching (Ctrl+Tab)
+      else if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault();
+        if (selectedStoryId) {
+          setReaderTab(prev => prev === 'article' ? 'discussion' : 'article');
+        }
+      }
+
+      // 5. Global Search shortcut (/)
+      else if (e.key === '/') {
+        e.preventDefault();
+        topicInputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [stories, highlightedStoryId, selectedStoryId, handleStorySelect]);
+
+  // Sync highlighting with selection
+  useEffect(() => {
+    if (selectedStoryId) {
+      setHighlightedStoryId(selectedStoryId);
+    }
+  }, [selectedStoryId]);
+
+  // Initial highlighting
+  useEffect(() => {
+    if (!highlightedStoryId && stories.length > 0) {
+      setHighlightedStoryId(stories[0].id);
+    }
+  }, [stories, highlightedStoryId]);
+
+  // Build API URL
+  const buildUrl = useCallback((currentOffset: number) => {
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    if (mode === 'saved') {
+      return `${baseUrl}/api/stories/saved?limit=${PAGE_SIZE}&offset=${currentOffset}&_t=${Date.now()}`;
+    }
+    let url = `${baseUrl}/api/stories?limit=${PAGE_SIZE}&offset=${currentOffset}&sort=${mode}`;
+    if (showHidden) {
+      url += `&show_hidden=true`;
+    }
+    return url;
+  }, [mode, showHidden]);
+
+  // Fetch stories logic
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setHasMore(true);
+
+    fetch(buildUrl(offset))
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch stories');
+        return res.json();
+      })
+      .then(data => {
+        setStories(data.stories || []);
+        setTotalStories(data.total || 0);
+        setLoading(false);
+        setHasMore((data.stories?.length || 0) >= PAGE_SIZE);
+        if (data.stories && data.stories.length > 0 && !selectedStoryId) {
+          const lastId = localStorage.getItem('hn_last_story_id');
+          if (lastId) {
+            const id = parseInt(lastId);
+            const exists = data.stories.find((s: Story) => s.id === id);
+            if (exists) {
+              setSelectedStoryId(id);
+            } else {
+              setSelectedStoryId(data.stories[0].id);
+            }
+          } else {
+            setSelectedStoryId(data.stories[0].id);
+          }
+          setCurrentView('feed');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [offset, mode, refreshKey, showHidden, buildUrl]);
+
+  // Extract available tags from current page
+  const availableTags = useMemo(() => {
+    const tags = new Set<string>();
+    stories.forEach(story => {
+      if (story.topics) {
+        story.topics.forEach(t => tags.add(t));
+      }
+    });
+    return Array.from(tags).sort();
+  }, [stories]);
+
+  // Fetch comments
+  useEffect(() => {
+    if (!selectedStoryId) {
+      setComments([]);
+      setSelectedStory(null);
+      return;
+    }
+
+    const storyInList = stories.find(s => s.id === selectedStoryId);
+    if (storyInList) {
+      setSelectedStory(storyInList);
+    }
+
+    setCommentsLoading(true);
+    setComments([]); // Clear immediately to prevent stale data
+
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    fetch(`${baseUrl}/api/stories/${selectedStoryId}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch comments');
+        return res.json();
+      })
+      .then(data => {
+        setComments(data.comments || []);
+        if (data.story) setSelectedStory(data.story);
+        setCommentsLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch comments", err);
+        setCommentsLoading(false);
+      });
+  }, [selectedStoryId, stories]);
 
   return (
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
@@ -650,11 +546,11 @@ function App() {
 
           {/* Brand / Home Link */}
           <button
-            onClick={() => { setCurrentView('feed'); setFocusMode('stories'); }}
+            onClick={() => { setCurrentView('feed'); }}
             className="font-bold text-lg tracking-tight text-white hover:text-orange-400 transition-colors cursor-pointer text-left"
             title="Return to Feed"
           >
-            HN Station <span className="text-xs text-slate-500 font-normal ml-1">v2.17</span>
+            HN Station <span className="text-xs text-slate-500 font-normal ml-1">v2.21.1-m</span>
           </button>
 
           {/* GitHub-Style Nav Tabs */}
@@ -673,7 +569,6 @@ function App() {
                       setMode(m.key);
                       setOffset(0);
                     }
-                    setFocusMode('stories');
                   }}
                   className={`h-full flex items-center gap-1.5 text-sm font-medium border-b-2 transition-all outline-none ${isActive
                     ? 'text-white border-orange-500 pb-3 mt-3'
@@ -786,7 +681,7 @@ function App() {
             <div className="flex w-full max-w-[85rem] h-full relative">
               {/* Main Feed Column */}
               <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
                   <div className="w-full flex justify-center">
                     <div className="w-full max-w-4xl flex flex-col">
                       {loading && (
@@ -804,7 +699,7 @@ function App() {
                       )}
 
                       {!loading && !error && (
-                        <div className="space-y-1">
+                        <div className="space-y-0.5">
                           {stories
                             .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
                             .map((story, index) => {
@@ -812,9 +707,9 @@ function App() {
                               const isRead = readIds.has(story.id) || story.is_read;
                               const isQueued = readingQueue.includes(story.id);
 
-                              const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.topics, activeTopics) : null;
-                              const topicColorObj = matchedTopic ? getTopicColor(matchedTopic) : null;
-                              const topicTextClass = topicColorObj ? topicColorObj.text : null;
+                              const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, story.topics, activeTopics) : null;
+                              // Force green color for tag highlighting
+                              const topicTextClass = matchedTopic ? 'text-green-600 dark:text-green-500' : null;
 
                               return (
                                 <div
@@ -835,8 +730,8 @@ function App() {
                                     const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
                                     window.open(url, '_blank', 'noopener,noreferrer');
                                   }}
-                                  className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? 'opacity-55' : ''}`}
-                                  style={topicColorObj ? { borderLeft: `3px solid ${topicColorObj.accent}` } : undefined}
+                                  className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? '' : ''}`}
+                                  style={matchedTopic ? { borderLeft: `3px solid #10b981` } : undefined}
                                 >
                                   <StoryCard
                                     story={story}
@@ -860,25 +755,40 @@ function App() {
                 </div>
 
                 {/* Pagination Controls Fixed at Bottom */}
-                {stories.length > 0 && !loading && !error && (
+                {!loading && !error && (
                   <div className="shrink-0 w-full bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/60 flex justify-center">
-                    <div className="w-full max-w-4xl flex justify-between items-center px-6 py-4">
+                    <div className="w-full max-w-4xl flex justify-center items-center px-6 py-4 gap-2">
                       <button
                         onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-                        disabled={offset === 0 || loading}
-                        className="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+                        disabled={offset === 0}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors"
                       >
-                        Previous Page
+                        Prev
                       </button>
-                      <div className="text-sm font-semibold text-slate-400">
-                        Page {Math.floor(offset / PAGE_SIZE) + 1}
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.ceil(totalStories / PAGE_SIZE) }, (_, i) => i + 1).map(p => {
+                          const pageOffset = (p - 1) * PAGE_SIZE;
+                          const isActive = offset === pageOffset;
+                          return (
+                            <button
+                              key={p}
+                              onClick={() => setOffset(pageOffset)}
+                              className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-bold transition-all ${isActive
+                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-110'
+                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                }`}
+                            >
+                              {p}
+                            </button>
+                          );
+                        })}
                       </div>
                       <button
                         onClick={() => setOffset(offset + PAGE_SIZE)}
-                        disabled={!hasMore || loading}
-                        className="px-4 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+                        disabled={!hasMore}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors"
                       >
-                        Next Page
+                        Next
                       </button>
                     </div>
                   </div>
@@ -889,8 +799,6 @@ function App() {
               <FilterSidebar
                 activeTopics={activeTopics}
                 setActiveTopics={setActiveTopics}
-                removeTopicChip={removeTopicChip}
-                getTopicColor={getTopicColor}
                 getQueuedCount={() => readingQueue.length}
                 onQueueAll={handleQueueAllFiltered}
                 availableTags={availableTags}
@@ -898,17 +806,19 @@ function App() {
             </div>
           </main>
         ) : (
-          <div className="h-full bg-[#111d2e]">
+          <div className="flex-1 w-full bg-[#111d2e]">
             {selectedStory ? (
               <aside
                 ref={readerContainerRef}
                 tabIndex={-1}
-                className="h-full overflow-y-auto custom-scrollbar focus:outline-none transition-all"
+                className="flex-1 w-full h-full overflow-y-auto custom-scrollbar focus:outline-none transition-all"
               >
                 <ReaderPane
                   story={selectedStory}
                   comments={comments}
                   commentsLoading={commentsLoading}
+                  activeTab={readerTab}
+                  onTabChange={setReaderTab}
                   initialActiveCommentId={(() => {
                     try {
                       const progress = JSON.parse(localStorage.getItem('hn_story_progress') || '{}');
@@ -916,7 +826,7 @@ function App() {
                     } catch { return null; }
                   })()}
                   onFocusList={() => setCurrentView('feed')}
-                  onTakeFocus={() => setFocusMode('reader')}
+                  onTakeFocus={() => { }}
                   onSaveProgress={(commentId) => {
                     try {
                       const progress = JSON.parse(localStorage.getItem('hn_story_progress') || '{}');
@@ -925,10 +835,15 @@ function App() {
                     } catch { }
                   }}
                   onToggleSave={user ? handleToggleSave : undefined}
-                  onPrev={readingQueue.length > 0 || stories.findIndex(s => s.id === selectedStoryId) > 0 ? handlePrevStory : undefined}
-                  onNext={readingQueue.length > 0 || stories.findIndex(s => s.id === selectedStoryId) < stories.length - 1 ? handleNextStory : undefined}
+                  onPrev={handlePrevStory}
+                  onNext={handleNextStory}
+                  onSelectStory={handleStorySelect}
                   stories={stories}
                   onBackToFeed={() => setCurrentView('feed')}
+                  onHide={(id) => {
+                    handleHideStory(id);
+                    setCurrentView('feed');
+                  }}
                 />
               </aside>
             ) : (

@@ -97,6 +97,7 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 
 ## Recent Updates
 
+- **Phase 43** — High-Density Feed & In-Place Tag Highlighting: Compact 10-story feed with always-visible metadata. Color-coded green highlighting for active topics without re-fetching. Ingestion as a systemd background service (v2.21.1-m).
 - **Zen AI & Local Automation** — Decommissioned heavy interactive sidebar and chat backend. Integrated sleek "Zen" summary overlay into ReaderPane with pre-cached content. Automated local ingestion via `flock`-protected scripts, moving expensive AI workloads from Azure to local GPU.
 - **Phase 42** — Index -> Show Architecture Refactor: Dedicated Feed & Zen Reader views. Explicit reading queue, minimalist browser-like ReaderPane navigation.
 - **Phase 41** — Redeployed to Azure AKS (`eastus`), upgraded Key Vault CSI integration, configured proper Load Balancer health probes, and enabled automated Let's Encrypt SSL.

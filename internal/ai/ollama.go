@@ -24,15 +24,13 @@ func NewOllamaClient() *OllamaClient {
 func (c *OllamaClient) GenerateSummary(ctx context.Context, apiURL string, title string, text string) (string, error) {
 	log.Printf("OllamaClient: Starting summarization for %q. Input text length: %d", title, len(text))
 
-	prompt := fmt.Sprintf(`Analyze this Hacker News story/discussion and provide a comprehensive summary and relevant tags.
-	
+	prompt := fmt.Sprintf(`Analyze this Hacker News story and provide a high-quality technical summary.
+Return ONLY a JSON object with two keys:
+1. "summary": A FLAT JSON array of exactly 5 strings (DO NOT use nested arrays or objects). Each string is a single key point.
+2. "topics": A FLAT JSON array of 5 relevant tags (plain strings).
+
 Title: %s
-Text: %s
-
-Respond with a raw, valid JSON object exactly matching this format, with no markdown formatting:
-{"summary": "A detailed 3-5 sentence summary (approx 100 words) capturing the main point, technical details, and any controversy or unique insights.", "topics": ["tag1", "tag2"]}
-
-Use tags from this list if applicable: ["AI", "LLM", "Go", "Rust", "Postgres", "React", "Linux", "Apple", "Google", "Security", "Show HN", "Ask HN"]. Add 1-2 specific tags if needed.`, title, text)
+Text: %s`, title, text)
 
 	return c.generateWithRetry(ctx, apiURL, prompt)
 }
@@ -113,9 +111,10 @@ type OllamaGenerateResponse struct {
 // generateWithRetry executes a JSON generation call with retries.
 func (c *OllamaClient) generateWithRetry(ctx context.Context, apiURL string, prompt string) (string, error) {
 	reqBody := OllamaGenerateRequest{
-		Model:  "qwen2.5-coder:latest",
+		Model:  "llama3:latest",
 		Prompt: prompt,
 		Stream: false,
+		Format: "json",
 	}
 
 	// We can optionally force a JSON format output in recent Ollama versions depending on the LLM parsing.

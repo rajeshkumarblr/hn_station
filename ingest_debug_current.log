@@ -1,0 +1,96 @@
+2026/02/28 16:26:16 Starting Ingestion Service (Interval: 0s, One-shot: true)...
+2026/02/28 16:26:16 Fetching top stories from HN front page...
+2026/02/28 16:26:16 Processing top 20 front-page stories
+2026/02/28 16:26:18 Updating ranks...
+2026/02/28 16:26:20 Re-queuing story 47188473 for topic tagging
+2026/02/28 16:26:20 Processing summary for story 47188473: We Will Not Be Divided
+2026/02/28 16:26:21 Re-queuing story 47189535 for topic tagging
+2026/02/28 16:26:21 Processing summary for story 47189535: Croatia declared free of landmines after 31 years
+2026/02/28 16:26:21 Re-queuing story 47189650 for topic tagging
+2026/02/28 16:26:22 Processing summary for story 47189650: OpenAI agrees with Dept. of War to deploy models in their classified network
+2026/02/28 16:26:22 Processing summary for story 47192505: Unsloth Dynamic 2.0 GGUFs
+2026/02/28 16:26:22 OllamaClient: Starting summarization for "Croatia declared free of landmines after 31 years". Input text length: 1079
+2026/02/28 16:26:22 OllamaClient: Starting summarization for "OpenAI agrees with Dept. of War to deploy models in their classified network". Input text length: 166
+2026/02/28 16:26:22 OllamaClient: Starting summarization for "Unsloth Dynamic 2.0 GGUFs". Input text length: 8003
+2026/02/28 16:26:23 Processing summary for story 47191232: Israel launches strike against Iran, declares state of emergency across country
+2026/02/28 16:26:23 OllamaClient: Starting summarization for "Israel launches strike against Iran, declares state of emergency across country". Input text length: 4700
+2026/02/28 16:26:27 Re-queuing story 47190806 for topic tagging
+2026/02/28 16:26:30 Re-queuing story 47155375 for topic tagging
+2026/02/28 16:26:41 Re-queuing story 47181208 for topic tagging
+2026/02/28 16:26:50 Failed to fetch content (story 47188473): Get "https://notdivided.org": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+2026/02/28 16:26:50 Processing summary for story 47190806: Cash issuing terminals
+2026/02/28 16:26:51 Re-queuing story 47181211 for topic tagging
+2026/02/28 16:26:51 OllamaClient: Starting summarization for "Cash issuing terminals". Input text length: 8003
+2026/02/28 16:26:52 Successfully saved summary and 5 topics for story 47189535
+2026/02/28 16:26:52 Processing summary for story 47155375: Show HN: I ported Manim to TypeScript (run 3b1B math animations in the browser)
+2026/02/28 16:26:52 OllamaClient: Starting summarization for "Show HN: I ported Manim to TypeScript (run 3b1B math animations in the browser)". Input text length: 3245
+2026/02/28 16:26:59 Successfully saved summary and 5 topics for story 47192505
+2026/02/28 16:26:59 Processing summary for story 47181208: A new California law says all operating systems need to have age verification
+2026/02/28 16:26:59 OllamaClient: Starting summarization for "A new California law says all operating systems need to have age verification". Input text length: 3143
+2026/02/28 16:27:02 Successfully saved summary and 5 topics for story 47191232
+2026/02/28 16:27:02 Processing summary for story 47181211: OpenAI raises $110B on $730B pre-money valuation
+2026/02/28 16:27:02 OllamaClient: Starting summarization for "OpenAI raises $110B on $730B pre-money valuation". Input text length: 3566
+2026/02/28 16:27:08 Successfully saved summary and 5 topics for story 47189650
+2026/02/28 16:27:13 Failed to parse JSON for story 47190806. Error: json: cannot unmarshal array into Go struct field .topics of type string. Raw response: {"summary": [
+["Cash handling is fraught with peril."],
+["Automation in the banking world first focused on solving this problem."],
+["IBM's efforts ultimately failed to produce an ATM that could handle cash reliably."],
+["Bank branches, being branches, do not exist in isolation."],
+["Simple punched card equipment gave way to advanced punched card equipment."]
+], "topics": [
+["Cashless Transactions"],
+["Automated Banking"],
+["Business Computing"],
+["Punched Card Equipment"],
+["ATM Technology"]
+]}
+2026/02/28 16:27:13 Successfully saved summary and 0 topics for story 47190806
+2026/02/28 16:27:18 Successfully saved summary and 5 topics for story 47155375
+2026/02/28 16:27:22 Successfully saved summary and 5 topics for story 47181208
+2026/02/28 16:27:27 Successfully saved summary and 5 topics for story 47181211
+2026/02/28 16:29:30 Re-queuing story 47170030 for topic tagging
+2026/02/28 16:29:30 Processing summary for story 47170030: Smallest transformer that can add two 10-digit numbers
+2026/02/28 16:29:31 OllamaClient: Starting summarization for "Smallest transformer that can add two 10-digit numbers". Input text length: 8003
+2026/02/28 16:29:40 Successfully saved summary and 5 topics for story 47170030
+2026/02/28 16:30:06 Processing summary for story 47191844: Inferring car movement patterns from passive TPMS measurements
+2026/02/28 16:30:07 Re-queuing story 47190947 for topic tagging
+2026/02/28 16:30:07 Processing summary for story 47190947: Rust is just a tool
+2026/02/28 16:30:08 OllamaClient: Starting summarization for "Inferring car movement patterns from passive TPMS measurements". Input text length: 1032
+2026/02/28 16:30:08 Re-queuing story 47188697 for topic tagging
+2026/02/28 16:30:08 Processing summary for story 47188697: Statement on the comments from Secretary of War Pete Hegseth
+2026/02/28 16:30:08 OllamaClient: Starting summarization for "Rust is just a tool". Input text length: 1294
+2026/02/28 16:30:10 OllamaClient: Starting summarization for "Statement on the comments from Secretary of War Pete Hegseth". Input text length: 3614
+2026/02/28 16:30:12 Successfully saved summary and 5 topics for story 47191844
+2026/02/28 16:30:16 Successfully saved summary and 5 topics for story 47190947
+2026/02/28 16:30:21 Successfully saved summary and 5 topics for story 47188697
+2026/02/28 16:30:47 Processing summary for story 47147597: The Eternal Promise: A History of Attempts to Eliminate Programmers
+2026/02/28 16:30:47 Re-queuing story 47189625 for topic tagging
+2026/02/28 16:30:47 Processing summary for story 47189625: Bootc and OSTree: Modernizing Linux System Deployment
+2026/02/28 16:30:48 OllamaClient: Starting summarization for "Bootc and OSTree: Modernizing Linux System Deployment". Input text length: 8003
+2026/02/28 16:30:49 OllamaClient: Starting summarization for "The Eternal Promise: A History of Attempts to Eliminate Programmers". Input text length: 8003
+2026/02/28 16:30:51 Re-queuing story 47187649 for topic tagging
+2026/02/28 16:30:51 Processing summary for story 47187649: Qt45: A small polymerase ribozyme that can synthesize itself
+2026/02/28 16:30:51 OllamaClient: Starting summarization for "Qt45: A small polymerase ribozyme that can synthesize itself". Input text length: 7516
+2026/02/28 16:30:53 Successfully saved summary and 4 topics for story 47189625
+2026/02/28 16:30:56 Re-queuing story 47189749 for topic tagging
+2026/02/28 16:30:56 Processing summary for story 47189749: Don't use passkeys for encrypting user data
+2026/02/28 16:30:56 OllamaClient: Starting summarization for "Don't use passkeys for encrypting user data". Input text length: 4158
+2026/02/28 16:30:59 Successfully saved summary and 5 topics for story 47147597
+2026/02/28 16:31:00 Re-queuing story 47180569 for topic tagging
+2026/02/28 16:31:00 Processing summary for story 47180569: A better streams API is possible for JavaScript
+2026/02/28 16:31:01 OllamaClient: Starting summarization for "A better streams API is possible for JavaScript". Input text length: 8003
+2026/02/28 16:31:06 Raw summary from story 47187649: <nil>
+2026/02/28 16:31:07 Successfully saved summary and 0 topics for story 47187649
+2026/02/28 16:31:11 Successfully saved summary and 5 topics for story 47189749
+2026/02/28 16:31:16 Successfully saved summary and 5 topics for story 47180569
+2026/02/28 16:31:18 Re-queuing story 47181944 for topic tagging
+2026/02/28 16:31:18 Processing summary for story 47181944: A Chinese official’s use of ChatGPT revealed an intimidation operation
+2026/02/28 16:31:18 OllamaClient: Starting summarization for "A Chinese official’s use of ChatGPT revealed an intimidation operation". Input text length: 3981
+2026/02/28 16:31:20 Processing summary for story 47182483: NASA announces overhaul of Artemis program amid safety concerns, delays
+2026/02/28 16:31:20 OllamaClient: Starting summarization for "NASA announces overhaul of Artemis program amid safety concerns, delays". Input text length: 8003
+2026/02/28 16:31:24 Successfully saved summary and 5 topics for story 47181944
+2026/02/28 16:31:31 Successfully saved summary and 5 topics for story 47182483
+2026/02/28 16:33:42 Pruning stories to top 20...
+2026/02/28 16:33:43 Ingestion run completed.
+2026/02/28 16:33:43 One-shot mode: waiting for summary queue to drain...
+2026/02/28 16:33:43 One-shot run completed.

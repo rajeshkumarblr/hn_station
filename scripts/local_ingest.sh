@@ -21,12 +21,12 @@ mkdir -p "$PROJECT_ROOT/logs"
   kubectl port-forward "$PORT_FORWARD_TARGET" "$PORT_FORWARD_PORT:5432" > /dev/null 2>&1 &
   PF_PID=$!
 
-  # Wait for tunnel to be ready
-  sleep 5
+  # Wait for tunnel to be ready (increased for safety)
+  sleep 8
 
-  # 2. Run ingestion
+  # 2. Run ingestion (using nice and ionice for background resource safety)
   cd "$PROJECT_ROOT"
-  "$BINARY_PATH" --one-shot >> "$LOG_FILE" 2>&1
+  nice -n 15 ionice -c 3 "$BINARY_PATH" --one-shot >> "$LOG_FILE" 2>&1
 
   # 3. Cleanup
   kill $PF_PID

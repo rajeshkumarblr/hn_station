@@ -1,0 +1,15 @@
+[Unit]
+Description=HN Station Ingestion Service
+After=network.target
+
+[Service]
+Type=simple
+User=rajesh
+WorkingDirectory=/home/rajesh/proj/hn_station
+ExecStart=/home/rajesh/proj/hn_station/cmd/ingest/ingest -interval 1m
+Restart=always
+RestartSec=10
+EnvironmentFile=/home/rajesh/proj/hn_station/.env
+
+[Install]
+WantedBy=multi-user.target
