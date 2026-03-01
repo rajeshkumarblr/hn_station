@@ -142,12 +142,12 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
         }
     }, [activeCommentId, onSaveProgress]);
 
-    // Reset article state when story changes
+    // Reset article state when story changes \u2014 default to iframe (Web) view
     useEffect(() => {
         setArticleContent(null);
         setArticleError(null);
         setArticleLoading(false);
-        setUseIframe(false);
+        setUseIframe(true);  // Start in Web view; API will override if site blocks iframes
     }, [story.id]);
 
     // Fetch article content on tab switch
