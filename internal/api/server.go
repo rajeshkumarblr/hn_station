@@ -339,7 +339,7 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)
 	showHidden := r.URL.Query().Get("show_hidden") == "true"
 
-	stories, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics, userID, showHidden)
+	stories, total, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics, userID, showHidden)
 	if err != nil {
 		http.Error(w, "Failed to fetch stories", http.StatusInternalServerError)
 		return
@@ -350,7 +350,10 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stories)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"stories": stories,
+		"total":   total,
+	})
 }
 
 func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
@@ -448,7 +451,7 @@ func (s *Server) handleGetSavedStories(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	stories, err := s.store.GetSavedStories(r.Context(), userID, limit, offset)
+	stories, total, err := s.store.GetSavedStories(r.Context(), userID, limit, offset)
 	if err != nil {
 		http.Error(w, "Failed to fetch saved stories", http.StatusInternalServerError)
 		return
@@ -459,7 +462,10 @@ func (s *Server) handleGetSavedStories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stories)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"stories": stories,
+		"total":   total,
+	})
 }
 
 func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {

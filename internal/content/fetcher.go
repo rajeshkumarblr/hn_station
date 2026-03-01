@@ -1,13 +1,17 @@
 package content
 
 import (
+	"bytes"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	readability "github.com/go-shiori/go-readability"
+	"github.com/ledongthuc/pdf"
 )
 
 // FetchResult contains the result of an article fetch
@@ -36,37 +40,26 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 	}
 	defer resp.Body.Close()
 
-	// GitHub Handling: If 404 on a repo URL, try raw README
-	if resp.StatusCode == 404 && strings.Contains(urlStr, "github.com") {
-		// Convert https://github.com/user/repo -> https://raw.githubusercontent.com/user/repo/master/README.md
-		if !strings.Contains(urlStr, "/blob/") && !strings.Contains(urlStr, "/tree/") {
-			rawURL := strings.Replace(urlStr, "github.com", "raw.githubusercontent.com", 1)
-			rawURL = strings.TrimSuffix(rawURL, "/") + "/master/README.md"
-
-			// Retry with raw URL
-			req, _ = http.NewRequest("GET", rawURL, nil)
-			resp, err = client.Do(req)
-			if err == nil && resp.StatusCode == 200 {
-				defer resp.Body.Close()
-				bodyBytes, _ := io.ReadAll(resp.Body)
-				return &FetchResult{
-					Content:   string(bodyBytes),
-					Title:     "GitHub README",
-					CanIframe: false,
-				}, nil
-			}
-			// If master fails, try main
-			rawURLMain := strings.Replace(rawURL, "master", "main", 1)
-			req, _ = http.NewRequest("GET", rawURLMain, nil)
-			resp, err = client.Do(req)
-			if err == nil && resp.StatusCode == 200 {
-				defer resp.Body.Close()
-				bodyBytes, _ := io.ReadAll(resp.Body)
-				return &FetchResult{
-					Content:   string(bodyBytes),
-					Title:     "GitHub README",
-					CanIframe: false,
-				}, nil
+	// GitHub Handling: Direct README extraction
+	if strings.Contains(urlStr, "github.com") {
+		// If it's a repo root (no blob/tree/pull etc)
+		u, _ := url.Parse(urlStr)
+		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+		if len(parts) == 2 {
+			// Try master then main
+			for _, branch := range []string{"master", "main"} {
+				rawURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/README.md", parts[0], parts[1], branch)
+				req, _ = http.NewRequest("GET", rawURL, nil)
+				resp, err = client.Do(req)
+				if err == nil && resp.StatusCode == 200 {
+					defer resp.Body.Close()
+					bodyBytes, _ := io.ReadAll(resp.Body)
+					return &FetchResult{
+						Content:   string(bodyBytes),
+						Title:     fmt.Sprintf("GitHub README: %s/%s", parts[0], parts[1]),
+						CanIframe: false,
+					}, nil
+				}
 			}
 		}
 	}
@@ -83,6 +76,23 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 		canIframe = false
 	}
 
+	// Detect PDF by Content-Type or extension
+	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
+	isPDF := strings.Contains(contentType, "application/pdf") || strings.HasSuffix(strings.ToLower(urlStr), ".pdf")
+
+	if isPDF {
+		log.Printf("Fetcher: Detected PDF content for %s. Extracting text...", urlStr)
+		content, err := extractTextFromPDF(resp.Body)
+		if err == nil && len(content) > 100 {
+			return &FetchResult{
+				Content:   content,
+				Title:     "PDF Document: " + urlStr,
+				CanIframe: false,
+			}, nil
+		}
+		log.Printf("Fetcher: PDF extraction failed or too short: %v", err)
+	}
+
 	// 2. Read Body
 	// Limit to 2MB to prevent memory exhaustion
 	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
@@ -92,18 +102,75 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 
 	// 3. Attempt Parsing with go-readability
 	article, err := readability.FromReader(strings.NewReader(string(bodyBytes)), parsedURL)
-	if err == nil && article.Content != "" {
+	if err == nil && article.TextContent != "" {
 		return &FetchResult{
-			Content:   article.Content,
+			Content:   article.TextContent,
 			Title:     article.Title,
 			CanIframe: canIframe,
 		}, nil
 	}
 
-	// 4. Fallback to Raw HTML
+	// 4. Fallback to Raw HTML but strip tags (poor man's strip)
+	raw := string(bodyBytes)
 	return &FetchResult{
-		Content:   string(bodyBytes),
+		Content:   stripTags(raw),
 		Title:     "Unknown Title",
 		CanIframe: canIframe,
 	}, nil
+}
+
+func stripTags(html string) string {
+	var sb strings.Builder
+	inTag := false
+	for _, r := range html {
+		if r == '<' {
+			inTag = true
+			continue
+		}
+		if r == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			sb.WriteRune(r)
+		}
+	}
+	return strings.Join(strings.Fields(sb.String()), " ")
+}
+
+// extractTextFromPDF reads PDF content from a reader and returns the extracted text.
+func extractTextFromPDF(r io.Reader) (string, error) {
+	// We need to read the whole body into a temp file or buffer because ledongthuc/pdf
+	// often needs seekable access or a reader that can be reread.
+	bodyBytes, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+
+	reader, err := pdf.NewReader(bytes.NewReader(bodyBytes), int64(len(bodyBytes)))
+	if err != nil {
+		return "", err
+	}
+
+	var sb strings.Builder
+	numPages := reader.NumPage()
+	// Limit to first 20 pages to avoid performance issues
+	if numPages > 20 {
+		numPages = 20
+	}
+
+	for i := 1; i <= numPages; i++ {
+		page := reader.Page(i)
+		if page.V.IsNull() {
+			continue
+		}
+		text, err := page.GetPlainText(nil)
+		if err != nil {
+			continue
+		}
+		sb.WriteString(text)
+		sb.WriteString("\n")
+	}
+
+	return sb.String(), nil
 }

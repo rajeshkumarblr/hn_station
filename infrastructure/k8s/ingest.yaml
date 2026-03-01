@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: ingest
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: ingest

@@ -1,0 +1,22 @@
+2026/02/28 14:10:17 Starting Ingestion Service (Interval: 0s, One-shot: true)...
+2026/02/28 14:10:17 Fetching top stories from HN front page...
+2026/02/28 14:10:18 Processing top 1 front-page stories
+2026/02/28 14:10:20 Updating ranks...
+2026/02/28 14:10:22 Re-queuing story 47188473 for topic tagging
+2026/02/28 14:10:22 Processing summary for story 47188473: We Will Not Be Divided
+2026/02/28 14:10:22 OllamaClient: Starting summarization for "We Will Not Be Divided". Input text length: 4500
+2026/02/28 14:10:29 Successfully saved summary and 5 topics for story 47188473
+2026/02/28 14:11:10 Failed to upsert comment 47189833: ERROR: insert or update on table "comments" violates foreign key constraint "comments_story_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:10 Failed to upsert comment 47189086: ERROR: insert or update on table "comments" violates foreign key constraint "comments_story_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:11 Failed to upsert comment 47189377: ERROR: insert or update on table "comments" violates foreign key constraint "comments_story_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:12 Failed to upsert comment 47189828: ERROR: insert or update on table "comments" violates foreign key constraint "comments_story_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:12 Failed to upsert comment 47189261: ERROR: insert or update on table "comments" violates foreign key constraint "comments_story_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:13 Failed to upsert comment 47191615: ERROR: insert or update on table "comments" violates foreign key constraint "comments_story_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:14 Failed to upsert comment 47189850: ERROR: insert or update on table "comments" violates foreign key constraint "comments_parent_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:15 Failed to upsert comment 47191453: ERROR: insert or update on table "comments" violates foreign key constraint "comments_parent_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:16 Failed to upsert comment 47191946: ERROR: insert or update on table "comments" violates foreign key constraint "comments_parent_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:11:16 Failed to upsert comment 47191487: ERROR: insert or update on table "comments" violates foreign key constraint "comments_parent_id_fkey" (SQLSTATE 23503)
+2026/02/28 14:14:08 Pruning stories to top 20...
+2026/02/28 14:14:08 Ingestion run completed.
+2026/02/28 14:14:08 One-shot mode: waiting for summary queue to drain...
+2026/02/28 14:14:08 One-shot run completed.

@@ -13,6 +13,8 @@ export interface Story {
     hn_rank?: number;
     is_read?: boolean;
     is_saved?: boolean;
+    summary?: string;
+    topics?: string[];
 }
 
 interface StoryCardProps {
@@ -23,12 +25,30 @@ interface StoryCardProps {
     onHide?: (id: number) => void;
     onQueueToggle?: (id: number) => void;
     isSelected?: boolean;
+    isHighlighted?: boolean;
     isRead?: boolean;
     isQueued?: boolean;
     topicTextClass?: string | null;
 }
 
-export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isRead, isQueued, topicTextClass }: StoryCardProps) {
+function getTimeAgo(date: Date): string {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + "y";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + "mo";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + "d";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + "h";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + "m";
+    return Math.floor(seconds) + "s";
+}
+
+
+export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isHighlighted, isRead, isQueued, topicTextClass }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -50,7 +70,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
     const date = new Date(story.time);
     const timeAgo = getTimeAgo(date);
 
-    const displayRank = story.hn_rank || (index !== undefined ? index + 1 : null);
+    const displayRank = index !== undefined ? index + 1 : null;
     const dimmed = story.is_read || isRead;
     const saved = story.is_saved || false;
 
@@ -58,17 +78,20 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
     let bgClass = 'bg-white dark:bg-slate-900/40';
 
     if (dimmed && !isSelected) {
-        bgClass = 'bg-gray-50 dark:bg-[#161b22] opacity-85';
+        bgClass = 'bg-slate-50/50 dark:bg-slate-900/40';
     }
 
     // Active state overrides everything
     const activeBg = isSelected
         ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-blue-600 dark:border-l-blue-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10 z-10'
-        : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 border-l-transparent`;
+        : isHighlighted
+            ? 'bg-slate-50 dark:bg-slate-800/60 border-l-4 border-l-blue-400 dark:border-l-blue-400 shadow-sm ring-1 ring-blue-200 dark:ring-blue-500/30 font-semibold'
+            : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 border-l-transparent`;
+
 
     return (
         <div
-            className={`group relative rounded-md py-2 px-3 transition-all duration-150 ${activeBg}`}
+            className={`group relative rounded-md py-1.5 px-3 transition-all duration-150 ${activeBg}`}
         // Allow parent to handle clicks, but we also want hover effects
         >
             {/* Action Buttons Container - Top Right */}
@@ -114,41 +137,42 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
             </div>
 
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
-                <h3 className={`text-[14px] ${isSelected ? 'leading-snug mb-1.5 font-semibold whitespace-normal' : 'leading-none mb-0 font-medium truncate group-hover:whitespace-normal group-hover:leading-snug group-hover:mb-1.5 group-hover:overflow-visible transition-[margin,line-height] duration-200'} transition-all duration-200`}>
+                <h3 className="text-[14px] leading-snug mb-1 font-semibold whitespace-normal transition-all duration-200">
                     {displayRank && (
                         <span className="text-slate-400 dark:text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
                             {displayRank}.
                         </span>
                     )}
-                    {/* Title */}
-                    <span className={`${topicTextClass ? topicTextClass : 'text-slate-800 dark:text-slate-200'} ${dimmed && !isSelected ? 'text-slate-600 dark:text-slate-400/80 font-normal mix-blend-luminosity' : ''} hover:opacity-80 transition-opacity cursor-pointer font-bold`}>
-                        {story.title}
+                    {/* Title + Topic Chip + Tooltip Wrapper */}
+                    <span
+                        className="relative inline-block align-middle group/tooltip"
+                    >
+                        {/* Title */}
+                        <span className={`${topicTextClass || (dimmed && !isSelected ? 'text-slate-500/80 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-200')} hover:opacity-80 transition-opacity cursor-pointer font-bold mr-1.5`}>
+                            {story.title}
+                        </span>
                     </span>
+
                     {/* Copy Link button */}
                     <button
                         onClick={handleCopyLink}
-                        className={`inline-flex ml-1.5 align-text-bottom transition-all duration-150 ${isCopied ? 'text-green-500 scale-110' : 'text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:scale-110'}`}
+                        className={`inline-flex ml-0.5 align-middle transition-all duration-150 ${isCopied ? 'text-green-500 scale-110' : 'text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:scale-110'}`}
                         title={isCopied ? 'Copied!' : 'Copy Link'}
                     >
-                        {isCopied ? <Check size={14} /> : <Link size={14} />}
+                        {isCopied ? <Check size={12} /> : <Link size={12} />}
                     </button>
                 </h3>
 
                 {/* Details Row - Visible on selection OR hover */}
                 {/* We use grid/height transition for smooth expansion effect on hover, or just simple block display for now */}
-                <div className={`
-                    overflow-hidden transition-all duration-200 ease-in-out
-                    ${isSelected
-                        ? 'max-h-20 opacity-100 mt-1'
-                        : 'max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 group-hover:mt-1'}
-                `}>
-                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 font-medium pt-1">
+                <div className="overflow-hidden transition-all duration-200 ease-in-out mt-1 opacity-100 max-h-20">
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-0.5">
                         {domain && (
                             <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-500">
                                 <img
                                     src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
                                     alt=""
-                                    className="w-3.5 h-3.5 rounded-sm opacity-75"
+                                    className="w-3 h-3 rounded-sm opacity-75"
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                                 <span className="truncate max-w-[150px] hover:text-slate-800 dark:hover:text-slate-300 transition-colors">{domain}</span>
@@ -157,14 +181,14 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                         )}
                         {!domain && story.title.startsWith('Ask HN') && (
                             <div className="flex items-center gap-1 text-slate-500">
-                                <Terminal size={12} />
+                                <Terminal size={11} />
                                 <span>Ask HN</span>
                                 <span className="text-slate-300 dark:text-slate-600">•</span>
                             </div>
                         )}
 
                         <span className="flex items-center gap-1 text-orange-600 dark:text-orange-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
                             {story.score}
                         </span>
 
@@ -173,7 +197,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                         </span>
 
                         <span className="flex items-center gap-1" title={date.toLocaleString()}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                             {timeAgo}
                         </span>
 
@@ -181,7 +205,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                             onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
                             className={`flex items-center gap-1 transition-colors px-2 py-0.5 rounded-full ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                             {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
                         </button>
                     </div>
@@ -191,18 +215,3 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
     );
 }
 
-function getTimeAgo(date: Date): string {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + "y";
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + "mo";
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + "d";
-    interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + "h";
-    interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + "m";
-    return Math.floor(seconds) + "s";
-}
