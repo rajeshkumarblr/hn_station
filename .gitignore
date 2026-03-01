@@ -40,3 +40,4 @@ infrastructure/k8s/secrets.yaml
 bin/
 logs/
 cmd/ingest/ingest
+*.log
