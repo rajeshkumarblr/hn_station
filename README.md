@@ -10,7 +10,13 @@
 
 A modern, fast, and feature-rich Hacker News client built with Go and React. Live at **[hnstation.dev](https://hnstation.dev)**.
 
-![Hacker News Station Screenshot](screenshot.png)
+![HN Station Feed](screenshots/feed_page.png)
+
+### Article View
+![Article View](screenshots/article.png)
+
+### Discussion View
+![Discussion View](screenshots/discussion.png)
 
 ---
 
