@@ -28,6 +28,7 @@ interface StoryCardProps {
     isHighlighted?: boolean;
     isRead?: boolean;
     isQueued?: boolean;
+    isEven?: boolean;
     topicTextClass?: string | null;
 }
 
@@ -48,7 +49,38 @@ function getTimeAgo(date: Date): string {
 }
 
 
-export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isHighlighted, isRead, isQueued, topicTextClass }: StoryCardProps) {
+export function getTagColor(tag: string): { bg: string, text: string, border: string } {
+    const colors = [
+        { bg: 'bg-blue-50 dark:bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-100 dark:border-blue-500/20' },
+        { bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-100 dark:border-emerald-500/20' },
+        { bg: 'bg-violet-50 dark:bg-violet-500/10', text: 'text-violet-600 dark:text-violet-400', border: 'border-violet-100 dark:border-violet-500/20' },
+        { bg: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-500/20' },
+        { bg: 'bg-rose-50 dark:bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-100 dark:border-rose-500/20' },
+        { bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-100 dark:border-indigo-500/20' },
+        { bg: 'bg-cyan-50 dark:bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-100 dark:border-cyan-500/20' },
+    ];
+    let hash = 0;
+    for (let i = 0; i < tag.length; i++) {
+        hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+}
+
+function truncateSummary(text: string): string {
+    if (!text) return "";
+    // Split on line breaks (bullet points) first, then on sentence endings
+    const lines = text.split(/\n+/).map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+    if (lines.length >= 2) {
+        return lines.slice(0, 2).join(' ') + (lines.length > 2 ? '...' : '');
+    }
+    // Fall back to sentence splitting
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    if (sentences.length <= 2) return text.trim();
+    return sentences.slice(0, 2).join(' ').trim() + '...';
+}
+
+
+export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isHighlighted, isRead, isQueued, isEven, topicTextClass }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -74,12 +106,23 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
     const dimmed = story.is_read || isRead;
     const saved = story.is_saved || false;
 
-    // Light mode: plain white. Dark mode: transparent/slate
-    let bgClass = 'bg-white dark:bg-slate-900/40';
+    // Zebra coloring — even rows: white, odd rows: light-blue tint
+    let bgClass = isEven
+        ? 'bg-white dark:bg-slate-900/90'
+        : 'bg-blue-50/60 dark:bg-blue-900/15';
 
     if (dimmed && !isSelected) {
-        bgClass = 'bg-slate-50/50 dark:bg-slate-900/40';
+        bgClass = isEven
+            ? 'bg-slate-50/90 dark:bg-slate-900/70'
+            : 'bg-blue-50/30 dark:bg-blue-900/10';
     }
+
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const handleMouseMove = (e: React.MouseEvent) => {
+        setMousePos({ x: e.clientX, y: e.clientY });
+    };
+
+    const truncatedSummary = truncateSummary(story.summary || "");
 
     // Active state overrides everything
     const activeBg = isSelected
@@ -92,7 +135,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
     return (
         <div
             className={`group relative rounded-md py-1.5 px-3 transition-all duration-150 ${activeBg}`}
-        // Allow parent to handle clicks, but we also want hover effects
+            onMouseMove={handleMouseMove}
         >
             {/* Action Buttons Container - Top Right */}
             <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
@@ -208,9 +251,51 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                             <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                             {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
                         </button>
+
+                        {/* Tags Display */}
+                        {story.topics && story.topics.length > 0 && (
+                            <div className="flex items-center gap-1.5 ml-1 pt-0.5">
+                                <span className="text-slate-300 dark:text-slate-600">•</span>
+                                {story.topics.slice(0, 3).map((topic, i) => {
+                                    const colors = getTagColor(topic);
+                                    return (
+                                        <span
+                                            key={i}
+                                            className={`px-1.5 py-0.5 rounded border ${colors.bg} ${colors.text} ${colors.border} text-[9px] uppercase tracking-wider font-bold`}
+                                        >
+                                            {topic}
+                                        </span>
+                                    );
+                                })}
+                                {story.topics.length > 3 && (
+                                    <span className="text-[9px] text-slate-400">+{story.topics.length - 3}</span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {/* Hover Summary Popup */}
+            {story.summary && (
+                <div
+                    className="hidden group-hover:block fixed z-[9999] w-80 pointer-events-none animate-in fade-in slide-in-from-left-2 duration-200"
+                    style={{
+                        left: `${mousePos.x + 20}px`,
+                        top: `${mousePos.y + 10}px`
+                    }}
+                >
+                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4 shadow-2xl shadow-blue-900/30">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                            <span className="text-[10px] uppercase tracking-widest font-bold text-blue-600 dark:text-blue-400">Summary</span>
+                        </div>
+                        <p className="text-[13px] leading-relaxed text-slate-800 dark:text-slate-100 font-medium">
+                            {truncatedSummary}
+                        </p>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

@@ -97,6 +97,8 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 
 ## Recent Updates
 
+- **v3.1** — Top bar redesigned: nav tabs (Top/New/Best…) moved to the left, "HN Station" centered in orange with version below it. Mixed-content (HTTP→HTTPS) fix for article reader. Opaque light-blue hover summary popup.
+- **v3.0** — Feed UI refinements: high-contrast light-blue zebra striping, deterministic color-coded tags in feed and sidebar, mouse-relative AI summary popups truncated to 2 sentences.
 - **Phase 43** — High-Density Feed & In-Place Tag Highlighting: Compact 10-story feed with always-visible metadata. Color-coded green highlighting for active topics without re-fetching. Ingestion as a systemd background service (v2.21.1-m).
 - **Zen AI & Local Automation** — Decommissioned heavy interactive sidebar and chat backend. Integrated sleek "Zen" summary overlay into ReaderPane with pre-cached content. Automated local ingestion via `flock`-protected scripts, moving expensive AI workloads from Azure to local GPU.
 - **Phase 42** — Index -> Show Architecture Refactor: Dedicated Feed & Zen Reader views. Explicit reading queue, minimalist browser-like ReaderPane navigation.
@@ -104,6 +106,3 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 - **Phase 38** — Reader Mode: server-side article fetch + sanitize (`go-readability` + `dompurify`), smart iframe fallback.
 - **Phase 36** — Admin Panel v2: Grafana-style analytics dashboard with user list and activity metrics at `/admin`.
 - **Phase 35** — Full light mode support, hover-expand story cards, zebra striping.
-- **Phase 33** — Persistent AI chat history saved to DB (`chat_messages`); on-demand discussion summarization.
-- **Phase 31** — Hide stories with `Delete` key; persisted in DB with "Show All" toggle.
-- **Phase 29** — High-density single-line story list (15+ visible items); AI thread summarizer (`s` key).

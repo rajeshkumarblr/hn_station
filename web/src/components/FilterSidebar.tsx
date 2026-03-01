@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Layers } from 'lucide-react';
+import { getTagColor } from './StoryCard';
 
 interface FilterSidebarProps {
     activeTopics: string[];
@@ -110,13 +111,14 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
                         {topTags.map(tag => {
                             const isActive = activeTopics.some(t => t.toLowerCase() === tag.toLowerCase());
+                            const colors = getTagColor(tag);
                             return (
                                 <button
                                     key={tag.toLowerCase()}
                                     onClick={() => handleToggleTag(tag)}
                                     className={`inline-flex items-center text-[11px] font-medium px-2 py-1 rounded-md border transition-all hover:scale-105 active:scale-95 ${isActive
-                                        ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30 font-bold shadow-sm'
-                                        : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-blue-500/50 hover:text-blue-500'
+                                            ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30 font-bold shadow-sm'
+                                            : `${colors.bg} ${colors.text} ${colors.border}`
                                         }`}
                                 >
                                     {tag}

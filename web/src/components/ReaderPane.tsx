@@ -40,7 +40,10 @@ interface ReaderPaneProps {
 }
 
 export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, onPrev, onNext, onSelectStory, stories = [], onBackToFeed, activeTab: activeTabProp, onTabChange, onHide }: ReaderPaneProps) {
-    const storyUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+    // Always use HTTPS to avoid mixed-content errors on the HTTPS site
+    const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+    const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
+
     const containerRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<'discussion' | 'article'>(activeTabProp || 'article');
 
