@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import './App.css';
-import { StoryCard } from './components/StoryCard';
+import { StoryCard, getTagStyle } from './components/StoryCard';
+
 import { ReaderPane } from './components/ReaderPane';
 import { FilterSidebar } from './components/FilterSidebar';
 import { SettingsModal } from './components/SettingsModal';
@@ -92,7 +93,9 @@ function saveTopicChips(chips: string[]) {
 }
 
 function App() {
-  const [stories, setStories] = useState<Story[]>([]);
+  // Stream buffer — accumulates stories across fetches
+  const [storyBuffer, setStoryBuffer] = useState<Story[]>([]);
+  const [bufferOffset, setBufferOffset] = useState(0); // how many we've fetched
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,9 +104,10 @@ function App() {
   const [totalStories, setTotalStories] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Infinite scroll
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  // fetchingMore prevents duplicate refill fetches
+  const [fetchingMore, setFetchingMore] = useState(false);
 
   // Read tracking
   const [readIds, setReadIds] = useState<Set<number>>(loadReadIds);
@@ -126,9 +130,13 @@ function App() {
 
   // Hidden stories
   const [showHidden, setShowHidden] = useState(false);
-  // We still keep local hiddenStories for immediate UI feedback, 
-  // but now we also rely on the server filtering when showHidden is false.
-  const [hiddenStories, setHiddenStories] = useState<Set<number>>(new Set());
+  // hiddenStories set is no longer needed — removed items are spliced from buffer
+  const hiddenStories = new Set<number>();
+
+  // Derived display list: first PAGE_SIZE entries from the buffer
+  const stories = useMemo(() => {
+    return storyBuffer.slice(0, PAGE_SIZE);
+  }, [storyBuffer]);
 
   // Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -177,11 +185,13 @@ function App() {
 
   // Hide a story (Hoist this up so it can be used in key handlers)
   const handleHideStory = (id: number) => {
-    setHiddenStories(prev => {
-      const next = new Set(prev);
-      next.add(id);
+    setStoryBuffer(prev => {
+      const next = prev.filter(s => s.id !== id);
       return next;
     });
+
+    // Trigger refill if buffer is now shallow
+    setBufferOffset(prev => prev); // forces refill check via effect
 
     // Persist hidden state to server
     if (user) {
@@ -195,25 +205,11 @@ function App() {
     }
 
     // Auto-select next visible story if the hidden one was selected
-    if (selectedStoryId === id && stories.length > 0) {
-      const currentIndex = stories.findIndex(s => s.id === id);
-      let nextIndex = currentIndex + 1;
-      // Skip stories that are hidden locally
-      while (nextIndex < stories.length && hiddenStories.has(stories[nextIndex].id)) {
-        nextIndex++;
-      }
-      if (nextIndex < stories.length) {
-        setSelectedStoryId(stories[nextIndex].id);
-      } else {
-        // Try previous
-        let prevIndex = currentIndex - 1;
-        while (prevIndex >= 0 && hiddenStories.has(stories[prevIndex].id)) {
-          prevIndex--;
-        }
-        if (prevIndex >= 0) {
-          setSelectedStoryId(stories[prevIndex].id);
-        }
-      }
+    if (selectedStoryId === id) {
+      const visible = storyBuffer.filter(s => !hiddenStories.has(s.id) && s.id !== id);
+      const nextStory = visible[0] ?? null;
+      if (nextStory) setSelectedStoryId(nextStory.id);
+      else setSelectedStoryId(null);
     }
   };
 
@@ -269,6 +265,10 @@ function App() {
   const handleStorySelect = useCallback((id: number) => {
     setSelectedStoryId(id);
     setCurrentView('reader');
+    // Default to 'web' tab if the story has a URL, else show discussion
+    const story = storyBuffer.find(s => s.id === id);
+    // Default to article tab (web/reader are sub-modes within it); fall back to discussion for HN-only posts
+    setReaderTab(story?.url ? 'article' : 'discussion');
     // Mark as read (local)
     setReadIds(prev => {
       const next = new Set(prev);
@@ -287,16 +287,16 @@ function App() {
         body: JSON.stringify({ read: true }),
       }).catch(() => { });
       // Update local story state
-      setStories(prev => prev.map(s => s.id === id ? { ...s, is_read: true } : s));
+      setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_read: true } : s));
     }
-  }, [user]);
+  }, [user, storyBuffer]);
 
   // Toggle save/unsave a story
   const handleToggleSave = useCallback((id: number, saved: boolean) => {
     if (!user) return;
 
     // Optimistic update for stories list
-    setStories(prev => prev.map(s => s.id === id ? { ...s, is_saved: saved } : s));
+    setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_saved: saved } : s));
 
     // ALSO update selectedStory if it's the one being toggled for immediate UI feedback in ReaderPane
     if (selectedStory && selectedStory.id === id) {
@@ -311,7 +311,7 @@ function App() {
       body: JSON.stringify({ saved }),
     }).catch(() => {
       // Revert on failure
-      setStories(prev => prev.map(s => s.id === id ? { ...s, is_saved: !saved } : s));
+      setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_saved: !saved } : s));
       if (selectedStory && selectedStory.id === id) {
         setSelectedStory(prev => prev ? { ...prev, is_saved: !saved } : null);
       }
@@ -441,57 +441,89 @@ function App() {
     }
   }, [stories, highlightedStoryId]);
 
-  // Build API URL
-  const buildUrl = useCallback((currentOffset: number) => {
+  // Derive the display list was moved higher — skip duplicate here
+
+  // Fetch stories — populates / replaces the buffer on mode/offset/refresh changes
+  const buildUrl = useCallback((currentOffset: number, limit: number = PAGE_SIZE * 2) => {
     const baseUrl = import.meta.env.VITE_API_URL || '';
     if (mode === 'saved') {
-      return `${baseUrl}/api/stories/saved?limit=${PAGE_SIZE}&offset=${currentOffset}&_t=${Date.now()}`;
+      return `${baseUrl}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
     }
-    let url = `${baseUrl}/api/stories?limit=${PAGE_SIZE}&offset=${currentOffset}&sort=${mode}`;
-    if (showHidden) {
-      url += `&show_hidden=true`;
-    }
+    let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
+    if (showHidden) url += `&show_hidden=true`;
     return url;
   }, [mode, showHidden]);
 
-  // Fetch stories logic
   useEffect(() => {
     setLoading(true);
     setError(null);
     setHasMore(true);
+    // Reset buffer on mode/sort/refresh change but NOT on bufferOffset change
+    setStoryBuffer([]);
+    setBufferOffset(0);
+  }, [mode, refreshKey, showHidden]);
 
-    fetch(buildUrl(offset))
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch stories');
-        return res.json();
-      })
+  // Main fetch — fires when bufferOffset changes or on reset
+  useEffect(() => {
+    if (bufferOffset === 0) return; // handled by reset+fetch below
+    if (!hasMore || fetchingMore) return;
+
+    setFetchingMore(true);
+    fetch(buildUrl(bufferOffset))
+      .then(res => { if (!res.ok) throw new Error('Failed'); return res.json(); })
       .then(data => {
-        setStories(data.stories || []);
+        const incoming: Story[] = data.stories || [];
+        setStoryBuffer(prev => {
+          // Deduplicate
+          const existingIds = new Set(prev.map(s => s.id));
+          const fresh = incoming.filter(s => !existingIds.has(s.id));
+          return [...prev, ...fresh];
+        });
+        setHasMore(incoming.length >= PAGE_SIZE);
+        setFetchingMore(false);
+      })
+      .catch(() => setFetchingMore(false));
+  }, [bufferOffset]);
+
+  // Initial load (and reset)
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch(buildUrl(0))
+      .then(res => { if (!res.ok) throw new Error('Failed to fetch stories'); return res.json(); })
+      .then(data => {
+        const incoming: Story[] = data.stories || [];
+        setStoryBuffer(incoming);
         setTotalStories(data.total || 0);
         setLoading(false);
-        setHasMore((data.stories?.length || 0) >= PAGE_SIZE);
-        if (data.stories && data.stories.length > 0 && !selectedStoryId) {
+        setHasMore(incoming.length >= PAGE_SIZE);
+        if (incoming.length > 0 && !selectedStoryId) {
           const lastId = localStorage.getItem('hn_last_story_id');
           if (lastId) {
             const id = parseInt(lastId);
-            const exists = data.stories.find((s: Story) => s.id === id);
-            if (exists) {
-              setSelectedStoryId(id);
-            } else {
-              setSelectedStoryId(data.stories[0].id);
-            }
+            const exists = incoming.find((s: Story) => s.id === id);
+            setSelectedStoryId(exists ? id : incoming[0].id);
           } else {
-            setSelectedStoryId(data.stories[0].id);
+            setSelectedStoryId(incoming[0].id);
           }
           setCurrentView('feed');
         }
       })
       .catch(err => {
-        console.error(err);
         setError(err.message);
         setLoading(false);
       });
-  }, [offset, mode, refreshKey, showHidden, buildUrl]);
+  }, [mode, refreshKey, showHidden]);
+
+  // Auto-refill: when buffer runs low, fetch more
+  useEffect(() => {
+    const REFILL_THRESHOLD = PAGE_SIZE + 2;
+    const visibleCount = storyBuffer.filter(s => !hiddenStories.has(s.id)).length;
+    if (!fetchingMore && hasMore && visibleCount < REFILL_THRESHOLD && storyBuffer.length > 0) {
+      const nextOffset = storyBuffer.length;
+      setBufferOffset(nextOffset);
+    }
+  }, [storyBuffer, hiddenStories, hasMore, fetchingMore]);
 
   // Extract available tags from current page
   const availableTags = useMemo(() => {
@@ -582,7 +614,7 @@ function App() {
             >
               HN Station
             </button>
-            <span className="text-[10px] text-slate-500 font-normal tracking-widest mt-0.5">v3.1</span>
+            <span className="text-[10px] text-slate-500 font-normal tracking-widest mt-0.5">v3.3</span>
           </div>
 
           {/* Spacer — pushes right controls to the far right */}
@@ -711,8 +743,10 @@ function App() {
                               const isQueued = readingQueue.includes(story.id);
 
                               const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, story.topics, activeTopics) : null;
-                              // Force green color for tag highlighting
-                              const topicTextClass = matchedTopic ? 'text-green-600 dark:text-green-500' : null;
+                              const tagStyle = matchedTopic ? getTagStyle(matchedTopic) : null;
+                              const titleColorStyle = tagStyle ? tagStyle.color : null;
+                              // Keep legacy topicTextClass as fallback (not used when titleColorStyle is set)
+                              const topicTextClass = null;
 
                               return (
                                 <div
@@ -734,7 +768,7 @@ function App() {
                                     window.open(url, '_blank', 'noopener,noreferrer');
                                   }}
                                   className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? '' : ''}`}
-                                  style={matchedTopic ? { borderLeft: `3px solid #10b981` } : undefined}
+                                  style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
                                 >
                                   <StoryCard
                                     story={story}
@@ -743,6 +777,7 @@ function App() {
                                     isRead={isRead}
                                     isQueued={isQueued}
                                     isEven={index % 2 === 0}
+                                    titleColorStyle={titleColorStyle}
                                     topicTextClass={topicTextClass}
                                     onSelect={(id) => handleStorySelect(id)}
                                     onToggleSave={user ? handleToggleSave : undefined}

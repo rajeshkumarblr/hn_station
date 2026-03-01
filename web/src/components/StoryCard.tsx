@@ -30,6 +30,7 @@ interface StoryCardProps {
     isQueued?: boolean;
     isEven?: boolean;
     topicTextClass?: string | null;
+    titleColorStyle?: string | null; // inline CSS color for the title
 }
 
 function getTimeAgo(date: Date): string {
@@ -49,21 +50,26 @@ function getTimeAgo(date: Date): string {
 }
 
 
-export function getTagColor(tag: string): { bg: string, text: string, border: string } {
-    const colors = [
-        { bg: 'bg-blue-50 dark:bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-100 dark:border-blue-500/20' },
-        { bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-100 dark:border-emerald-500/20' },
-        { bg: 'bg-violet-50 dark:bg-violet-500/10', text: 'text-violet-600 dark:text-violet-400', border: 'border-violet-100 dark:border-violet-500/20' },
-        { bg: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-500/20' },
-        { bg: 'bg-rose-50 dark:bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-100 dark:border-rose-500/20' },
-        { bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-100 dark:border-indigo-500/20' },
-        { bg: 'bg-cyan-50 dark:bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-100 dark:border-cyan-500/20' },
-    ];
+export function getTagStyle(tag: string): { color: string; bg: string; border: string } {
+    // Deterministic unique HSL color from tag name
     let hash = 0;
     for (let i = 0; i < tag.length; i++) {
         hash = tag.charCodeAt(i) + ((hash << 5) - hash);
     }
-    return colors[Math.abs(hash) % colors.length];
+    // Spread hues evenly, keep saturation/lightness readable
+    const hue = Math.abs(hash) % 360;
+    const sat = 60 + (Math.abs(hash >> 8) % 20); // 60-80%
+    const lit = 55 + (Math.abs(hash >> 16) % 10); // 55-65%
+    const color = `hsl(${hue}, ${sat}%, ${lit}%)`;
+    const bg = `hsla(${hue}, ${sat}%, ${lit}%, 0.12)`;
+    const border = `hsl(${hue}, ${sat}%, ${lit}%)`;
+    return { color, bg, border };
+}
+
+// Legacy Tailwind alias — kept for any external consumers
+export function getTagColor(tag: string) {
+    const s = getTagStyle(tag);
+    return { bg: '', text: '', border: '', _style: s };
 }
 
 function truncateSummary(text: string): string {
@@ -80,7 +86,7 @@ function truncateSummary(text: string): string {
 }
 
 
-export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isHighlighted, isRead, isQueued, isEven, topicTextClass }: StoryCardProps) {
+export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isHighlighted, isRead, isQueued, isEven, topicTextClass, titleColorStyle }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -124,9 +130,9 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
 
     const truncatedSummary = truncateSummary(story.summary || "");
 
-    // Active state overrides everything
+    // Active state overrides everything. Removed z-10 so the fixed child popup isn't trapped in a local stacking context.
     const activeBg = isSelected
-        ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-blue-600 dark:border-l-blue-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10 z-10'
+        ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-blue-600 dark:border-l-blue-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10'
         : isHighlighted
             ? 'bg-slate-50 dark:bg-slate-800/60 border-l-4 border-l-blue-400 dark:border-l-blue-400 shadow-sm ring-1 ring-blue-200 dark:ring-blue-500/30 font-semibold'
             : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 border-l-transparent`;
@@ -191,7 +197,10 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                         className="relative inline-block align-middle group/tooltip"
                     >
                         {/* Title */}
-                        <span className={`${topicTextClass || (dimmed && !isSelected ? 'text-slate-500/80 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-200')} hover:opacity-80 transition-opacity cursor-pointer font-bold mr-1.5`}>
+                        <span
+                            className={`hover:opacity-80 transition-opacity cursor-pointer font-bold mr-1.5 ${!titleColorStyle && topicTextClass ? topicTextClass : ''} ${!titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-500/80 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-200') : ''}`}
+                            style={titleColorStyle ? { color: titleColorStyle } : undefined}
+                        >
                             {story.title}
                         </span>
                     </span>
@@ -257,11 +266,12 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                             <div className="flex items-center gap-1.5 ml-1 pt-0.5">
                                 <span className="text-slate-300 dark:text-slate-600">•</span>
                                 {story.topics.slice(0, 3).map((topic, i) => {
-                                    const colors = getTagColor(topic);
+                                    const ts = getTagStyle(topic);
                                     return (
                                         <span
                                             key={i}
-                                            className={`px-1.5 py-0.5 rounded border ${colors.bg} ${colors.text} ${colors.border} text-[9px] uppercase tracking-wider font-bold`}
+                                            className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border"
+                                            style={{ color: ts.color, background: ts.bg, borderColor: ts.border }}
                                         >
                                             {topic}
                                         </span>
@@ -285,7 +295,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                         top: `${mousePos.y + 10}px`
                     }}
                 >
-                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-4 shadow-2xl shadow-blue-900/30">
+                    <div className="bg-[#f0f6ff] dark:bg-[#0f2140] border border-blue-200 dark:border-blue-700 rounded-xl p-4 shadow-2xl shadow-blue-900/50 opacity-100" style={{ isolation: 'isolate' }}>
                         <div className="flex items-center gap-2 mb-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
                             <span className="text-[10px] uppercase tracking-widest font-bold text-blue-600 dark:text-blue-400">Summary</span>
