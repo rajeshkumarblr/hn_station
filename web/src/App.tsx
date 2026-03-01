@@ -541,20 +541,11 @@ function App() {
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
 
       {/* ─── Zen Header ─── */}
-      <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-16">
-        <div className="flex items-center h-full gap-8">
+      <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-16 relative">
+        <div className="flex items-center h-full">
 
-          {/* Brand / Home Link */}
-          <button
-            onClick={() => { setCurrentView('feed'); }}
-            className="font-bold text-lg tracking-tight text-white hover:text-orange-400 transition-colors cursor-pointer text-left"
-            title="Return to Feed"
-          >
-            HN Station <span className="text-xs text-slate-500 font-normal ml-1">v2.21.1-m</span>
-          </button>
-
-          {/* GitHub-Style Nav Tabs */}
-          <nav className="h-full flex items-center gap-6">
+          {/* Left — Nav Tabs */}
+          <nav className="h-full flex items-center gap-6 flex-1">
             {MODES.map((m, i) => {
               const Icon = m.icon;
               const isActive = mode === m.key;
@@ -582,7 +573,19 @@ function App() {
             })}
           </nav>
 
-          {/* Spacer to replace removed search bar */}
+          {/* Center — Brand (absolute so it is always the exact midpoint of the bar) */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none">
+            <button
+              onClick={() => { setCurrentView('feed'); }}
+              className="font-bold text-lg tracking-tight text-orange-400 hover:text-orange-300 transition-colors cursor-pointer leading-tight pointer-events-auto"
+              title="Return to Feed"
+            >
+              HN Station
+            </button>
+            <span className="text-[10px] text-slate-500 font-normal tracking-widest mt-0.5">v3.1</span>
+          </div>
+
+          {/* Spacer — pushes right controls to the far right */}
           <div className="flex-1 min-w-0"></div>
 
           {/* Right controls */}
@@ -739,6 +742,7 @@ function App() {
                                     isSelected={isSelected}
                                     isRead={isRead}
                                     isQueued={isQueued}
+                                    isEven={index % 2 === 0}
                                     topicTextClass={topicTextClass}
                                     onSelect={(id) => handleStorySelect(id)}
                                     onToggleSave={user ? handleToggleSave : undefined}
