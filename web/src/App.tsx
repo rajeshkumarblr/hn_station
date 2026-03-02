@@ -633,8 +633,12 @@ function App() {
             <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.2</span>
           </div>
 
-          {/* Spacer — pushes right controls to the far right */}
-          <div className="flex-1 min-w-0"></div>
+          {/* Spacer — pushes right controls to the far right, and holds the reader controls portal */}
+          <div className="flex-1 min-w-0 flex items-center pl-24 xl:pl-32">
+            {currentView === 'reader' && (
+              <div id="reader-controls-portal" className="flex items-center"></div>
+            )}
+          </div>
 
           {/* Right controls */}
           <div className="flex items-center gap-1.5 shrink-0">
@@ -771,11 +775,6 @@ function App() {
               </div>
             </button>
           ))}
-
-          {/* Portal Container for Reader Controls */}
-          {currentView === 'reader' && (
-            <div id="reader-controls-portal" className="ml-auto flex items-center pr-4"></div>
-          )}
         </div>
       )}
       <div className="flex-1 flex overflow-hidden relative">
