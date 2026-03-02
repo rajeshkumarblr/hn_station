@@ -593,7 +593,7 @@ function App() {
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
 
       {/* ─── Zen Header ─── */}
-      <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-16 relative">
+      <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-[76px] relative">
         <div className="flex items-center h-full">
 
           {/* Left — Nav Tabs */}
@@ -625,20 +625,23 @@ function App() {
             })}
           </nav>
 
-          {/* Center — Brand (absolute so it is always the exact midpoint of the bar) */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none">
-            <h1 className="text-xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600 cursor-pointer" onClick={() => window.location.reload()}>
-              HN Station
-            </h1>
-            <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.2</span>
-          </div>
+          {/* Center — Brand and Reader Controls (absolute so it is always the exact midpoint of the bar) */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none h-full py-1 z-10 w-full max-w-[600px]">
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <h1 className="text-xl leading-none font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600 cursor-pointer" onClick={() => window.location.reload()}>
+                HN Station
+              </h1>
+              <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.2</span>
+            </div>
 
-          {/* Spacer — pushes right controls to the far right, and holds the reader controls portal */}
-          <div className="flex-1 min-w-0 flex items-center justify-end pr-6">
+            {/* The Reader controls portal sits right under the brand */}
             {currentView === 'reader' && (
-              <div id="reader-controls-portal" className="flex items-center"></div>
+              <div id="reader-controls-portal" className="flex items-center mt-1.5 pointer-events-auto"></div>
             )}
           </div>
+
+          {/* Spacer — pushes right controls to the far right */}
+          <div className="flex-1 min-w-0 flex items-center"></div>
 
           {/* Right controls */}
           <div className="flex items-center gap-1.5 shrink-0">
