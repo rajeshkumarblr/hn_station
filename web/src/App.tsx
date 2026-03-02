@@ -6,7 +6,7 @@ import { ReaderPane } from './components/ReaderPane';
 import { FilterSidebar } from './components/FilterSidebar';
 import { SettingsModal } from './components/SettingsModal';
 import { AdminDashboard } from './components/AdminDashboard';
-import { RefreshCw, X, Moon, Sun, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Shield } from 'lucide-react';
+import { RefreshCw, X, Moon, Sun, LogIn, LogOut, TrendingUp, Clock, Trophy, Monitor, Bookmark, Github, Settings, Shield, Home } from 'lucide-react';
 
 export interface Story {
   id: number;
@@ -24,6 +24,13 @@ export interface Story {
   is_hidden?: boolean;
   summary?: string;
   topics?: string[];
+}
+
+export interface ReaderTab {
+  id: string;
+  storyId: number;
+  story: Story;
+  mode: 'article' | 'discussion' | 'split';
 }
 
 interface User {
@@ -120,11 +127,32 @@ function App() {
     return 'dark';
   });
 
-  // Comments
-  const [selectedStoryId, setSelectedStoryId] = useState<number | null>(null);
-  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  // Tabbed Reader State
   const [highlightedStoryId, setHighlightedStoryId] = useState<number | null>(null);
-  const [readerTab, setReaderTab] = useState<'discussion' | 'article'>('article');
+  const [tabs, setTabs] = useState<ReaderTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
+  const closeTab = useCallback((tabId: string) => {
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== tabId);
+      if (activeTabId === tabId) {
+        setActiveTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
+        if (newTabs.length === 0) setCurrentView('feed');
+      }
+      return newTabs;
+    });
+  }, [activeTabId]);
+
+  // Derived state for legacy compatibility
+  const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId) || null, [tabs, activeTabId]);
+  const selectedStoryId = activeTab?.storyId || null;
+  const selectedStory = activeTab?.story || null;
+  const readerTab = activeTab?.mode || 'article';
+
+  const setReaderTab = useCallback((mode: 'article' | 'discussion' | 'split') => {
+    if (!activeTabId) return;
+    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, mode } : t));
+  }, [activeTabId]);
   const [comments, setComments] = useState<any[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
 
@@ -208,8 +236,14 @@ function App() {
     if (selectedStoryId === id) {
       const visible = storyBuffer.filter(s => !hiddenStories.has(s.id) && s.id !== id);
       const nextStory = visible[0] ?? null;
-      if (nextStory) setSelectedStoryId(nextStory.id);
-      else setSelectedStoryId(null);
+
+      // Close tabs for this story
+      setTabs(prev => prev.filter(t => t.storyId !== id));
+
+      if (nextStory) handleStorySelect(nextStory.id);
+      else setActiveTabId(null);
+    } else {
+      setTabs(prev => prev.filter(t => t.storyId !== id));
     }
   };
 
@@ -225,50 +259,24 @@ function App() {
     });
   };
 
-  const handleNextStory = useCallback(() => {
-    // If user has a custom reading queue, navigate within it
-    if (readingQueue.length > 0) {
-      const idx = readingQueue.indexOf(selectedStoryId as number);
-      if (idx === -1) return;
-      const next = Math.min(readingQueue.length - 1, idx + 1);
-      if (readingQueue[next] !== selectedStoryId) {
-        handleStorySelect(readingQueue[next]);
-      }
-      return;
-    }
-    // Default: navigate within the full stories list
-    const idx = stories.findIndex(s => s.id === selectedStoryId);
-    if (idx === -1 || idx >= stories.length - 1) return;
-    handleStorySelect(stories[idx + 1].id);
-  }, [stories, selectedStoryId, readingQueue]);
-
-  const handlePrevStory = useCallback(() => {
-    // If user has a custom reading queue, navigate within it
-    if (readingQueue.length > 0) {
-      const idx = readingQueue.indexOf(selectedStoryId as number);
-      if (idx === -1) return;
-      const prev = Math.max(0, idx - 1);
-      if (readingQueue[prev] !== selectedStoryId) {
-        handleStorySelect(readingQueue[prev]);
-      }
-      return;
-    }
-    // Default: navigate within the full stories list
-    const idx = stories.findIndex(s => s.id === selectedStoryId);
-    if (idx <= 0) return;
-    handleStorySelect(stories[idx - 1].id);
-  }, [stories, selectedStoryId, readingQueue]);
 
   const handleRefresh = () => setRefreshKey(prev => prev + 1);
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
-  const handleStorySelect = useCallback((id: number) => {
-    setSelectedStoryId(id);
-    setCurrentView('reader');
-    // Default to 'web' tab if the story has a URL, else show discussion
+  const handleStorySelect = useCallback((id: number, overrideMode?: 'article' | 'discussion' | 'split') => {
     const story = storyBuffer.find(s => s.id === id);
+    if (!story) return;
+
+    const newTabId = crypto.randomUUID();
+    const actualMode = overrideMode || (story.url ? 'article' : 'discussion');
+
+    setTabs(prev => [...prev, { id: newTabId, storyId: id, story, mode: actualMode }]);
+    setActiveTabId(newTabId);
+
+    setCurrentView('reader');
+
     // Default to article tab (web/reader are sub-modes within it); fall back to discussion for HN-only posts
-    setReaderTab(story?.url ? 'article' : 'discussion');
+    // Legacy setReaderTab not needed here as mode is set on the tab directly.
     // Mark as read (local)
     setReadIds(prev => {
       const next = new Set(prev);
@@ -298,10 +306,8 @@ function App() {
     // Optimistic update for stories list
     setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_saved: saved } : s));
 
-    // ALSO update selectedStory if it's the one being toggled for immediate UI feedback in ReaderPane
-    if (selectedStory && selectedStory.id === id) {
-      setSelectedStory(prev => prev ? { ...prev, is_saved: saved } : null);
-    }
+    // ALSO update active tabs if they contain this story for immediate UI feedback in ReaderPane
+    setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, is_saved: saved } } : t));
 
     const baseUrl = import.meta.env.VITE_API_URL || '';
     fetch(`${baseUrl}/api/stories/${id}/interact`, {
@@ -312,11 +318,9 @@ function App() {
     }).catch(() => {
       // Revert on failure
       setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_saved: !saved } : s));
-      if (selectedStory && selectedStory.id === id) {
-        setSelectedStory(prev => prev ? { ...prev, is_saved: !saved } : null);
-      }
+      setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, is_saved: !saved } } : t));
     });
-  }, [user, selectedStory]);
+  }, [user]);
 
   const handleStoryInteractWithQueue = useCallback((storyId: number, matchedTopic: string | null) => {
     let newQueue = [...readingQueue];
@@ -398,21 +402,38 @@ function App() {
         handleStorySelect(highlightedStoryId);
       }
 
-      // 3. Close Reader (Escape or Ctrl+Left)
+      // 3. Close Active Tab (Escape or Ctrl+Left)
       else if (e.key === 'Escape' || (e.ctrlKey && e.key === 'ArrowLeft')) {
         e.preventDefault();
-        if (selectedStoryId) {
-          setSelectedStoryId(null);
-          setSelectedStory(null);
-          setCurrentView('feed');
+        if (activeTabId) {
+          closeTab(activeTabId);
         }
       }
 
-      // 4. Tab Switching (Ctrl+Tab)
+      // 4. Tab Mode Switching (Ctrl+Tab)
       else if (e.ctrlKey && e.key === 'Tab') {
         e.preventDefault();
         if (selectedStoryId) {
-          setReaderTab(prev => prev === 'article' ? 'discussion' : 'article');
+          setReaderTab(readerTab === 'article' ? 'discussion' : 'article');
+        }
+      }
+
+      // 5. Next/Prev Tab (Ctrl+Up / Ctrl+Down)
+      else if (e.ctrlKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        if (tabs.length > 0) {
+          if (currentView === 'feed') {
+            // Switch from feed to the first/active tab
+            setCurrentView('reader');
+            if (!activeTabId) setActiveTabId(tabs[0].id);
+          } else if (tabs.length > 1 && activeTabId) {
+            // Cycle through tabs
+            const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+            if (currentIndex !== -1) {
+              const delta = e.key === 'ArrowDown' ? 1 : -1;
+              setActiveTabId(tabs[(currentIndex + delta + tabs.length) % tabs.length].id);
+            }
+          }
         }
       }
 
@@ -425,7 +446,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stories, highlightedStoryId, selectedStoryId, handleStorySelect]);
+  }, [stories, highlightedStoryId, selectedStoryId, activeTabId, tabs, handleStorySelect, closeTab, readerTab]);
 
   // Sync highlighting with selection
   useEffect(() => {
@@ -502,10 +523,13 @@ function App() {
           if (lastId) {
             const id = parseInt(lastId);
             const exists = incoming.find((s: Story) => s.id === id);
-            setSelectedStoryId(exists ? id : incoming[0].id);
+            if (exists) handleStorySelect(id);
+            else handleStorySelect(incoming[0].id);
           } else {
-            setSelectedStoryId(incoming[0].id);
+            handleStorySelect(incoming[0].id);
           }
+          setCurrentView('feed'); // Actually, if we are in feed, don't switch to reader on load.
+          // handleStorySelect sets view to 'reader', so we override it back
           setCurrentView('feed');
         }
       })
@@ -540,13 +564,7 @@ function App() {
   useEffect(() => {
     if (!selectedStoryId) {
       setComments([]);
-      setSelectedStory(null);
       return;
-    }
-
-    const storyInList = stories.find(s => s.id === selectedStoryId);
-    if (storyInList) {
-      setSelectedStory(storyInList);
     }
 
     setCommentsLoading(true);
@@ -560,7 +578,9 @@ function App() {
       })
       .then(data => {
         setComments(data.comments || []);
-        if (data.story) setSelectedStory(data.story);
+        if (data.story && activeTabId) {
+          setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, story: data.story } : t));
+        }
         setCommentsLoading(false);
       })
       .catch(err => {
@@ -607,14 +627,10 @@ function App() {
 
           {/* Center — Brand (absolute so it is always the exact midpoint of the bar) */}
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none">
-            <button
-              onClick={() => { setCurrentView('feed'); }}
-              className="font-bold text-lg tracking-tight text-orange-400 hover:text-orange-300 transition-colors cursor-pointer leading-tight pointer-events-auto"
-              title="Return to Feed"
-            >
+            <h1 className="text-xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600 cursor-pointer" onClick={() => window.location.reload()}>
               HN Station
-            </button>
-            <span className="text-[10px] text-slate-500 font-normal tracking-widest mt-0.5">v3.3</span>
+            </h1>
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.2</span>
           </div>
 
           {/* Spacer — pushes right controls to the far right */}
@@ -661,7 +677,7 @@ function App() {
               {showHidden ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></svg>
               )}
             </button>
 
@@ -706,6 +722,62 @@ function App() {
       </header>
 
       {/* ─── Main Content Area ─── */}
+
+      {/* Global Tab Bar Container */}
+      {tabs.length > 0 && (
+        <div className="flex bg-[#0f172a] overflow-x-auto shadow-sm shadow-black/20 z-10 custom-scrollbar border-b border-slate-700/50 shrink-0">
+          {/* Static Feed Tab */}
+          <button
+            onClick={() => {
+              setCurrentView('feed');
+              setActiveTabId(null);
+            }}
+            className={`flex flex-shrink-0 items-center justify-center gap-2 px-4 py-3 min-w-[100px] border-r border-slate-800 transition-colors ${currentView === 'feed'
+              ? 'bg-[#1e293b] text-blue-400 font-medium border-t-2 border-t-blue-500'
+              : 'bg-[#111622] text-slate-400 hover:bg-[#1a2332] border-t-2 border-t-transparent'
+              }`}
+            title="Return to Feed"
+          >
+            <Home size={16} />
+            <span className="text-sm font-medium">Feed</span>
+          </button>
+
+          {/* Reader Tabs */}
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              onClick={() => {
+                setActiveTabId(t.id);
+                setCurrentView('reader');
+              }}
+              className={`flex flex-shrink-0 items-center gap-3 px-4 py-3 min-w-[160px] max-w-[280px] border-r border-slate-800 transition-colors ${currentView === 'reader' && activeTabId === t.id
+                ? 'bg-[#1e293b] text-blue-400 font-medium border-t-2 border-t-blue-500'
+                : 'bg-[#111622] text-slate-400 hover:bg-[#1a2332] border-t-2 border-t-transparent'
+                }`}
+            >
+              <span className="truncate flex-1 text-sm text-left font-medium">
+                {t.mode === 'article' ? '📄 ' : t.mode === 'discussion' ? '💬 ' : '📖 '}
+                {t.story.title}
+              </span>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeTab(t.id);
+                }}
+                className="p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-slate-700/50 transition-colors"
+                title="Close Tab"
+              >
+                <X size={14} />
+              </div>
+            </button>
+          ))}
+
+          {/* Portal Container for Reader Controls */}
+          {currentView === 'reader' && (
+            <div id="reader-controls-portal" className="ml-auto flex items-center pr-4"></div>
+          )}
+        </div>
+      )}
       <div className="flex-1 flex overflow-hidden relative">
 
         {currentView === 'feed' ? (
@@ -780,6 +852,7 @@ function App() {
                                     titleColorStyle={titleColorStyle}
                                     topicTextClass={topicTextClass}
                                     onSelect={(id) => handleStorySelect(id)}
+                                    onOpenInTab={(id, mode) => handleStorySelect(id, mode)}
                                     onToggleSave={user ? handleToggleSave : undefined}
                                     onHide={handleHideStory}
                                     onQueueToggle={handleToggleQueue}
@@ -845,7 +918,8 @@ function App() {
             </div>
           </main>
         ) : (
-          <div className="flex-1 w-full bg-[#111d2e]">
+          <div className="flex-1 w-full bg-[#111d2e] flex flex-col">
+
             {selectedStory ? (
               <aside
                 ref={readerContainerRef}
@@ -874,11 +948,6 @@ function App() {
                     } catch { }
                   }}
                   onToggleSave={user ? handleToggleSave : undefined}
-                  onPrev={handlePrevStory}
-                  onNext={handleNextStory}
-                  onSelectStory={handleStorySelect}
-                  stories={stories}
-                  onBackToFeed={() => setCurrentView('feed')}
                   onHide={(id) => {
                     handleHideStory(id);
                     setCurrentView('feed');

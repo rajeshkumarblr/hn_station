@@ -16,9 +16,10 @@ import (
 
 // FetchResult contains the result of an article fetch
 type FetchResult struct {
-	Content   string
-	Title     string
-	CanIframe bool
+	Content     string
+	Title       string
+	CanIframe   bool
+	ContentType string // 'html', 'markdown', or 'text'
 }
 
 // FetchArticle attempts to fetch and parse the article content.
@@ -55,9 +56,10 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 					defer resp.Body.Close()
 					bodyBytes, _ := io.ReadAll(resp.Body)
 					return &FetchResult{
-						Content:   string(bodyBytes),
-						Title:     fmt.Sprintf("GitHub README: %s/%s", parts[0], parts[1]),
-						CanIframe: false,
+						Content:     string(bodyBytes),
+						Title:       fmt.Sprintf("GitHub README: %s/%s", parts[0], parts[1]),
+						CanIframe:   false,
+						ContentType: "markdown",
 					}, nil
 				}
 			}
@@ -85,9 +87,10 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 		content, err := extractTextFromPDF(resp.Body)
 		if err == nil && len(content) > 100 {
 			return &FetchResult{
-				Content:   content,
-				Title:     "PDF Document: " + urlStr,
-				CanIframe: false,
+				Content:     content,
+				Title:       "PDF Document: " + urlStr,
+				CanIframe:   false,
+				ContentType: "text",
 			}, nil
 		}
 		log.Printf("Fetcher: PDF extraction failed or too short: %v", err)
@@ -102,20 +105,22 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 
 	// 3. Attempt Parsing with go-readability
 	article, err := readability.FromReader(strings.NewReader(string(bodyBytes)), parsedURL)
-	if err == nil && article.TextContent != "" {
+	if err == nil && article.Content != "" {
 		return &FetchResult{
-			Content:   article.TextContent,
-			Title:     article.Title,
-			CanIframe: canIframe,
+			Content:     article.Content, // Use full HTML content instead of stripped TextContent
+			Title:       article.Title,
+			CanIframe:   canIframe,
+			ContentType: "html",
 		}, nil
 	}
 
 	// 4. Fallback to Raw HTML but strip tags (poor man's strip)
 	raw := string(bodyBytes)
 	return &FetchResult{
-		Content:   stripTags(raw),
-		Title:     "Unknown Title",
-		CanIframe: canIframe,
+		Content:     stripTags(raw),
+		Title:       "Unknown Title",
+		CanIframe:   canIframe,
+		ContentType: "text",
 	}, nil
 }
 
