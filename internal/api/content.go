@@ -97,7 +97,7 @@ func (s *Server) handleGetArticleContent(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	content, title, canIframe, err := s.fetchArticleContent(story.URL)
+	content, title, canIframe, contentType, err := s.fetchArticleContent(story.URL)
 	if err != nil {
 		log.Printf("Failed to fetch article content for %s: %v", story.URL, err)
 		http.Error(w, "Failed to fetch content", http.StatusBadGateway)
@@ -106,15 +106,17 @@ func (s *Server) handleGetArticleContent(w http.ResponseWriter, r *http.Request)
 
 	// Return simple JSON struct
 	response := struct {
-		Content   string `json:"content"`
-		Title     string `json:"title"`
-		URL       string `json:"url"`
-		CanIframe bool   `json:"can_iframe"`
+		Content     string `json:"content"`
+		Title       string `json:"title"`
+		URL         string `json:"url"`
+		CanIframe   bool   `json:"can_iframe"`
+		ContentType string `json:"content_type"`
 	}{
-		Content:   content,
-		Title:     title,
-		URL:       story.URL,
-		CanIframe: canIframe,
+		Content:     content,
+		Title:       title,
+		URL:         story.URL,
+		CanIframe:   canIframe,
+		ContentType: contentType,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -122,10 +124,10 @@ func (s *Server) handleGetArticleContent(w http.ResponseWriter, r *http.Request)
 }
 
 // fetchArticleContent uses the shared internal/content package to fetch and parse the article.
-func (s *Server) fetchArticleContent(urlStr string) (string, string, bool, error) {
+func (s *Server) fetchArticleContent(urlStr string) (string, string, bool, string, error) {
 	result, err := content.FetchArticle(urlStr)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, "", err
 	}
-	return result.Content, result.Title, result.CanIframe, nil
+	return result.Content, result.Title, result.CanIframe, result.ContentType, nil
 }

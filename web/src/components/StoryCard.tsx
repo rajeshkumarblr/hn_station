@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Star, Terminal, Link, Check } from 'lucide-react';
 
 export interface Story {
@@ -24,6 +24,7 @@ interface StoryCardProps {
     onToggleSave?: (id: number, saved: boolean) => void;
     onHide?: (id: number) => void;
     onQueueToggle?: (id: number) => void;
+    onOpenInTab?: (id: number, mode: 'article' | 'discussion' | 'split') => void;
     isSelected?: boolean;
     isHighlighted?: boolean;
     isRead?: boolean;
@@ -86,7 +87,7 @@ function truncateSummary(text: string): string {
 }
 
 
-export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, isSelected, isHighlighted, isRead, isQueued, isEven, topicTextClass, titleColorStyle }: StoryCardProps) {
+export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, onOpenInTab, isSelected, isHighlighted, isRead, isQueued, isEven, topicTextClass, titleColorStyle }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -124,9 +125,24 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
     }
 
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [contextMenuPos, setContextMenuPos] = useState<{ x: number, y: number } | null>(null);
+
     const handleMouseMove = (e: React.MouseEvent) => {
         setMousePos({ x: e.clientX, y: e.clientY });
     };
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        if (!onOpenInTab) return;
+        e.preventDefault();
+        setContextMenuPos({ x: e.clientX, y: e.clientY });
+    };
+
+    useEffect(() => {
+        if (!contextMenuPos) return;
+        const closeMenu = () => setContextMenuPos(null);
+        window.addEventListener('click', closeMenu);
+        return () => window.removeEventListener('click', closeMenu);
+    }, [contextMenuPos]);
 
     const truncatedSummary = truncateSummary(story.summary || "");
 
@@ -137,14 +153,29 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
             ? 'bg-slate-50 dark:bg-slate-800/60 border-l-4 border-l-blue-400 dark:border-l-blue-400 shadow-sm ring-1 ring-blue-200 dark:ring-blue-500/30 font-semibold'
             : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 border-l-transparent`;
 
-
     return (
         <div
             className={`group relative rounded-md py-1.5 px-3 transition-all duration-150 ${activeBg}`}
             onMouseMove={handleMouseMove}
+            onContextMenu={handleContextMenu}
         >
             {/* Action Buttons Container - Top Right */}
             <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
+                {/* Context Menu Button */}
+                {onOpenInTab && (
+                    <button
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setContextMenuPos({ x: e.clientX - 180, y: e.clientY });
+                        }}
+                        className="p-1 rounded-md text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                        title="Open Options"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
+                    </button>
+                )}
+
                 {/* Queue button */}
                 {onQueueToggle && (
                     <button
@@ -306,7 +337,33 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                     </div>
                 </div>
             )}
-        </div >
+
+            {/* Context Menu Popup */}
+            {contextMenuPos && onOpenInTab && (
+                <div
+                    className="fixed z-[10000] w-56 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 text-sm text-slate-700 dark:text-slate-300 animate-in fade-in duration-100"
+                    style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
+                >
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'article'); setContextMenuPos(null); }}
+                        className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        📄 Open Story Tab
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'discussion'); setContextMenuPos(null); }}
+                        className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        💬 Open Discussion Tab
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); setContextMenuPos(null); }}
+                        className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-t border-slate-100 dark:border-slate-800"
+                    >
+                        📖 Open Split View
+                    </button>
+                </div>
+            )}
+        </div>
     );
 }
-

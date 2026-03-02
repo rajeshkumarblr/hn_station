@@ -59,7 +59,7 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 	var errFetch error
 
 	if story.URL != "" {
-		content, _, _, err := s.fetchArticleContent(story.URL)
+		content, _, _, _, err := s.fetchArticleContent(story.URL)
 		if err == nil {
 			// For summarization, we'd prefer text content, but Go-Readability's Content is HTML.
 			// Ideally we should strip tags for Gemini to save tokens, but Gemini handles HTML fine.
