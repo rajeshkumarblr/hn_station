@@ -634,7 +634,7 @@ function App() {
           </div>
 
           {/* Spacer — pushes right controls to the far right, and holds the reader controls portal */}
-          <div className="flex-1 min-w-0 flex items-center pl-24 xl:pl-32">
+          <div className="flex-1 min-w-0 flex items-center justify-end pr-6">
             {currentView === 'reader' && (
               <div id="reader-controls-portal" className="flex items-center"></div>
             )}
