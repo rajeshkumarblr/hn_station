@@ -73,17 +73,16 @@ export function getTagColor(tag: string) {
     return { bg: '', text: '', border: '', _style: s };
 }
 
-function truncateSummary(text: string): string {
-    if (!text) return "";
-    // Split on line breaks (bullet points) first, then on sentence endings
+function getSummaryBullets(text: string): string[] {
+    if (!text) return [];
+    // Split on line breaks (bullet points) first
     const lines = text.split(/\n+/).map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
-    if (lines.length >= 2) {
-        return lines.slice(0, 2).join(' ') + (lines.length > 2 ? '...' : '');
+    if (lines.length > 1) {
+        return lines.slice(0, 2);
     }
     // Fall back to sentence splitting
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    if (sentences.length <= 2) return text.trim();
-    return sentences.slice(0, 2).join(' ').trim() + '...';
+    return sentences.map(s => s.trim()).filter(Boolean).slice(0, 2);
 }
 
 
@@ -144,7 +143,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
         return () => window.removeEventListener('click', closeMenu);
     }, [contextMenuPos]);
 
-    const truncatedSummary = truncateSummary(story.summary || "");
+    const summaryBullets = getSummaryBullets(story.summary || "");
 
     // Active state overrides everything. Removed z-10 so the fixed child popup isn't trapped in a local stacking context.
     const activeBg = isSelected
@@ -156,6 +155,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
     return (
         <div
             className={`group relative rounded-md py-1.5 px-3 transition-all duration-150 ${activeBg}`}
+            onMouseEnter={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
             onMouseMove={handleMouseMove}
             onContextMenu={handleContextMenu}
         >
@@ -318,9 +318,9 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
             </div>
 
             {/* Hover Summary Popup */}
-            {story.summary && (
+            {story.summary && summaryBullets.length > 0 && (
                 <div
-                    className="hidden group-hover:block fixed z-[9999] w-80 pointer-events-none animate-in fade-in slide-in-from-left-2 duration-200"
+                    className="hidden group-hover:block fixed z-[9999] w-96 pointer-events-none animate-in fade-in duration-200"
                     style={{
                         left: `${mousePos.x + 20}px`,
                         top: `${mousePos.y + 10}px`
@@ -331,9 +331,11 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
                             <span className="text-[10px] uppercase tracking-widest font-bold text-blue-600 dark:text-blue-400">Summary</span>
                         </div>
-                        <p className="text-[13px] leading-relaxed text-slate-800 dark:text-slate-100 font-medium">
-                            {truncatedSummary}
-                        </p>
+                        <ul className="text-[13px] leading-relaxed text-slate-800 dark:text-slate-100 font-medium list-disc pl-4 marker:text-blue-500 dark:marker:text-blue-400 space-y-1.5">
+                            {summaryBullets.map((b, i) => (
+                                <li key={i}>{b}</li>
+                            ))}
+                        </ul>
                     </div>
                 </div>
             )}
@@ -341,9 +343,15 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
             {/* Context Menu Popup */}
             {contextMenuPos && onOpenInTab && (
                 <div
-                    className="fixed z-[10000] w-56 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 text-sm text-slate-700 dark:text-slate-300 animate-in fade-in duration-100"
+                    className="fixed z-[10000] w-[22rem] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 text-sm text-slate-700 dark:text-slate-300 animate-in fade-in duration-100"
                     style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
                 >
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); setContextMenuPos(null); }}
+                        className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 font-medium text-blue-600 dark:text-blue-400"
+                    >
+                        📖 Show article and discussion side by side
+                    </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'article'); setContextMenuPos(null); }}
                         className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -355,12 +363,6 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                         className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                         💬 Open Discussion Tab
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); setContextMenuPos(null); }}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-t border-slate-100 dark:border-slate-800"
-                    >
-                        📖 Open Split View
                     </button>
                 </div>
             )}
