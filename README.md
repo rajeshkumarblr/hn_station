@@ -103,6 +103,7 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 
 ## Recent Updates
 
+- **v3.4** — Tab Favicons: Reader tabs dynamically show site favicons. Extended Archive Retention: Stories remain active in the local database for 7 days before being pruned (bookmarked items are preserved forever). Native PDF Support: PDFs render natively in-browser via `<object>` tags instead of unformatted text or blocked iframes. Fixed sparse feed grid scaling.
 - **v3.3** — Replaced pagination with a streaming story buffer (auto-refills and smoothly handles hiding stories like a linked list). Web View is now the default when opening an article with a URL. Fixed z-index layering for hover summaries.
 - **v3.2** — Tag Coloring: Each topic now gets a mathematically unique HSL color. Tag filters use a colored ring for their active state instead of a solid background. Active story titles and their left border match the selected topic's color.
 - **v3.1** — Top bar redesigned: nav tabs (Top/New/Best…) moved to the left, "HN Station" centered in orange with version below it. Mixed-content (HTTP→HTTPS) fix for article reader. Opaque light-blue hover summary popup.- **v3.0** — Feed UI refinements: high-contrast light-blue zebra striping, deterministic color-coded tags in feed and sidebar, mouse-relative AI summary popups truncated to 2 sentences.

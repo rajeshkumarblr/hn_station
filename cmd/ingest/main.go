@@ -296,9 +296,9 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 	close(jobs)
 	wg.Wait()
 
-	// Prune DB: keep only top 20 (protected: saved stories)
-	log.Println("Pruning stories to top 20...")
-	if err := store.PruneStories(ctx, TotalStories); err != nil {
+	// Prune DB: keep stories from the last 7 days (protected: saved stories)
+	log.Println("Pruning stories older than 7 days...")
+	if err := store.PruneStories(ctx, 7); err != nil {
 		log.Printf("Failed to prune stories: %v", err)
 	}
 
@@ -307,7 +307,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 
 // cleanupOldStories is kept for compatibility but no longer used in main flow.
 func cleanupOldStories(ctx context.Context, store *storage.Store) {
-	if err := store.PruneStories(ctx, TotalStories); err != nil {
+	if err := store.PruneStories(ctx, 7); err != nil {
 		log.Printf("Failed to prune old stories: %v", err)
 	}
 }

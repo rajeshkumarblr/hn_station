@@ -83,17 +83,13 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 	isPDF := strings.Contains(contentType, "application/pdf") || strings.HasSuffix(strings.ToLower(urlStr), ".pdf")
 
 	if isPDF {
-		log.Printf("Fetcher: Detected PDF content for %s. Extracting text...", urlStr)
-		content, err := extractTextFromPDF(resp.Body)
-		if err == nil && len(content) > 100 {
-			return &FetchResult{
-				Content:     content,
-				Title:       "PDF Document: " + urlStr,
-				CanIframe:   false,
-				ContentType: "text",
-			}, nil
-		}
-		log.Printf("Fetcher: PDF extraction failed or too short: %v", err)
+		log.Printf("Fetcher: Detected PDF content for %s. Returning as PDF type.", urlStr)
+		return &FetchResult{
+			Content:     "PDF content", // Placeholder, frontend will use the URL directly
+			Title:       "PDF Document: " + urlStr,
+			CanIframe:   true, // We pretend it can iframe so the frontend doesn't show the "might block embed" warning, but we'll use <object>
+			ContentType: "pdf",
+		}, nil
 	}
 
 	// 2. Read Body
