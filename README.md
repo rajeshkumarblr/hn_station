@@ -15,7 +15,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 ### Article View
 ![Article View](screenshots/article.png)
 
-### Discussion View
+### Split View
 ![Discussion View](screenshots/discussion.png)
 
 ---
