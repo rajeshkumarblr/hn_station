@@ -30,7 +30,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 | **Reading** | 3-pane resizable layout · Reader Mode (`go-readability`) · Smart iframe fallback |
 | **Comments** | Recursive collapsible threads · Keyboard nav (`n`/`p` root comments) |
 | **Discovery** | Topic filters (Postgres, LLM, Rust, …) · Full-text search (PostgreSQL `tsvector`) |
-| **AI (BYOK)** | "Zen" Summary Overlay (pre-cached) · Semantic Topic Tagging · Local GPU Ingestion |
+| **AI** | Auto-Generated "Zen" Summaries · Semantic Topic Tagging · Local GPU batch ingestion |
 | **Auth** | Google OAuth · Bookmarks · Read/hidden state synced to DB |
 | **Navigation** | Full keyboard control · `j`/`k`, `/` search, `z` Zen mode, `Delete` to hide |
 | **Infra** | Docker Compose · Kubernetes (AKS + local Kind) |
@@ -64,7 +64,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 git clone https://github.com/rajeshkumarblr/hn_station && cd hn_station
 
 # 2. Configure environment
-cp .env.example .env   # fill in Google OAuth credentials, JWT_SECRET, optional GEMINI_API_KEY
+cp .env.example .env   # fill in Google OAuth credentials and JWT_SECRET
 
 # 3. Start everything
 docker-compose up --build
@@ -84,7 +84,7 @@ Uses the manifests in `infrastructure/k8s-local/`, pointing Postgres at your hos
 
 ## Architecture
 
-The system has four main components: a **Go ingestion worker** (polls HN every minute), a **Go API server** (REST + static file serving), a **React frontend**, and a **PostgreSQL database**.
+The system has four main components: a **Go ingestion worker** (polls HN periodically, fetching articles and automatically generating AI summaries & topic tags via a local GPU node), a **Go API server** (REST + static file serving), a **React frontend**, and a **PostgreSQL database**.
 
 For a detailed breakdown — component responsibilities, all API routes, database schema, data flow diagrams, and infrastructure layout — see **[architecture.md](architecture.md)**.
 
