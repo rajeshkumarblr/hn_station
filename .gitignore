@@ -41,3 +41,6 @@ bin/
 logs/
 cmd/ingest/ingest
 *.log
+
+# Scripts
+scripts/screenshot/node_modules/
