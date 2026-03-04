@@ -526,20 +526,16 @@ func (s *Store) GetAnyAdminAPIKey(ctx context.Context) (string, error) {
 	return key, nil
 }
 
-// PruneStories removes stories that are not in the top N and are not bookmarked.
-func (s *Store) PruneStories(ctx context.Context, limit int) error {
+// PruneStories removes stories that are older than daysToKeep and are not bookmarked.
+func (s *Store) PruneStories(ctx context.Context, daysToKeep int) error {
 	query := `
 		DELETE FROM stories 
-		WHERE id NOT IN (
-			SELECT id FROM stories 
-			ORDER BY hn_rank ASC NULLS LAST, posted_at DESC 
-			LIMIT $1
-		)
+		WHERE created_at < NOW() - make_interval(days => $1)
 		AND id NOT IN (
 			SELECT story_id FROM user_interactions WHERE is_saved = TRUE
 		)
 	`
-	_, err := s.db.Exec(ctx, query, limit)
+	_, err := s.db.Exec(ctx, query, daysToKeep)
 	if err != nil {
 		return fmt.Errorf("failed to prune stories: %w", err)
 	}

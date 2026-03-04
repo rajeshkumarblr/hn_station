@@ -154,7 +154,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
 
     return (
         <div
-            className={`group relative rounded-md py-1.5 px-3 transition-all duration-150 ${activeBg}`}
+            className={`group relative h-full flex flex-col justify-center rounded-md py-1 px-3 transition-all duration-150 ${activeBg}`}
             onMouseEnter={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
             onMouseMove={handleMouseMove}
             onContextMenu={handleContextMenu}
@@ -217,7 +217,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
             </div>
 
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
-                <h3 className="text-[14px] leading-snug mb-1 font-semibold whitespace-normal transition-all duration-200">
+                <h3 className="text-[14px] leading-snug mb-0.5 font-semibold whitespace-normal transition-all duration-200">
                     {displayRank && (
                         <span className="text-slate-400 dark:text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
                             {displayRank}.

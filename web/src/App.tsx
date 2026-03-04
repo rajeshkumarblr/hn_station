@@ -587,7 +587,7 @@ function App() {
         console.error("Failed to fetch comments", err);
         setCommentsLoading(false);
       });
-  }, [selectedStoryId, stories]);
+  }, [selectedStoryId]); // Do NOT include `stories` here, otherwise optimistic bookmark updates refresh the comments
 
   return (
     <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
@@ -612,6 +612,7 @@ function App() {
                       setMode(m.key);
                       setOffset(0);
                     }
+                    setCurrentView('feed'); // Always ensure we are in the feed view when navigating tabs
                   }}
                   className={`h-full flex items-center gap-1.5 text-sm font-medium border-b-2 transition-all outline-none ${isActive
                     ? 'text-white border-orange-500 pb-3 mt-3'
@@ -762,9 +763,34 @@ function App() {
                 : 'bg-[#111622] text-slate-400 hover:bg-[#1a2332] border-t-2 border-t-transparent'
                 }`}
             >
-              <span className="truncate flex-1 text-sm text-left font-medium">
-                {t.mode === 'article' ? '📄 ' : t.mode === 'discussion' ? '💬 ' : '📖 '}
-                {t.story.title}
+              <span className="truncate flex-1 text-sm text-left font-medium flex items-center gap-2">
+                {(() => {
+                  let defaultIcon = t.mode === 'article' ? '📄' : t.mode === 'discussion' ? '💬' : '📖';
+                  if (t.story.url) {
+                    try {
+                      const domain = new URL(t.story.url).hostname.replace(/^www\./, '');
+                      return (
+                        <img
+                          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                          alt=""
+                          className="w-3.5 h-3.5 rounded-sm opacity-90 shrink-0"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            if (target.nextElementSibling) {
+                              (target.nextElementSibling as HTMLElement).style.display = 'inline';
+                            }
+                          }}
+                        />
+                      );
+                    } catch (e) {
+                      // ignore invalid URL
+                    }
+                  }
+                  return <span className="shrink-0">{defaultIcon}</span>;
+                })()}
+                <span className="hidden shrink-0">{t.mode === 'article' ? '📄' : t.mode === 'discussion' ? '💬' : '📖'}</span>
+                <span className="truncate">{t.story.title}</span>
               </span>
               <div
                 onClick={(e) => {
@@ -790,9 +816,9 @@ function App() {
             <div className="flex w-full max-w-[85rem] h-full relative">
               {/* Main Feed Column */}
               <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
-                  <div className="w-full flex justify-center">
-                    <div className="w-full max-w-4xl flex flex-col">
+                <div className="flex-1 overflow-y-auto custom-scrollbar px-3 pb-1 pt-0 flex flex-col">
+                  <div className="w-full flex-1 flex justify-center">
+                    <div className="w-full max-w-4xl flex flex-col flex-1">
                       {loading && (
                         <div className="p-20 text-center text-gray-400 dark:text-slate-500 flex flex-col items-center gap-4">
                           <div className="animate-spin text-blue-500"><RefreshCw size={32} /></div>
@@ -808,7 +834,7 @@ function App() {
                       )}
 
                       {!loading && !error && (
-                        <div className="space-y-0.5">
+                        <div className="grid grid-rows-10 gap-y-0.5 flex-1 h-full min-h-0">
                           {stories
                             .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
                             .map((story, index) => {
@@ -841,7 +867,7 @@ function App() {
                                     const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
                                     window.open(url, '_blank', 'noopener,noreferrer');
                                   }}
-                                  className={`transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? '' : ''}`}
+                                  className={`flex flex-col transition-all duration-150 outline-none focus:ring-1 focus:ring-blue-500/40 rounded-lg ${isRead && !isSelected ? '' : ''}`}
                                   style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
                                 >
                                   <StoryCard

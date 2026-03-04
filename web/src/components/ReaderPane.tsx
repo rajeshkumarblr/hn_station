@@ -61,10 +61,15 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
     const [articleError, setArticleError] = useState<string | null>(null);
     const [useIframe, setUseIframe] = useState(true);
     const [canIframe, setCanIframe] = useState(true);
-    const [contentType, setContentType] = useState<'html' | 'markdown' | 'text'>('text');
+    const [contentType, setContentType] = useState<'html' | 'markdown' | 'text' | 'pdf'>('text');
     const [isCopied, setIsCopied] = useState(false);
-    const [showSummary, setShowSummary] = useState(true);
+    const [showSummary, setShowSummary] = useState(false); // Hidden by default
+    const [userManuallyToggledSummary, setUserManuallyToggledSummary] = useState(false);
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    useEffect(() => {
+        setPortalTarget(document.getElementById('reader-controls-portal'));
+    }, [activeTab]);
 
     useEffect(() => {
         setPortalTarget(document.getElementById('reader-controls-portal'));
@@ -209,8 +214,15 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                     )}
 
                     {story.summary && (
-                        <button onClick={() => setShowSummary(!showSummary)} className={`p-1.5 transition-colors rounded-md ${showSummary ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'}`} title="Toggle AI Summary">
-                            <Sparkles size={14} className={showSummary ? 'fill-current' : ''} />
+                        <button
+                            onClick={() => {
+                                setShowSummary(!showSummary);
+                                setUserManuallyToggledSummary(!showSummary); // Pin it open if toggled on, unpin if toggled off
+                            }}
+                            className={`p-1.5 transition-colors rounded-md ${userManuallyToggledSummary && showSummary ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'}`}
+                            title={userManuallyToggledSummary && showSummary ? "Unpin AI Summary" : "Pin AI Summary"}
+                        >
+                            <Sparkles size={14} className={userManuallyToggledSummary && showSummary ? 'fill-current' : ''} />
                         </button>
                     )}
 
@@ -249,6 +261,20 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                                             <a href={storyUrl} target="_blank" rel="noreferrer" className="underline font-bold">Open in new tab</a>
                                         </div>
                                     </div>
+                                </div>
+                            ) : contentType === 'pdf' ? (
+                                // Native PDF View
+                                <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-900 overflow-hidden relative">
+                                    <object
+                                        data={storyUrl}
+                                        type="application/pdf"
+                                        className="w-full h-full border-0 absolute inset-0"
+                                    >
+                                        <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-500">
+                                            <p className="font-medium text-center">Your browser does not support embedding PDFs.</p>
+                                            <a href={storyUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-600 underline font-medium">Click here to view it natively or download.</a>
+                                        </div>
+                                    </object>
                                 </div>
                             ) : useIframe ? (
                                 // Web View (Iframe)
@@ -318,7 +344,14 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
 
                 {/* Right AI Summary Sidebar */}
                 {showSummary && story.summary && (
-                    <div className="w-72 shrink-0 h-full overflow-y-auto border-l border-amber-200/50 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-900/10 backdrop-blur-sm flex flex-col animate-in slide-in-from-right-4 duration-300">
+                    <div
+                        className="w-72 shrink-0 h-full overflow-y-auto border-l border-amber-200/50 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-900/10 backdrop-blur-sm flex flex-col animate-in slide-in-from-right-4 duration-300"
+                        onMouseLeave={() => {
+                            if (!userManuallyToggledSummary) {
+                                setShowSummary(false);
+                            }
+                        }}
+                    >
                         {/* Header */}
                         <div className="px-4 py-3 border-b border-amber-200/60 dark:border-amber-500/20 flex items-center justify-between bg-amber-100/60 dark:bg-amber-500/10 sticky top-0 z-10">
                             <div className="flex items-center gap-2">
@@ -326,7 +359,7 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">AI Summary</h4>
                             </div>
                             <button
-                                onClick={() => setShowSummary(false)}
+                                onClick={() => { setShowSummary(false); setUserManuallyToggledSummary(false); }}
                                 className="p-1 rounded text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-colors"
                                 title="Close"
                             >
@@ -357,6 +390,22 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                             <div className="text-sm leading-relaxed text-amber-900 dark:text-amber-100/80 font-medium prose prose-slate dark:prose-invert prose-p:my-2 prose-li:my-1 prose-ul:my-2 prose-sm max-w-none">
                                 <ReactMarkdown>{story.summary}</ReactMarkdown>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Invisible hover trigger zone for expanding summary when collapsed */}
+                {!showSummary && story.summary && (
+                    <div
+                        className="absolute right-0 top-0 bottom-0 w-6 z-20 cursor-w-resize group"
+                        onMouseEnter={() => {
+                            if (!userManuallyToggledSummary) {
+                                setShowSummary(true);
+                            }
+                        }}
+                    >
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-16 bg-amber-500/20 dark:bg-amber-500/30 rounded-l-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="w-0.5 h-8 bg-amber-500/50 rounded-full"></div>
                         </div>
                     </div>
                 )}
