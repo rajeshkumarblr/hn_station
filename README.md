@@ -12,24 +12,17 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 
 ![HN Station Feed](screenshots/feed_view.png)
 
-### Article View
-![Article View](screenshots/article_view.png)
-
-### Split View
-![Split View](screenshots/split_view.png)
-
-### Discussion View
-![Discussion View](screenshots/discussion_view.png)
-
----
 
 ## Features
 
-- **Split-Pane Workspace**: A modern 3-pane responsive layout that allows you to seamlessly browse the feed, read articles natively (or via Reader Mode), and view HN discussions side-by-side. 
+- **Split-Pane Workspace**: A modern 3-pane responsive layout that allows you to seamlessly browse the feed, read articles natively (or via Reader Mode), and view HN discussions side-by-side.
+  ![Split View](screenshots/split_view.png)
 - **Automated AI Summaries & Tagging**: A background Go ingestion worker automatically fetches top HN articles, uses local LLMs (via Ollama) to pre-generate concise "Zen" summaries, and tags them with deterministic semantic topics (e.g., Postgres, Rust, AI) for quick visual scanning.
 - **Smart Reader Mode**: Includes specialized Web/Text fallback toggles. By default, it embeds websites natively or renders PDFs via `<object>` tags, and smoothly falls back to a clean text-only "Reader Mode" (`go-readability`) if paywalled or blocked.
+  ![Article View](screenshots/article_view.png)
 - **Archive Retention**: Intelligently maintains an actively rolling 7-day database archive of the top stories for continuous scrolling, with permanent retention for securely bookmarked items.
 - **Advanced Comment Threads**: Deeply nested, recursive, and collapsible HN discussion threads. Navigate smoothly with deep keyboard bindings.
+  ![Discussion View](screenshots/discussion_view.png)
 - **Topic Filters & Search**: Full-text PostgreSQL `tsvector` search and dynamic tag filtering directly in the feed.
 - **Keyboard-First Navigation**: Vim-like feed navigation (`j`/`k`), `/` to search, `z` for Zen mode overlay, and `Delete` to hide/skip stories.
 - **Customization & Sync**: Native Google OAuth integration. Your read states, queued stories, skipped items, and bookmarks are seamlessly synced to the database.
