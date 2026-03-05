@@ -21,7 +21,7 @@ metadata:
 spec:
   type: LoadBalancer
   loadBalancerSourceRanges:
-    - 49.206.15.4/32
+    - 49.37.223.215/32
   ports:
     - port: 5432
       targetPort: 5432
