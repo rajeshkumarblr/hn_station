@@ -17,6 +17,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 
 - **Split-Pane Workspace**: A modern 3-pane responsive layout that allows you to seamlessly browse the feed, read articles natively (or via Reader Mode), and view HN discussions side-by-side.
   ![Split View](screenshots/split_view.png)
+- **Adaptive Mobile UI**: A distinct, touch-friendly mobile shell that automatically activates on small screens, featuring a bottom navigation bar and full-screen drill-down reader views without sacrificing the desktop power-user experience.
 - **Automated AI Summaries & Tagging**: A background Go ingestion worker automatically fetches top HN articles, uses local LLMs (via Ollama) to pre-generate concise "Zen" summaries, and tags them with deterministic semantic topics (e.g., Postgres, Rust, AI) for quick visual scanning.
 - **Smart Reader Mode**: Includes specialized Web/Text fallback toggles. By default, it embeds websites natively or renders PDFs via `<object>` tags, and smoothly falls back to a clean text-only "Reader Mode" (`go-readability`) if paywalled or blocked.
   ![Article View](screenshots/article_view.png)
