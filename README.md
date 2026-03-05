@@ -25,15 +25,14 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 
 ## Features
 
-| Category | Highlights |
-|----------|-----------|
-| **Reading** | 3-pane resizable layout · Reader Mode (`go-readability`) · Smart iframe fallback |
-| **Comments** | Recursive collapsible threads · Keyboard nav (`n`/`p` root comments) |
-| **Discovery** | Topic filters (Postgres, LLM, Rust, …) · Full-text search (PostgreSQL `tsvector`) |
-| **AI** | Auto-Generated "Zen" Summaries · Semantic Topic Tagging · Local GPU batch ingestion |
-| **Auth** | Google OAuth · Bookmarks · Read/hidden state synced to DB |
-| **Navigation** | Full keyboard control · `j`/`k`, `/` search, `z` Zen mode, `Delete` to hide |
-| **Infra** | Docker Compose · Kubernetes (AKS + local Kind) |
+- **Split-Pane Workspace**: A modern 3-pane responsive layout that allows you to seamlessly browse the feed, read articles natively (or via Reader Mode), and view HN discussions side-by-side. 
+- **Automated AI Summaries & Tagging**: A background Go ingestion worker automatically fetches top HN articles, uses local LLMs (via Ollama) to pre-generate concise "Zen" summaries, and tags them with deterministic semantic topics (e.g., Postgres, Rust, AI) for quick visual scanning.
+- **Smart Reader Mode**: Includes specialized Web/Text fallback toggles. By default, it embeds websites natively or renders PDFs via `<object>` tags, and smoothly falls back to a clean text-only "Reader Mode" (`go-readability`) if paywalled or blocked.
+- **Archive Retention**: Intelligently maintains an actively rolling 7-day database archive of the top stories for continuous scrolling, with permanent retention for securely bookmarked items.
+- **Advanced Comment Threads**: Deeply nested, recursive, and collapsible HN discussion threads. Navigate smoothly with deep keyboard bindings.
+- **Topic Filters & Search**: Full-text PostgreSQL `tsvector` search and dynamic tag filtering directly in the feed.
+- **Keyboard-First Navigation**: Vim-like feed navigation (`j`/`k`), `/` to search, `z` for Zen mode overlay, and `Delete` to hide/skip stories.
+- **Customization & Sync**: Native Google OAuth integration. Your read states, queued stories, skipped items, and bookmarks are seamlessly synced to the database.
 
 ---
 
@@ -102,18 +101,4 @@ For a detailed breakdown — component responsibilities, all API routes, databas
 | `OLLAMA_URL` | ⬜ | URL for local Ollama instance (e.g. `http://localhost:11434`) |
 | `FRONTEND_URL` | ⬜ | Redirect URL after OAuth (defaults to `/`) |
 
----
 
-## Recent Updates
-
-- **v3.4** — Tab Favicons: Reader tabs dynamically show site favicons. Extended Archive Retention: Stories remain active in the local database for 7 days before being pruned (bookmarked items are preserved forever). Native PDF Support: PDFs render natively in-browser via `<object>` tags instead of unformatted text or blocked iframes. Fixed sparse feed grid scaling.
-- **v3.3** — Replaced pagination with a streaming story buffer (auto-refills and smoothly handles hiding stories like a linked list). Web View is now the default when opening an article with a URL. Fixed z-index layering for hover summaries.
-- **v3.2** — Tag Coloring: Each topic now gets a mathematically unique HSL color. Tag filters use a colored ring for their active state instead of a solid background. Active story titles and their left border match the selected topic's color.
-- **v3.1** — Top bar redesigned: nav tabs (Top/New/Best…) moved to the left, "HN Station" centered in orange with version below it. Mixed-content (HTTP→HTTPS) fix for article reader. Opaque light-blue hover summary popup.- **v3.0** — Feed UI refinements: high-contrast light-blue zebra striping, deterministic color-coded tags in feed and sidebar, mouse-relative AI summary popups truncated to 2 sentences.
-- **Phase 43** — High-Density Feed & In-Place Tag Highlighting: Compact 10-story feed with always-visible metadata. Color-coded green highlighting for active topics without re-fetching. Ingestion as a systemd background service (v2.21.1-m).
-- **Zen AI & Local Automation** — Decommissioned heavy interactive sidebar and chat backend. Integrated sleek "Zen" summary overlay into ReaderPane with pre-cached content. Automated local ingestion via `flock`-protected scripts, moving expensive AI workloads from Azure to local GPU.
-- **Phase 42** — Index -> Show Architecture Refactor: Dedicated Feed & Zen Reader views. Explicit reading queue, minimalist browser-like ReaderPane navigation.
-- **Phase 41** — Redeployed to Azure AKS (`eastus`), upgraded Key Vault CSI integration, configured proper Load Balancer health probes, and enabled automated Let's Encrypt SSL.
-- **Phase 38** — Reader Mode: server-side article fetch + sanitize (`go-readability` + `dompurify`), smart iframe fallback.
-- **Phase 36** — Admin Panel v2: Grafana-style analytics dashboard with user list and activity metrics at `/admin`.
-- **Phase 35** — Full light mode support, hover-expand story cards, zebra striping.
