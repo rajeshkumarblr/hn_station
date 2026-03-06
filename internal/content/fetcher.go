@@ -99,6 +99,28 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 		return nil, err
 	}
 
+	bodyStr := string(bodyBytes)
+
+	// Cloudflare / Bot Protection Check
+	isBotProtected := false
+	if strings.Contains(bodyStr, "Enable JavaScript and cookies to continue") && strings.Contains(bodyStr, "Just a moment...") {
+		isBotProtected = true
+	} else if (resp.StatusCode == 403 || resp.StatusCode == 503 || resp.StatusCode == 429) && (strings.Contains(bodyStr, "Cloudflare") || strings.Contains(bodyStr, "challenge-platform") || strings.Contains(bodyStr, "Just a moment")) {
+		isBotProtected = true
+	} else if strings.Contains(bodyStr, "Just a moment...") && strings.Contains(bodyStr, "cf_chl_opt") {
+		isBotProtected = true
+	}
+
+	if isBotProtected {
+		log.Printf("Fetcher: Detected Anti-Bot protection (Status %d) for %s", resp.StatusCode, urlStr)
+		return &FetchResult{
+			Content:     fmt.Sprintf("<div style=\"padding: 3rem; text-align: center; color: #64748b; font-family: ui-sans-serif, system-ui, sans-serif;\"><h3 style=\"font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;\">Protected Content</h3><p>This site blocked the Reader Mode extraction (HTTP %d). It likely uses Cloudflare or an anti-bot challenge.<br/><br/>Please switch to the <b>Web</b> tab to view it natively, or open the link directly.</p></div>", resp.StatusCode),
+			Title:       "Protection Challenge",
+			CanIframe:   true, // Force iframe true since the block is just on our server IP
+			ContentType: "html",
+		}, nil
+	}
+
 	// 3. Attempt Parsing with go-readability
 	article, err := readability.FromReader(strings.NewReader(string(bodyBytes)), parsedURL)
 	if err == nil && article.Content != "" {

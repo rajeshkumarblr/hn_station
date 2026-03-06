@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 
@@ -296,7 +297,7 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                                 <div className="flex-1 w-full max-w-3xl mx-auto py-8 px-6">
                                     <article className="prose prose-sm md:prose-base dark:prose-invert prose-slate max-w-none">
                                         {contentType === 'markdown' ? (
-                                            <ReactMarkdown>{articleContent || ''}</ReactMarkdown>
+                                            <ReactMarkdown rehypePlugins={[rehypeRaw]}>{articleContent || ''}</ReactMarkdown>
                                         ) : (
                                             <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(articleContent || '') }} />
                                         )}
