@@ -62,7 +62,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <h1 className="text-xl leading-none font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600 cursor-pointer" onClick={() => window.location.reload()}>
                                 HN Station
                             </h1>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.3</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.9</span>
                         </div>
                         {currentView === 'reader' && (
                             <div id="reader-controls-portal" className="flex items-center mt-1.5 pointer-events-auto"></div>
@@ -107,7 +107,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             {tabs.length > 0 && (
                 <div className="flex bg-[#0f172a] overflow-x-auto shadow-sm border-b border-slate-700/50 shrink-0">
                     <button
-                        onClick={() => { setCurrentView('feed'); closeTab(tabs[0]?.id); }}
+                        onClick={() => { setCurrentView('feed'); }}
                         className={`flex flex-shrink-0 items-center gap-2 px-4 py-3 min-w-[100px] border-r border-slate-800 ${currentView === 'feed' ? 'bg-[#1e293b] text-blue-400 border-t-2 border-t-blue-500' : 'bg-[#111622] text-slate-400 border-t-2 border-t-transparent hover:bg-[#1a2332]'}`}
                     >
                         <Home size={16} /> <span className="text-sm font-medium">Feed</span>
@@ -134,7 +134,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 <div className="flex-1 overflow-y-auto custom-scrollbar px-3 pb-1 pt-0 flex flex-col">
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
-                                        <div className="grid grid-rows-10 gap-y-0.5 flex-1 h-full min-h-0">
+                                        <div className="flex flex-col gap-2 pb-6 min-h-[500px]">
+                                            {stories.length === 0 && <div className="p-10 text-white bg-red-600 rounded-lg">ZERO STORIES IN BUFFER</div>}
+                                            {stories.length > 0 && stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden)).length === 0 && <div className="p-10 text-white bg-orange-600 rounded-lg">ALL STORIES FILTERED OUT</div>}
                                             {stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden)).map((story, index) => {
                                                 const isSelected = selectedStoryId === story.id;
                                                 const isRead = readIds.has(story.id) || !!story.is_read;
@@ -145,7 +147,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     <div key={story.id} ref={el => storyRefs.current[index] = el}
                                                         onClick={() => handleStoryInteractWithQueue(story.id, matchedTopic)}
                                                         style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
-                                                        className="flex flex-col transition-all duration-150 rounded-lg"
+                                                        className="transition-all duration-150 rounded-lg block"
                                                     >
                                                         <StoryCard
                                                             story={story} index={index} isSelected={isSelected} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
@@ -158,47 +160,47 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         </div>
                                     )}
                                 </div>
-                            </div>
 
-                            {/* Pagination Controls Fixed at Bottom */}
-                            {!loading && (
-                                <div className="shrink-0 w-full bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/60 flex justify-center mt-auto">
-                                    <div className="w-full max-w-4xl flex justify-center items-center px-6 py-4 gap-2">
-                                        <button
-                                            onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))}
-                                            disabled={offset === 0}
-                                            className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors"
-                                        >
-                                            Prev
-                                        </button>
-                                        <div className="flex items-center gap-1">
-                                            {Array.from({ length: Math.ceil((totalStories || 0) / PAGE_SIZE) }, (_, i) => i + 1).map(p => {
-                                                const pageOffset = (p - 1) * PAGE_SIZE;
-                                                const isActive = offset === pageOffset;
-                                                return (
-                                                    <button
-                                                        key={p}
-                                                        onClick={() => setOffset?.(pageOffset)}
-                                                        className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-bold transition-all ${isActive
-                                                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-110'
-                                                            : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-                                                            }`}
-                                                    >
-                                                        {p}
-                                                    </button>
-                                                );
-                                            })}
+                                {/* Pagination Controls Fixed at Bottom */}
+                                {!loading && (
+                                    <div className="shrink-0 w-full bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/60 flex justify-center mt-auto">
+                                        <div className="w-full max-w-4xl flex justify-center items-center px-6 py-4 gap-2">
+                                            <button
+                                                onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))}
+                                                disabled={offset === 0}
+                                                className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors"
+                                            >
+                                                Prev
+                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                {Array.from({ length: Math.ceil((totalStories || 0) / PAGE_SIZE) }, (_, i) => i + 1).map(p => {
+                                                    const pageOffset = (p - 1) * PAGE_SIZE;
+                                                    const isActive = offset === pageOffset;
+                                                    return (
+                                                        <button
+                                                            key={p}
+                                                            onClick={() => setOffset?.(pageOffset)}
+                                                            className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-bold transition-all ${isActive
+                                                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-110'
+                                                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                                                }`}
+                                                        >
+                                                            {p}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <button
+                                                onClick={() => setOffset?.(offset + PAGE_SIZE)}
+                                                disabled={!hasMore}
+                                                className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors"
+                                            >
+                                                Next
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => setOffset?.(offset + PAGE_SIZE)}
-                                            disabled={!hasMore}
-                                            className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors"
-                                        >
-                                            Next
-                                        </button>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                             <FilterSidebar activeTopics={activeTopics} setActiveTopics={setActiveTopics} getQueuedCount={() => readingQueue.length} onQueueAll={handleQueueAllFiltered} availableTags={availableTags} />
                         </div>
                     </main>

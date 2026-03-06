@@ -4,7 +4,10 @@ import type { Story, ReaderTab, ModeKey } from '../types';
 function loadReadIds(): Set<number> {
     try {
         const saved = localStorage.getItem('hn_read_stories');
-        if (saved) return new Set(JSON.parse(saved));
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) return new Set(parsed.map(Number));
+        }
     } catch { }
     return new Set();
 }
@@ -24,7 +27,9 @@ function loadTopicChips(): string[] {
 }
 
 function saveTopicChips(chips: string[]) {
-    localStorage.setItem('hn_topic_chips', JSON.stringify(chips));
+    try {
+        localStorage.setItem('hn_topic_chips', JSON.stringify(chips));
+    } catch { }
 }
 
 interface User {
@@ -112,7 +117,7 @@ export function useAppState() {
         setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, mode: m } : t));
     }, [activeTabId]);
 
-    const stories = useMemo(() => storyBuffer.slice(0, PAGE_SIZE), [storyBuffer]);
+    const stories = storyBuffer; // Backend already paginates this buffer
 
     useEffect(() => {
         const baseUrl = import.meta.env.VITE_API_URL || '';
@@ -162,12 +167,36 @@ export function useAppState() {
         const story = storyBuffer.find(s => s.id === id);
         if (!story) return;
 
-        const newTabId = crypto.randomUUID();
         const actualMode = overrideMode || (story.url ? 'article' : 'discussion');
 
-        setTabs(prev => [...prev, { id: newTabId, storyId: id, story, mode: actualMode }]);
-        setActiveTabId(newTabId);
-        setCurrentView('reader');
+        setTabs(prev => {
+            // Check if tab already exists
+            const existingTab = prev.find(t => t.storyId === id);
+            if (existingTab) {
+                // If we forced a mode change, update it, otherwise just switch
+                if (overrideMode && existingTab.mode !== overrideMode) {
+                    return prev.map(t => t.id === existingTab.id ? { ...t, mode: overrideMode } : t);
+                }
+                setTimeout(() => setActiveTabId(existingTab.id), 0);
+                setTimeout(() => setCurrentView('reader'), 0);
+                return prev;
+            }
+
+            // Create new tab
+            const newTabId = crypto.randomUUID();
+            const newTab = { id: newTabId, storyId: id, story, mode: actualMode };
+
+            setTimeout(() => setActiveTabId(newTabId), 0);
+            setTimeout(() => setCurrentView('reader'), 0);
+
+            // On mobile devices, we prefer replacing the single tab to save memory/UI space
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                return [newTab];
+            }
+
+            // On desktop, append
+            return [...prev, newTab];
+        });
 
         setReadIds(prev => {
             const next = new Set(prev);
