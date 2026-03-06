@@ -1,10 +1,12 @@
-import { useRef } from 'react';
-import { RefreshCw, X, Moon, Sun, LogIn, LogOut, Settings, Shield, Home } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { RefreshCw, X, Moon, Sun, LogIn, LogOut, Settings, Shield, Home, Keyboard } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { getStoryTopicMatch } from '../hooks/useAppState';
+import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
+import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
 import { MODES } from '../types';
 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
@@ -25,11 +27,15 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const readerContainerRef = useRef<HTMLElement>(null);
     const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
     const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const [isHelpOpen, setIsHelpOpen] = useState(false);
     const PAGE_SIZE = 10;
+
+    useGlobalKeyboardNav(app, storyRefs);
 
     return (
         <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
             {/* ─── Zen Header ─── */}
+            <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
             <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-[76px] relative">
                 <div className="flex items-center h-full">
                     {/* Left — Nav Tabs */}
@@ -62,7 +68,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <h1 className="text-xl leading-none font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600 cursor-pointer" onClick={() => window.location.reload()}>
                                 HN Station
                             </h1>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.9</span>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.10</span>
                         </div>
                         {currentView === 'reader' && (
                             <div id="reader-controls-portal" className="flex items-center mt-1.5 pointer-events-auto"></div>
@@ -81,6 +87,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         </button>
                         <button onClick={() => setShowHidden(!showHidden)} className={`p-2 rounded-lg ${showHidden ? 'bg-orange-500/20 text-orange-500' : 'hover:bg-slate-800 text-slate-400'}`}>
                             <Settings size={16} />
+                        </button>
+                        <button onClick={() => setIsHelpOpen(true)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 ml-1" title="Keyboard Shortcuts">
+                            <Keyboard size={16} />
                         </button>
 
                         {/* Auth */}
@@ -139,6 +148,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             {stories.length > 0 && stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden)).length === 0 && <div className="p-10 text-white bg-orange-600 rounded-lg">ALL STORIES FILTERED OUT</div>}
                                             {stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden)).map((story, index) => {
                                                 const isSelected = selectedStoryId === story.id;
+                                                const isHighlighted = app.highlightedStoryId === story.id;
                                                 const isRead = readIds.has(story.id) || !!story.is_read;
                                                 const isQueued = readingQueue.includes(story.id);
                                                 const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, story.topics, activeTopics) : null;
@@ -150,7 +160,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                         className="transition-all duration-150 rounded-lg block"
                                                     >
                                                         <StoryCard
-                                                            story={story} index={index} isSelected={isSelected} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
+                                                            story={story} index={index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
                                                             titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={handleStorySelect} onOpenInTab={handleStorySelect}
                                                             onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
                                                         />
