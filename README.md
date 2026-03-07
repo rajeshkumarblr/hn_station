@@ -74,6 +74,23 @@ Open **http://localhost:3000** in your browser.
 
 Uses the manifests in `infrastructure/k8s-local/`, pointing Postgres at your host machine's running PostgreSQL instance. See [`DEPLOY.md`](DEPLOY.md) for full details.
 
+### Electron Desktop App
+
+A native desktop wrapper is available in the `web/` directory using [Electron](https://electronjs.org). It connects to the live `https://hnstation.dev` backend, runs frameless with a custom title bar, and embeds every article natively without CORS restrictions.
+
+```bash
+cd web
+npm install       # first time only
+npm run dev       # launches the Electron app (dev mode with hot reload)
+```
+
+**Desktop features:**
+- Frameless window with native drag, macOS-style minimize/maximize/close controls
+- All articles open in native webview (no reader-mode fallback)
+- Persistent tab state — switching tabs never reloads the page or loses scroll position
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` to cycle through open article tabs
+- HN orange icon in taskbar (Linux PNG, Windows ICO)
+
 ---
 
 ## Architecture

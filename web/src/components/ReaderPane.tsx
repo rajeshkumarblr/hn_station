@@ -23,8 +23,6 @@ interface Story {
 
 interface ReaderPaneProps {
     story: Story;
-    comments: any[];
-    commentsLoading: boolean;
     onFocusList?: () => void;
     onSummarize?: () => void;
     onTakeFocus?: () => void;
@@ -36,7 +34,7 @@ interface ReaderPaneProps {
     onHide?: (id: number) => void;
 }
 
-export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onTabChange, onHide }: ReaderPaneProps) {
+export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onTabChange, onHide }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
@@ -64,9 +62,30 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
     const [canIframe, setCanIframe] = useState(true);
     const [contentType, setContentType] = useState<'html' | 'markdown' | 'text' | 'pdf'>('text');
     const [isCopied, setIsCopied] = useState(false);
-    const [showSummary, setShowSummary] = useState(false); // Hidden by default
+    const [showSummary, setShowSummary] = useState(false);
     const [userManuallyToggledSummary, setUserManuallyToggledSummary] = useState(false);
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+    // Self-managed comments state
+    const [comments, setComments] = useState<any[]>([]);
+    const [commentsLoading, setCommentsLoading] = useState(false);
+
+    useEffect(() => {
+        setComments([]);
+        setCommentsLoading(true);
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const controller = new AbortController();
+        fetch(`${baseUrl}/api/stories/${story.id}`, { signal: controller.signal })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data) setComments(data.comments || []);
+                setCommentsLoading(false);
+            })
+            .catch(err => {
+                if (err.name !== 'AbortError') setCommentsLoading(false);
+            });
+        return () => controller.abort();
+    }, [story.id]);
 
     useEffect(() => {
         setPortalTarget(document.getElementById('reader-controls-portal'));
@@ -153,14 +172,13 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                     setArticleContent(data.content);
                     setContentType(data.content_type || 'text');
 
-                    // If backend says we can iframe AND it's not Markdown/Text (where we prefer Reader View)
-                    // we default to the web view. For GitHub readmes, we force Reader View.
-                    const forceReaderView = data.content_type === 'markdown' || data.content_type === 'text';
-                    setUseIframe(!forceReaderView && data.can_iframe);
-                    setCanIframe(data.can_iframe);
+                    // In Electron, we can embed everything via webview natively.
+                    // Always use web view — user can manually switch to TEXT if desired.
+                    setUseIframe(true);
+                    setCanIframe(true);
 
-                    // Smart default: If content is empty and we can't iframe, switch to discussion
-                    if (!data.content && !data.can_iframe) {
+                    // Smart default: If content has no URL at all, show discussion instead
+                    if (!data.url && !story.url) {
                         handleTabChange('discussion');
                     }
 
@@ -285,10 +303,9 @@ export function ReaderPane({ story, comments, commentsLoading, onFocusList, onSu
                                             Note: Site might block embedding. Switch to <b>Reader View</b> if blank.
                                         </div>
                                     )}
-                                    <iframe
+                                    <webview
                                         src={storyUrl}
-                                        className="w-full h-full border-0 absolute inset-0"
-                                        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                                        className="w-full h-full border-0 absolute inset-0 bg-white"
                                         title="Article Web View"
                                     />
                                 </div>

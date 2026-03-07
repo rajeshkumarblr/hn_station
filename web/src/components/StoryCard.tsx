@@ -75,14 +75,27 @@ export function getTagColor(tag: string) {
 
 function getSummaryBullets(text: string): string[] {
     if (!text) return [];
-    // Split on line breaks (bullet points) first
     const lines = text.split(/\n+/).map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
     if (lines.length > 1) {
         return lines.slice(0, 2);
     }
-    // Fall back to sentence splitting
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
     return sentences.map(s => s.trim()).filter(Boolean).slice(0, 2);
+}
+
+// A tag that shows as plain #hashtag text, lights up with its color when clicked
+function ActiveTag({ topic, color }: { topic: string; color: string }) {
+    const [active, setActive] = useState(false);
+    return (
+        <button
+            onClick={(e) => { e.stopPropagation(); setActive(a => !a); }}
+            className="text-[9px] font-bold tracking-tight transition-colors duration-150 hover:opacity-100"
+            style={{ color: active ? color : 'rgba(148,163,184,0.7)' }}
+            title={topic}
+        >
+            #{topic.toLowerCase().replace(/\s+/g, '-')}
+        </button>
+    );
 }
 
 
@@ -292,20 +305,14 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                             {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
                         </button>
 
-                        {/* Tags Display */}
+                        {/* Tags Display — plain #hashtag style, color on click */}
                         {story.topics && story.topics.length > 0 && (
                             <div className="flex items-center gap-1.5 ml-1 pt-0.5">
                                 <span className="text-slate-300 dark:text-slate-600">•</span>
                                 {story.topics.slice(0, 3).map((topic, i) => {
                                     const ts = getTagStyle(topic);
                                     return (
-                                        <span
-                                            key={i}
-                                            className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold border"
-                                            style={{ color: ts.color, background: ts.bg, borderColor: ts.border }}
-                                        >
-                                            {topic}
-                                        </span>
+                                        <ActiveTag key={i} topic={topic} color={ts.color} />
                                     );
                                 })}
                                 {story.topics.length > 3 && (
@@ -317,13 +324,13 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                 </div>
             </div>
 
-            {/* Hover Summary Popup */}
+            {/* Hover Summary Popup — appears to the right of the cursor, away from context menu */}
             {story.summary && summaryBullets.length > 0 && (
                 <div
-                    className="hidden group-hover:block fixed z-[9999] w-96 pointer-events-none animate-in fade-in duration-200"
+                    className="hidden group-hover:block fixed z-[9999] w-80 pointer-events-none animate-in fade-in duration-200"
                     style={{
-                        left: `${mousePos.x + 20}px`,
-                        top: `${mousePos.y + 10}px`
+                        left: `${mousePos.x + 220}px`,
+                        top: `${mousePos.y - 20}px`
                     }}
                 >
                     <div className="bg-[#f0f6ff] dark:bg-[#0f2140] border border-blue-200 dark:border-blue-700 rounded-xl p-4 shadow-2xl shadow-blue-900/50 opacity-100" style={{ isolation: 'isolate' }}>

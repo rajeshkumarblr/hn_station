@@ -44,36 +44,36 @@ export function useGlobalKeyboardNav(
                 return;
             }
 
-            // --- Shift + ArrowRight / ArrowLeft to Cycle Tabs & Feed ---
-            if (e.shiftKey && e.key === 'ArrowRight') {
+            // --- Ctrl + Tab / Ctrl + Shift + Tab to Cycle Tabs & Feed ---
+            if (e.ctrlKey && e.key === 'Tab') {
                 e.preventDefault();
-                if (app.currentView === 'feed') {
-                    if (app.tabs.length > 0) {
-                        app.handleStorySelect(app.tabs[0].storyId);
+                if (e.shiftKey) {
+                    // Cycle Left (Backwards)
+                    if (app.currentView === 'feed') {
+                        if (app.tabs.length > 0) {
+                            app.handleStorySelect(app.tabs[app.tabs.length - 1].storyId);
+                        }
+                    } else {
+                        const idx = app.tabs.findIndex(t => t.id === app.activeTabId);
+                        if (idx > 0) {
+                            app.handleStorySelect(app.tabs[idx - 1].storyId);
+                        } else {
+                            app.setCurrentView('feed');
+                        }
                     }
                 } else {
-                    const idx = app.tabs.findIndex(t => t.id === app.activeTabId);
-                    if (idx !== -1 && idx < app.tabs.length - 1) {
-                        app.handleStorySelect(app.tabs[idx + 1].storyId);
+                    // Cycle Right (Forwards)
+                    if (app.currentView === 'feed') {
+                        if (app.tabs.length > 0) {
+                            app.handleStorySelect(app.tabs[0].storyId);
+                        }
                     } else {
-                        app.setCurrentView('feed');
-                    }
-                }
-                return;
-            }
-
-            if (e.shiftKey && e.key === 'ArrowLeft') {
-                e.preventDefault();
-                if (app.currentView === 'feed') {
-                    if (app.tabs.length > 0) {
-                        app.handleStorySelect(app.tabs[app.tabs.length - 1].storyId);
-                    }
-                } else {
-                    const idx = app.tabs.findIndex(t => t.id === app.activeTabId);
-                    if (idx > 0) {
-                        app.handleStorySelect(app.tabs[idx - 1].storyId);
-                    } else {
-                        app.setCurrentView('feed');
+                        const idx = app.tabs.findIndex(t => t.id === app.activeTabId);
+                        if (idx !== -1 && idx < app.tabs.length - 1) {
+                            app.handleStorySelect(app.tabs[idx + 1].storyId);
+                        } else {
+                            app.setCurrentView('feed');
+                        }
                     }
                 }
                 return;
