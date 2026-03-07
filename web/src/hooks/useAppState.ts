@@ -32,6 +32,29 @@ function saveTopicChips(chips: string[]) {
     } catch { }
 }
 
+function loadPersistedTabs(): ReaderTab[] {
+    try {
+        const saved = localStorage.getItem('hn_desktop_tabs');
+        if (saved) return JSON.parse(saved);
+    } catch { }
+    return [];
+}
+
+function loadPersistedActiveTabId(): string | null {
+    try {
+        return localStorage.getItem('hn_desktop_active_tab_id');
+    } catch { }
+    return null;
+}
+
+function loadPersistedCurrentView(): 'feed' | 'reader' | 'admin' {
+    try {
+        const view = localStorage.getItem('hn_desktop_current_view');
+        if (view === 'feed' || view === 'reader' || view === 'admin') return view;
+    } catch { }
+    return 'feed';
+}
+
 interface User {
     id: string;
     email: string;
@@ -78,17 +101,14 @@ export function useAppState() {
     });
 
     const [highlightedStoryId, setHighlightedStoryId] = useState<number | null>(null);
-    const [tabs, setTabs] = useState<ReaderTab[]>([]);
-    const [activeTabId, setActiveTabId] = useState<string | null>(null);
-
-    const [comments, setComments] = useState<any[]>([]);
-    const [commentsLoading, setCommentsLoading] = useState(false);
+    const [tabs, setTabs] = useState<ReaderTab[]>(loadPersistedTabs);
+    const [activeTabId, setActiveTabId] = useState<string | null>(loadPersistedActiveTabId);
 
     const [showHidden, setShowHidden] = useState(false);
     const hiddenStories = new Set<number>();
 
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [currentView, setCurrentView] = useState<'feed' | 'reader' | 'admin'>('feed');
+    const [currentView, setCurrentView] = useState<'feed' | 'reader' | 'admin'>(loadPersistedCurrentView);
     const [readingQueue, setReadingQueue] = useState<number[]>([]);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [user, setUser] = useState<User | null>(null);
@@ -135,6 +155,28 @@ export function useAppState() {
     }, [theme]);
 
     useEffect(() => { saveTopicChips(activeTopics); }, [activeTopics]);
+
+    useEffect(() => {
+        try {
+            if (tabs.length === 0) {
+                localStorage.removeItem('hn_desktop_tabs');
+            } else {
+                localStorage.setItem('hn_desktop_tabs', JSON.stringify(tabs));
+            }
+        } catch { }
+    }, [tabs]);
+
+    useEffect(() => {
+        if (activeTabId) {
+            localStorage.setItem('hn_desktop_active_tab_id', activeTabId);
+        } else {
+            localStorage.removeItem('hn_desktop_active_tab_id');
+        }
+    }, [activeTabId]);
+
+    useEffect(() => {
+        localStorage.setItem('hn_desktop_current_view', currentView);
+    }, [currentView]);
 
     const handleHideStory = useCallback((id: number) => {
         setStoryBuffer(prev => prev.filter(s => s.id !== id));
@@ -273,7 +315,7 @@ export function useAppState() {
         if (!highlightedStoryId && stories.length > 0) setHighlightedStoryId(stories[0].id);
     }, [stories, highlightedStoryId]);
 
-    const buildUrl = useCallback((currentOffset: number, limit: number = PAGE_SIZE * 2) => {
+    const buildUrl = useCallback((currentOffset: number, limit: number = PAGE_SIZE) => {
         const baseUrl = import.meta.env.VITE_API_URL || '';
         if (mode === 'saved') return `${baseUrl}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
         let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
@@ -353,29 +395,25 @@ export function useAppState() {
     }, [stories]);
 
     useEffect(() => {
-        if (!selectedStoryId) { setComments([]); return; }
-        setCommentsLoading(true);
-        setComments([]);
+        if (!selectedStoryId) return;
         const baseUrl = import.meta.env.VITE_API_URL || '';
         fetch(`${baseUrl}/api/stories/${selectedStoryId}`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
-                if (data) {
-                    setComments(data.comments || []);
-                    if (data.story && activeTabId) {
-                        setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, story: data.story } : t));
-                    }
+                // We still want to update the tab's injected story object (with URL etc.)
+                // so that the webview can load the actual URL if the feed only had partial data.
+                if (data && data.story && activeTabId) {
+                    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, story: data.story } : t));
                 }
-                setCommentsLoading(false);
             })
-            .catch(() => setCommentsLoading(false));
+            .catch(() => { });
     }, [selectedStoryId]);
 
     return {
         // State
         storyBuffer, loading, error, mode, activeTopics, totalStories,
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
-        tabs, activeTabId, comments, commentsLoading, showHidden,
+        tabs, activeTabId, showHidden,
         isSettingsOpen, currentView, readingQueue, isAdminModalOpen, user,
         hiddenStories, offset,
         // Derived

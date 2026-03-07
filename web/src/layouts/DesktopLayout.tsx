@@ -13,18 +13,17 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const {
         loading, mode, activeTopics,
         theme,
-        tabs, activeTabId, comments, commentsLoading, showHidden,
+        tabs, activeTabId, showHidden,
         currentView, readingQueue, isAdminModalOpen, user,
         hiddenStories, offset, setOffset, totalStories, hasMore,
-        selectedStoryId, selectedStory, readerTab, stories, availableTags,
+        selectedStoryId, selectedStory, stories, availableTags,
         setMode, setActiveTopics, setShowHidden,
         setCurrentView, setIsAdminModalOpen,
-        handleRefresh, toggleTheme, closeTab, setReaderTab, handleHideStory,
+        handleRefresh, toggleTheme, closeTab, handleHideStory,
         handleToggleQueue, handleStorySelect, handleToggleSave,
         handleStoryInteractWithQueue, handleQueueAllFiltered, readIds
     } = app;
 
-    const readerContainerRef = useRef<HTMLElement>(null);
     const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
     const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -36,8 +35,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
             {/* ─── Zen Header ─── */}
             <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-            <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-[76px] relative">
-                <div className="flex items-center h-full">
+            {/* -webkit-app-region:drag makes the header the native Electron drag handle */}
+            <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-[76px] relative" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+                <div className="flex items-center h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                     {/* Left — Nav Tabs */}
                     <nav className="h-full flex items-center gap-6 flex-1">
                         {MODES.map((m, i) => {
@@ -108,6 +108,33 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 <LogIn size={14} /> Sign in
                             </a>
                         )}
+
+                        {/* Window traffic-light controls — only in Electron */}
+                        {(window as any).electronAPI && (
+                            <div className="flex items-center gap-1.5 ml-3 pl-3 border-l border-slate-700/60">
+                                <button
+                                    onClick={() => (window as any).electronAPI.minimize()}
+                                    className="w-3.5 h-3.5 rounded-full bg-yellow-400 hover:bg-yellow-300 transition-colors flex items-center justify-center group"
+                                    title="Minimize"
+                                >
+                                    <span className="opacity-0 group-hover:opacity-100 text-yellow-900 text-[8px] font-black leading-none">−</span>
+                                </button>
+                                <button
+                                    onClick={() => (window as any).electronAPI.maximize()}
+                                    className="w-3.5 h-3.5 rounded-full bg-green-400 hover:bg-green-300 transition-colors flex items-center justify-center group"
+                                    title="Maximize / Restore"
+                                >
+                                    <span className="opacity-0 group-hover:opacity-100 text-green-900 text-[7px] font-black leading-none">⛶</span>
+                                </button>
+                                <button
+                                    onClick={() => (window as any).electronAPI.close()}
+                                    className="w-3.5 h-3.5 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
+                                    title="Close"
+                                >
+                                    <span className="opacity-0 group-hover:opacity-100 text-red-900 text-[8px] font-black leading-none">✕</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
@@ -140,13 +167,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <main className="flex-1 overflow-hidden bg-white dark:bg-slate-950 flex justify-center focus:outline-none" tabIndex={-1}>
                         <div className="flex w-full max-w-[85rem] h-full relative">
                             <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-                                <div className="flex-1 overflow-y-auto custom-scrollbar px-3 pb-1 pt-0 flex flex-col">
+                                <div className="flex-1 overflow-hidden px-3 pt-1">
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
-                                        <div className="flex flex-col gap-2 pb-6 min-h-[500px]">
-                                            {stories.length === 0 && <div className="p-10 text-white bg-red-600 rounded-lg">ZERO STORIES IN BUFFER</div>}
-                                            {stories.length > 0 && stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden)).length === 0 && <div className="p-10 text-white bg-orange-600 rounded-lg">ALL STORIES FILTERED OUT</div>}
-                                            {stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden)).map((story, index) => {
+                                        // CSS grid: always exactly 10 equal rows, no scroll, fills all space
+                                        <div className="h-full" style={{ display: 'grid', gridTemplateRows: `repeat(${PAGE_SIZE}, 1fr)`, gap: '2px' }}>
+                                            {stories.length === 0 && <div className="p-10 text-white bg-red-600 rounded-lg col-span-full">ZERO STORIES IN BUFFER</div>}
+                                            {stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden)).slice(0, PAGE_SIZE).map((story, index) => {
                                                 const isSelected = selectedStoryId === story.id;
                                                 const isHighlighted = app.highlightedStoryId === story.id;
                                                 const isRead = readIds.has(story.id) || !!story.is_read;
@@ -157,7 +184,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     <div key={story.id} ref={el => storyRefs.current[index] = el}
                                                         onClick={() => handleStoryInteractWithQueue(story.id, matchedTopic)}
                                                         style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
-                                                        className="transition-all duration-150 rounded-lg block"
+                                                        className="transition-all duration-150 rounded-lg overflow-hidden"
                                                     >
                                                         <StoryCard
                                                             story={story} index={index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
@@ -215,12 +242,34 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         </div>
                     </main>
                 ) : (
-                    <div className="flex-1 w-full bg-[#111d2e] flex flex-col">
-                        {selectedStory ? (
-                            <aside ref={readerContainerRef} className="flex-1 w-full h-full overflow-y-auto custom-scrollbar focus:outline-none">
-                                <ReaderPane story={selectedStory} comments={comments} commentsLoading={commentsLoading} activeTab={readerTab as any} onTabChange={setReaderTab as any} onFocusList={() => setCurrentView('feed')} onTakeFocus={() => { }} onToggleSave={user ? handleToggleSave : undefined} onHide={(id) => { handleHideStory(id); setCurrentView('feed'); }} />
-                            </aside>
-                        ) : <div className="h-full flex items-center justify-center text-slate-500">Loading story...</div>}
+                    // Reader view: render ALL tabs simultaneously, show only the active one
+                    <div className="flex-1 w-full bg-[#111d2e] flex flex-col relative">
+                        {tabs.map(tab => {
+                            const isActive = currentView === 'reader' && activeTabId === tab.id;
+                            const activeMode = tab.mode || 'split';
+                            return (
+                                <div
+                                    key={tab.id}
+                                    className="absolute inset-0"
+                                    style={{ display: isActive ? 'flex' : 'none', flexDirection: 'column', overflow: 'hidden' }}
+                                >
+                                    <ReaderPane
+                                        story={tab.story}
+                                        activeTab={activeMode as any}
+                                        onTabChange={(m) => {
+                                            app.handleStorySelect?.(tab.storyId, m);
+                                        }}
+                                        onFocusList={() => setCurrentView('feed')}
+                                        onTakeFocus={() => { }}
+                                        onToggleSave={user ? handleToggleSave : undefined}
+                                        onHide={(id) => { handleHideStory(id); setCurrentView('feed'); }}
+                                    />
+                                </div>
+                            );
+                        })}
+                        {(!tabs.length || !selectedStory) && (
+                            <div className="h-full flex items-center justify-center text-slate-500">Select a story</div>
+                        )}
                     </div>
                 )}
                 {isAdminModalOpen && <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />}

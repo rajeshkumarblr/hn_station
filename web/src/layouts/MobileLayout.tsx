@@ -87,8 +87,6 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                     <div className="absolute inset-0 z-40 bg-[#111d2e] flex flex-col">
                         <ReaderPane
                             story={selectedStory}
-                            comments={app.comments}
-                            commentsLoading={app.commentsLoading}
                             activeTab={readerTab as any}
                             onTabChange={app.setReaderTab as any}
                             onFocusList={() => setCurrentView('feed')}
