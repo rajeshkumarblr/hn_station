@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { RefreshCw, X, Moon, Sun, LogIn, LogOut, Settings, Shield, Home, Keyboard } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
@@ -28,6 +28,16 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const PAGE_SIZE = 10;
+    const isElectron = !!(window as any).electronAPI;
+
+    // Auto-switch to page 1 when a tag filter is active but no current-page
+    // stories match — prevents the user from seeing an empty filtered feed.
+    useEffect(() => {
+        if (activeTopics.length === 0) return;
+        const visible = stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden));
+        const hasMatch = visible.some(s => getStoryTopicMatch(s.title, s.topics, activeTopics) !== null);
+        if (!hasMatch && offset !== 0) setOffset?.(0);
+    }, [activeTopics, stories]);
 
     useGlobalKeyboardNav(app, storyRefs);
 
@@ -103,35 +113,38 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 <img src={user.avatar_url} alt={user.name} className="w-7 h-7 rounded-full ring-2 ring-slate-700" title={user.name} />
                                 <a href="/auth/logout" className="p-2 rounded-lg hover:bg-slate-800 text-slate-400"><LogOut size={16} /></a>
                             </div>
-                        ) : (
+                        ) : !isElectron ? (
                             <a href="/auth/google" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold ml-1">
                                 <LogIn size={14} /> Sign in
                             </a>
-                        )}
+                        ) : null}
 
-                        {/* Window traffic-light controls — only in Electron */}
-                        {(window as any).electronAPI && (
-                            <div className="flex items-center gap-1.5 ml-3 pl-3 border-l border-slate-700/60">
+                        {/* Window controls — Windows style, only in Electron */}
+                        {isElectron && (
+                            <div className="flex items-center ml-3 pl-2 border-l border-slate-700/60" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                                {/* Minimize */}
                                 <button
                                     onClick={() => (window as any).electronAPI.minimize()}
-                                    className="w-3.5 h-3.5 rounded-full bg-yellow-400 hover:bg-yellow-300 transition-colors flex items-center justify-center group"
+                                    className="w-11 h-8 flex items-center justify-center text-slate-400 hover:bg-slate-600/60 hover:text-white transition-colors text-sm"
                                     title="Minimize"
                                 >
-                                    <span className="opacity-0 group-hover:opacity-100 text-yellow-900 text-[8px] font-black leading-none">−</span>
+                                    <span className="text-base leading-none select-none">─</span>
                                 </button>
+                                {/* Maximize */}
                                 <button
                                     onClick={() => (window as any).electronAPI.maximize()}
-                                    className="w-3.5 h-3.5 rounded-full bg-green-400 hover:bg-green-300 transition-colors flex items-center justify-center group"
+                                    className="w-11 h-8 flex items-center justify-center text-slate-400 hover:bg-slate-600/60 hover:text-white transition-colors text-sm"
                                     title="Maximize / Restore"
                                 >
-                                    <span className="opacity-0 group-hover:opacity-100 text-green-900 text-[7px] font-black leading-none">⛶</span>
+                                    <span className="text-[11px] leading-none select-none border border-current" style={{ padding: '1px 3px' }}>□</span>
                                 </button>
+                                {/* Close */}
                                 <button
                                     onClick={() => (window as any).electronAPI.close()}
-                                    className="w-3.5 h-3.5 rounded-full bg-red-500 hover:bg-red-400 transition-colors flex items-center justify-center group"
+                                    className="w-11 h-8 flex items-center justify-center text-slate-400 hover:bg-red-600 hover:text-white transition-colors text-base font-bold"
                                     title="Close"
                                 >
-                                    <span className="opacity-0 group-hover:opacity-100 text-red-900 text-[8px] font-black leading-none">✕</span>
+                                    ✕
                                 </button>
                             </div>
                         )}
@@ -164,8 +177,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden relative">
                 {currentView === 'feed' ? (
-                    <main className="flex-1 overflow-hidden bg-white dark:bg-slate-950 flex justify-center focus:outline-none" tabIndex={-1}>
-                        <div className="flex w-full max-w-[85rem] h-full relative">
+                    <main className="flex-1 overflow-hidden bg-white dark:bg-slate-950 flex focus:outline-none" tabIndex={-1}>
+                        <div className="flex w-full h-full relative">
                             <div className="flex-1 flex flex-col h-full overflow-hidden relative">
                                 <div className="flex-1 overflow-hidden px-3 pt-1">
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
