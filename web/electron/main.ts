@@ -57,10 +57,18 @@ function createWindow() {
     win.show();
 
     // Explicitly set icon after show — required on some Linux DEs (XFCE, LXDE, etc.)
-    // to update the taskbar/dock icon beyond just the WM_CLASS hint
     const iconPath = path.join(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png');
     const appIcon = nativeImage.createFromPath(iconPath);
     if (!appIcon.isEmpty()) win.setIcon(appIcon);
+
+    // Lock the OS-level window title to 'HN Station' so it shows correctly in
+    // taskbars (Windows/WSLg/Linux DEs). Chromium can override the title with
+    // internal strings like '[WARN:COPY MODE]' — this prevents that.
+    win.setTitle('HN Station');
+    win.webContents.on('page-title-updated', (event) => {
+        event.preventDefault();
+        win?.setTitle('HN Station');
+    });
 
     // Strip security headers so we can embed ANY site (OpenAI, GitHub, etc.) inside our WebViews
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
