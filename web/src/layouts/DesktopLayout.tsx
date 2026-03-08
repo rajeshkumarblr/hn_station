@@ -207,6 +207,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                             story={story} index={index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
                                                             titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={handleStorySelect} onOpenInTab={handleStorySelect}
                                                             onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
+                                                            onHighlight={app.setHighlightedStoryId}
                                                         />
                                                     </div>
                                                 );
