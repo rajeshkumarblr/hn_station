@@ -21,18 +21,20 @@ import (
 )
 
 type Server struct {
-	store    *storage.Store
-	router   *chi.Mux
-	auth     *auth.Config
-	aiClient *ai.OllamaClient
+	store     storage.DB
+	router    *chi.Mux
+	auth      *auth.Config
+	aiClient  *ai.OllamaClient
+	localMode bool // true = SQLite local mode, auth disabled
 }
 
-func NewServer(store *storage.Store, authCfg *auth.Config, aiClient *ai.OllamaClient) *Server {
+func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient, localMode bool) *Server {
 	s := &Server{
-		store:    store,
-		router:   chi.NewRouter(),
-		auth:     authCfg,
-		aiClient: aiClient,
+		store:     store,
+		router:    chi.NewRouter(),
+		auth:      authCfg,
+		aiClient:  aiClient,
+		localMode: localMode,
 	}
 
 	s.middlewares()
@@ -48,7 +50,10 @@ func (s *Server) middlewares() {
 	s.router.Use(middleware.Recoverer)
 	s.router.Use(middleware.Timeout(10 * time.Minute))
 
-	allowedOrigins := []string{"http://localhost:5173", "https://hnstation.dev"}
+	allowedOrigins := []string{"http://localhost:5173", "http://localhost:5174", "https://hnstation.dev"}
+	if s.localMode {
+		allowedOrigins = append(allowedOrigins, "http://127.0.0.1")
+	}
 	s.router.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -496,9 +501,9 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. We skip generation for anonymous users to prevent abuse
+	// In local mode any request can generate summaries (no auth wall)
 	userID := s.auth.GetUserIDFromRequest(r)
-	if userID == "" {
+	if userID == "" && !s.localMode {
 		http.Error(w, "Authentication required to generate new summary", http.StatusUnauthorized)
 		return
 	}

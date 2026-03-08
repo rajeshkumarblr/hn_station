@@ -52,7 +52,7 @@ func main() {
 	log.Println("Ollama client initialized")
 
 	store := storage.New(dbpool)
-	server := api.NewServer(store, authCfg, aiClient)
+	server := api.NewServer(store, authCfg, aiClient, false /* cloud mode */)
 
 	srv := &http.Server{
 		Addr:    ":" + port,

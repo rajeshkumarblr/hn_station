@@ -56,6 +56,21 @@ func NewConfig() *Config {
 	}
 }
 
+// NewLocalConfig returns an auth Config suitable for the local Electron binary.
+// OAuth is not configured (no credentials). JWT secret is ephemeral (random per run).
+// GetUserIDFromRequest will always return "", which is fine since localMode bypasses auth.
+func NewLocalConfig() *Config {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return &Config{
+		OAuth2Config: &oauth2.Config{
+			Scopes:   []string{},
+			Endpoint: google.Endpoint,
+		},
+		JWTSecret: b,
+	}
+}
+
 // GenerateToken creates a signed JWT for the given user.
 func (c *Config) GenerateToken(userID, email string) (string, error) {
 	claims := &Claims{
