@@ -72,7 +72,23 @@ func (s *SQLiteStore) migrate() error {
 	);
 	`
 	_, err := s.db.Exec(schema)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Add interaction columns if they don't exist (handle migration from earlier versions)
+	cols := []string{
+		"ALTER TABLE stories ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT 0",
+		"ALTER TABLE stories ADD COLUMN is_saved BOOLEAN NOT NULL DEFAULT 0",
+		"ALTER TABLE stories ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0",
+	}
+	for _, sql := range cols {
+		// We ignore the error because SQLite doesn't have "IF NOT EXISTS" for ADD COLUMN,
+		// and it will error if the column already exists.
+		_, _ = s.db.Exec(sql)
+	}
+
+	return nil
 }
 
 // ─── helpers ───

@@ -81,6 +81,13 @@ Uses the manifests in `infrastructure/k8s-local/`, pointing Postgres at your hos
 A powerful, fully-contained desktop experience. It **bundles its own Go backend** and uses a local **SQLite** database for zero-config persistence.
 
 ```bash
+# Easy Launch (rebuilds backend + starts Electron)
+chmod +x hn-station.sh
+./hn-station.sh
+```
+
+**Manual Build:**
+```bash
 cd web
 npm install       # first time only
 npm run dev       # launches the Electron app + local backend

@@ -13,21 +13,31 @@ export async function resolveApiBase(): Promise<string> {
 
     // In Electron, ask the main process for the local backend URL
     const electronAPI = (window as any).electronAPI;
-    if (electronAPI?.getLocalApiUrl) {
-        try {
-            const url = await electronAPI.getLocalApiUrl();
-            if (url) {
-                _cachedBase = url as string;
-                console.log('[api] Using local backend:', _cachedBase);
-                finish(_cachedBase);
-                return _cachedBase;
+    const isElectron = !!electronAPI;
+
+    if (isElectron) {
+        // Strict Electron mode: Poll until we get the port. Do NOT fallback to production.
+        console.log('[api] Electron detected, waiting for local backend...');
+
+        while (true) {
+            try {
+                const url = await electronAPI.getLocalApiUrl();
+                if (url) {
+                    _cachedBase = url as string;
+                    console.log('[api] Connected to local backend:', _cachedBase);
+                    finish(_cachedBase);
+                    return _cachedBase;
+                }
+            } catch (err) {
+                console.error('[api] IPC error:', err);
             }
-        } catch {
-            // Fall through to web fallback
+            // Wait 200ms before retrying
+            await new Promise(resolve => setTimeout(resolve, 200));
         }
     }
 
     // Web / dev fallback: VITE_API_URL or same-origin
+    // Only used when running in a normal browser (non-Electron)
     _cachedBase = String(import.meta.env.VITE_API_URL ?? '');
     finish(_cachedBase);
     return _cachedBase;
@@ -43,6 +53,11 @@ function finish(url: string) {
 
 /** Synchronous getter — returns cached value or '' before resolution completes */
 export function getApiBase(): string {
+    const isElectron = !!(window as any).electronAPI;
+    if (isElectron) {
+        // Strict: never return production URL in Electron, even as a fallback
+        return _cachedBase ?? '';
+    }
     return _cachedBase ?? (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 }
 

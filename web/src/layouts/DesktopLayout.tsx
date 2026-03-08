@@ -91,7 +91,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <h1 className="text-xl leading-none font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600 cursor-pointer" onClick={() => window.location.reload()}>
                                 HN Station
                             </h1>
-                            <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.10</span>
+                            <div className="flex flex-col items-start">
+                                <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded-sm">v4.12</span>
+                                <span className="text-[8px] font-medium text-slate-600 tracking-wider uppercase mt-0.5">{app.apiBase?.replace('http://', '') || 'Connecting...'}</span>
+                            </div>
                         </div>
                         {currentView === 'reader' && (
                             <div id="reader-controls-portal" className="flex items-center mt-1.5 pointer-events-auto"></div>

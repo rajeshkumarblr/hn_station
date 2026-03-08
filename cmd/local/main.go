@@ -35,7 +35,7 @@ import (
 
 const (
 	workerCount  = 3
-	totalStories = 30 // Keep top 30 front-page stories
+	totalStories = 100 // Keep top 100 front-page stories
 )
 
 func main() {
@@ -45,6 +45,18 @@ func main() {
 	ollamaURL := flag.String("ollama", "http://localhost:11434", "Ollama base URL")
 	interval := flag.Duration("interval", 5*time.Minute, "Ingestion interval")
 	flag.Parse()
+
+	// Create listener IMMEDIATELY so Electron can connect without waiting for DB/Workers
+	listener, err := net.Listen("tcp", ":"+*port)
+	if err != nil {
+		log.Fatalf("listen: %v", err)
+	}
+	actualPort := listener.Addr().(*net.TCPAddr).Port
+
+	// Flush port to stdout immediately. Sync() ensures it's not buffered.
+	fmt.Fprintf(os.Stdout, "LISTENING:%d\n", actualPort)
+	os.Stdout.Sync()
+	log.Printf("Local API server on http://localhost:%d", actualPort)
 
 	// ── DB ─────────────────────────────────────────────────────────────────────
 	if err := os.MkdirAll(filepath.Dir(*dbPath), 0755); err != nil {
@@ -83,9 +95,11 @@ func main() {
 		}(i)
 	}
 
-	// Run initial ingestion synchronously so the app has data on first launch
-	log.Println("Running initial ingestion...")
-	runIngestion(ctx, hnClient, store, summaryQueue)
+	// Run initial ingestion in the background so the server can start immediately
+	go func() {
+		log.Println("Running initial ingestion...")
+		runIngestion(ctx, hnClient, store, summaryQueue)
+	}()
 
 	// Periodic ingestion ticker
 	go func() {
@@ -107,17 +121,6 @@ func main() {
 	// Use a stub auth config (no OAuth in local mode)
 	authCfg := auth.NewLocalConfig()
 	server := api.NewServer(store, authCfg, aiClient, true /* localMode */)
-
-	// Listen on a free port if port=0
-	listener, err := net.Listen("tcp", ":"+*port)
-	if err != nil {
-		log.Fatalf("listen: %v", err)
-	}
-	actualPort := listener.Addr().(*net.TCPAddr).Port
-
-	// Print port to stdout so Electron can read it
-	fmt.Printf("LISTENING:%d\n", actualPort)
-	log.Printf("Local API server on http://localhost:%d", actualPort)
 
 	srv := &http.Server{Handler: server}
 	go func() {

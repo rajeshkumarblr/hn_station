@@ -90,10 +90,10 @@ function startLocalBackend(): Promise<number> {
             localApiPort = null;
         });
 
-        // Timeout after 30s
+        // Timeout after 60s — give it plenty of time on crowded systems
         setTimeout(() => {
             if (!resolved) reject(new Error('Timed out waiting for hn-local to start'));
-        }, 30_000);
+        }, 60_000);
     });
 }
 

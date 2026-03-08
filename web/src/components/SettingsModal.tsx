@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiBase } from '../utils/apiBase';
 import { X, Save, Key, ExternalLink } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -39,7 +40,7 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
         setSuccess(false);
 
         try {
-            const baseUrl = import.meta.env.VITE_API_URL || '';
+            const baseUrl = getApiBase();
             const res = await fetch(`${baseUrl}/api/settings`, {
                 method: 'POST',
                 headers: {

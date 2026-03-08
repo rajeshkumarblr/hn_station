@@ -146,11 +146,17 @@ export function useAppState() {
     }, []);
 
     useEffect(() => {
+        // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
+        const isElectron = !!(window as any).electronAPI;
+        if (isElectron && (!apiBase || apiBase.includes('hnstation.dev'))) {
+            return;
+        }
         if (!apiBase) return;
+
         fetch(`${apiBase}/api/me`, { credentials: 'include' })
             .then(res => res.ok ? res.json() : null)
-            .then(data => { if (data && data.id) setUser(data); })
-            .catch(() => { });
+            .then(data => setUser(data))
+            .catch(() => setUser(null));
     }, [apiBase]);
 
     useEffect(() => {
@@ -188,7 +194,7 @@ export function useAppState() {
         setStoryBuffer(prev => prev.filter(s => s.id !== id));
         setBufferOffset(prev => prev);
         if (user) {
-            const baseUrl = import.meta.env.VITE_API_URL || '';
+            const baseUrl = getApiBase();
             fetch(`${baseUrl}/api/stories/${id}/interact`, {
                 method: 'POST',
                 credentials: 'include',
@@ -255,7 +261,7 @@ export function useAppState() {
         localStorage.setItem('hn_last_story_id', id.toString());
 
         if (user) {
-            const baseUrl = import.meta.env.VITE_API_URL || '';
+            const baseUrl = getApiBase();
             fetch(`${baseUrl}/api/stories/${id}/interact`, {
                 method: 'POST',
                 credentials: 'include',
@@ -271,7 +277,7 @@ export function useAppState() {
         setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_saved: saved } : s));
         setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, is_saved: saved } } : t));
 
-        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const baseUrl = getApiBase();
         fetch(`${baseUrl}/api/stories/${id}/interact`, {
             method: 'POST',
             credentials: 'include',
@@ -406,7 +412,7 @@ export function useAppState() {
 
     useEffect(() => {
         if (!selectedStoryId) return;
-        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const baseUrl = apiBase || '';
         fetch(`${baseUrl}/api/stories/${selectedStoryId}`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
@@ -427,7 +433,7 @@ export function useAppState() {
         isSettingsOpen, currentView, readingQueue, isAdminModalOpen, user,
         hiddenStories, offset,
         // Derived
-        activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags,
+        activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         // Setters
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setReadingQueue, setIsAdminModalOpen, setHighlightedStoryId,
