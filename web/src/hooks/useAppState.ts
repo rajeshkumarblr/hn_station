@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PAGE_SIZE, MAX_READ_IDS } from '../types';
 import type { Story, ReaderTab, ModeKey } from '../types';
+import { getApiBase } from '../utils/apiBase';
 function loadReadIds(): Set<number> {
     try {
         const saved = localStorage.getItem('hn_read_stories');
@@ -140,7 +141,7 @@ export function useAppState() {
     const stories = storyBuffer; // Backend already paginates this buffer
 
     useEffect(() => {
-        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const baseUrl = getApiBase();
         fetch(`${baseUrl}/api/me`, { credentials: 'include' })
             .then(res => res.ok ? res.json() : null)
             .then(data => { if (data && data.id) setUser(data); })
@@ -316,7 +317,7 @@ export function useAppState() {
     }, [stories, highlightedStoryId]);
 
     const buildUrl = useCallback((currentOffset: number, limit: number = PAGE_SIZE) => {
-        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const baseUrl = getApiBase();
         if (mode === 'saved') return `${baseUrl}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
         let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
         if (showHidden) url += `&show_hidden=true`;

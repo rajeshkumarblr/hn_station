@@ -1,27 +1,24 @@
 import { app, BrowserWindow, session, ipcMain, nativeImage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn, ChildProcess } from 'node:child_process';
+import fs from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// The built directory structure
-//
-// ├─┬─┬ dist
-// │ │ └── index.html
-// │ │
-// │ ├─┬ dist-electron
-// │ │ └── main.js
-// │
 process.env.APP_ROOT = path.join(__dirname, '..');
 
-// 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
 
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST;
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
+    ? path.join(process.env.APP_ROOT, 'public')
+    : RENDERER_DIST;
 
 let win: BrowserWindow | null = null;
+let localBackend: ChildProcess | null = null;
+let localApiPort: number | null = null;
 
 // Set the app name — used by Linux DEs as the WM_CLASS for taskbar icon lookup
 app.setName('HN Station');
@@ -29,13 +26,98 @@ app.setName('HN Station');
 // Fake standard Chrome user agent to prevent Cloudflare Error 1020
 app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
+// ── Local backend (hn-local binary) ──────────────────────────────────────────
+// Locate the bundled Go binary: in packaged app it's in resources/, in dev it's in web/resources/
+function getLocalBinaryPath(): string | null {
+    const binaryName = process.platform === 'win32' ? 'hn-local.exe' : 'hn-local';
+
+    // Packaged: resources/ next to the app
+    const packaged = path.join(process.resourcesPath ?? '', binaryName);
+    if (fs.existsSync(packaged)) return packaged;
+
+    // Dev: web/resources/hn-local
+    const dev = path.join(process.env.APP_ROOT ?? path.join(__dirname, '..'), 'resources', binaryName);
+    if (fs.existsSync(dev)) return dev;
+
+    return null;
+}
+
+function startLocalBackend(): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const binaryPath = getLocalBinaryPath();
+        if (!binaryPath) {
+            reject(new Error('hn-local binary not found — run: make build-local-linux'));
+            return;
+        }
+
+        // DB lives in userData so it persists across app updates
+        const dbPath = path.join(app.getPath('userData'), 'hn.db');
+        console.log(`[backend] Starting ${binaryPath} --db ${dbPath}`);
+
+        localBackend = spawn(binaryPath, ['--port', '0', '--db', dbPath], {
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        let resolved = false;
+
+        // Read stdout line by line to find LISTENING:<port>
+        let stdoutBuf = '';
+        localBackend.stdout?.on('data', (chunk: Buffer) => {
+            stdoutBuf += chunk.toString();
+            const lines = stdoutBuf.split('\n');
+            stdoutBuf = lines.pop() ?? '';
+            for (const line of lines) {
+                console.log(`[backend] ${line}`);
+                const m = line.match(/^LISTENING:(\d+)/);
+                if (m && !resolved) {
+                    resolved = true;
+                    localApiPort = parseInt(m[1], 10);
+                    console.log(`[backend] API on port ${localApiPort}`);
+                    resolve(localApiPort);
+                }
+            }
+        });
+        localBackend.stderr?.on('data', (chunk: Buffer) => {
+            process.stderr.write(`[backend] ${chunk}`);
+        });
+        localBackend.on('error', (err) => {
+            if (!resolved) reject(err);
+            else console.error('[backend] error:', err);
+        });
+        localBackend.on('exit', (code, signal) => {
+            console.log(`[backend] exited code=${code} signal=${signal}`);
+            localBackend = null;
+            localApiPort = null;
+        });
+
+        // Timeout after 30s
+        setTimeout(() => {
+            if (!resolved) reject(new Error('Timed out waiting for hn-local to start'));
+        }, 30_000);
+    });
+}
+
+function stopLocalBackend() {
+    if (localBackend) {
+        console.log('[backend] Sending SIGTERM');
+        localBackend.kill('SIGTERM');
+        localBackend = null;
+    }
+}
+
+// ── IPC ───────────────────────────────────────────────────────────────────────
+ipcMain.handle('get-local-api-url', () =>
+    localApiPort ? `http://localhost:${localApiPort}` : null
+);
+
+// ── Window ────────────────────────────────────────────────────────────────────
 function createWindow() {
     win = new BrowserWindow({
         width: 1440,
         height: 900,
         show: false,
-        frame: false, // Completely frameless — our React header IS the title bar
-        icon: path.join(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png'), // HN icon (PNG for Linux, ICO for Windows)
+        frame: false,
+        icon: path.join(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png'),
         webPreferences: {
             webviewTag: true,
             preload: path.join(__dirname, 'preload.mjs'),
@@ -43,7 +125,7 @@ function createWindow() {
         },
     });
 
-    // Window control IPC handlers
+    // Window control IPC
     ipcMain.on('window-minimize', () => win?.minimize());
     ipcMain.on('window-close', () => win?.close());
     ipcMain.on('window-maximize', () => {
@@ -52,52 +134,63 @@ function createWindow() {
     });
     ipcMain.handle('window-is-maximized', () => win?.isMaximized() ?? false);
 
-    win.maximize(); // Start window maximized
-    win.setMenu(null); // Remove default OS File/Edit/View menu
+    win.maximize();
+    win.setMenu(null);
     win.show();
 
-    // Explicitly set icon after show — required on some Linux DEs (XFCE, LXDE, etc.)
+    // Icon
     const iconPath = path.join(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png');
     const appIcon = nativeImage.createFromPath(iconPath);
     if (!appIcon.isEmpty()) win.setIcon(appIcon);
 
-    // Lock the OS-level window title to 'HN Station' so it shows correctly in
-    // taskbars (Windows/WSLg/Linux DEs). Chromium can override the title with
-    // internal strings like '[WARN:COPY MODE]' — this prevents that.
+    // Lock window title (prevent Chromium '[WARN:COPY MODE]' override)
     win.setTitle('HN Station');
     win.webContents.on('page-title-updated', (event) => {
         event.preventDefault();
         win?.setTitle('HN Station');
     });
 
-    // Strip security headers so we can embed ANY site (OpenAI, GitHub, etc.) inside our WebViews
+    // Strip security headers so we can embed any site in WebViews
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-        let headers = { ...details.responseHeaders };
-
-        // Remove frame blocking headers
+        const headers = { ...details.responseHeaders };
         delete headers['x-frame-options'];
         delete headers['X-Frame-Options'];
         delete headers['content-security-policy'];
         delete headers['Content-Security-Policy'];
-
         callback({ cancel: false, responseHeaders: headers });
     });
 
     if (VITE_DEV_SERVER_URL) {
         win.loadURL(VITE_DEV_SERVER_URL);
-        // DevTools disabled — open manually with Ctrl+Shift+I if needed
-        // win.webContents.openDevTools();
     } else {
         win.loadFile(path.join(RENDERER_DIST, 'index.html'));
     }
 
-    win.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    win.webContents.on('console-message', (_event, level, message, line, sourceId) => {
         console.log(`[Renderer][${level}] ${message} (${sourceId}:${line})`);
     });
 }
 
+// ── App lifecycle ─────────────────────────────────────────────────────────────
+app.whenReady().then(async () => {
+    // Start local backend first, then open the window
+    try {
+        await startLocalBackend();
+        console.log('[main] Local backend ready');
+    } catch (err) {
+        console.error('[main] Failed to start local backend:', err);
+        // Continue anyway — the app will fall back to hnstation.dev
+    }
+    createWindow();
+});
+
+app.on('before-quit', () => {
+    stopLocalBackend();
+});
+
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
+        stopLocalBackend();
         app.quit();
         win = null;
     }
@@ -108,5 +201,3 @@ app.on('activate', () => {
         createWindow();
     }
 });
-
-app.whenReady().then(createWindow);
