@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { RefreshCw, X, Moon, Sun, LogIn, LogOut, Settings, Shield, Home, Keyboard } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
@@ -34,14 +34,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const PAGE_SIZE = 10;
     const isElectron = !!(window as any).electronAPI;
 
-    // Auto-switch to page 1 when a tag filter is active but no current-page
-    // stories match — prevents the user from seeing an empty filtered feed.
-    useEffect(() => {
-        if (activeTopics.length === 0) return;
-        const visible = stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden));
-        const hasMatch = visible.some(s => getStoryTopicMatch(s.title, s.topics, activeTopics) !== null);
-        if (!hasMatch && offset !== 0) setOffset?.(0);
-    }, [activeTopics, stories]);
+    // Auto-switch to page 1 only when the user MANUALLY changes activeTopics.
+    // (Handled via setOffset(0) in FilterSidebar or useAppState, not here to avoid pagination jump)
 
     useGlobalKeyboardNav(app, storyRefs);
 
