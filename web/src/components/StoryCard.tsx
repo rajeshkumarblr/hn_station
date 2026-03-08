@@ -32,6 +32,7 @@ interface StoryCardProps {
     isEven?: boolean;
     topicTextClass?: string | null;
     titleColorStyle?: string | null; // inline CSS color for the title
+    onHighlight?: (id: number) => void;
 }
 
 function getTimeAgo(date: Date): string {
@@ -73,16 +74,6 @@ export function getTagColor(tag: string) {
     return { bg: '', text: '', border: '', _style: s };
 }
 
-function getSummaryBullets(text: string): string[] {
-    if (!text) return [];
-    const lines = text.split(/\n+/).map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
-    if (lines.length > 1) {
-        return lines.slice(0, 2);
-    }
-    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-    return sentences.map(s => s.trim()).filter(Boolean).slice(0, 2);
-}
-
 // A tag that shows as plain #hashtag text, lights up with its color when clicked
 function ActiveTag({ topic, color }: { topic: string; color: string }) {
     const [active, setActive] = useState(false);
@@ -99,7 +90,7 @@ function ActiveTag({ topic, color }: { topic: string; color: string }) {
 }
 
 
-export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, onOpenInTab, isSelected, isHighlighted, isRead, isQueued, isEven, topicTextClass, titleColorStyle }: StoryCardProps) {
+export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, onOpenInTab, isSelected, isHighlighted, isRead, isQueued, isEven, topicTextClass, titleColorStyle, onHighlight }: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -136,12 +127,7 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
             : 'bg-blue-50/30 dark:bg-blue-900/10';
     }
 
-    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [contextMenuPos, setContextMenuPos] = useState<{ x: number, y: number } | null>(null);
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-        setMousePos({ x: e.clientX, y: e.clientY });
-    };
 
     const handleContextMenu = (e: React.MouseEvent) => {
         if (!onOpenInTab) return;
@@ -156,20 +142,20 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
         return () => window.removeEventListener('click', closeMenu);
     }, [contextMenuPos]);
 
-    const summaryBullets = getSummaryBullets(story.summary || "");
-
-    // Active state overrides everything. Removed z-10 so the fixed child popup isn't trapped in a local stacking context.
-    const activeBg = isSelected
-        ? 'bg-white dark:bg-[#1e293b] border-l-4 border-l-blue-600 dark:border-l-blue-500 shadow-md shadow-slate-200/50 dark:shadow-black/40 ring-1 ring-slate-200 dark:ring-white/10'
-        : isHighlighted
-            ? 'bg-slate-50 dark:bg-slate-800/60 border-l-4 border-l-blue-400 dark:border-l-blue-400 shadow-sm ring-1 ring-blue-200 dark:ring-blue-500/30 font-semibold'
+    // Focus (keyboard/hover) vs Selection (open tab)
+    // We want the current focus to be the most prominent.
+    const activeBg = isHighlighted
+        ? 'bg-blue-100/50 dark:bg-[#264f78]/60 border-l-4 border-l-blue-600 dark:border-l-blue-400 shadow-xl shadow-blue-500/20 dark:shadow-black/60 ring-1 ring-blue-300 dark:ring-blue-500/50 z-10'
+        : isSelected
+            ? 'bg-blue-50/30 dark:bg-blue-900/10 border-l-4 border-l-blue-500/50 dark:border-l-blue-500/30'
             : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 border-l-transparent`;
 
     return (
         <div
-            className={`group relative h-full flex flex-col justify-center rounded-md py-1 px-3 transition-all duration-150 ${activeBg}`}
-            onMouseEnter={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
-            onMouseMove={handleMouseMove}
+            id={`story-${story.id}`}
+            className={`group transition-all h-[112px] flex flex-col relative border-b border-slate-100 dark:border-slate-800 ${bgClass} ${activeBg}`}
+            onClick={() => onSelect && onSelect(story.id)}
+            onMouseEnter={() => onHighlight && onHighlight(story.id)}
             onContextMenu={handleContextMenu}
         >
             {/* Action Buttons Container - Top Right */}
@@ -323,29 +309,6 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                     </div>
                 </div>
             </div>
-
-            {/* Hover Summary Popup — appears to the right of the cursor, away from context menu */}
-            {story.summary && summaryBullets.length > 0 && (
-                <div
-                    className="hidden group-hover:block fixed z-[9999] w-80 pointer-events-none animate-in fade-in duration-200"
-                    style={{
-                        left: `${mousePos.x + 220}px`,
-                        top: `${mousePos.y - 20}px`
-                    }}
-                >
-                    <div className="bg-[#f0f6ff] dark:bg-[#0f2140] border border-blue-200 dark:border-blue-700 rounded-xl p-4 shadow-2xl shadow-blue-900/50 opacity-100" style={{ isolation: 'isolate' }}>
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                            <span className="text-[10px] uppercase tracking-widest font-bold text-blue-600 dark:text-blue-400">Summary</span>
-                        </div>
-                        <ul className="text-[13px] leading-relaxed text-slate-800 dark:text-slate-100 font-medium list-disc pl-4 marker:text-blue-500 dark:marker:text-blue-400 space-y-1.5">
-                            {summaryBullets.map((b, i) => (
-                                <li key={i}>{b}</li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            )}
 
             {/* Context Menu Popup */}
             {contextMenuPos && onOpenInTab && (
