@@ -33,6 +33,7 @@ interface StoryCardProps {
     topicTextClass?: string | null;
     titleColorStyle?: string | null; // inline CSS color for the title
     onHighlight?: (id: number) => void;
+    activeTopics?: string[];
 }
 
 function getTimeAgo(date: Date): string {
@@ -75,22 +76,14 @@ export function getTagColor(tag: string) {
 }
 
 // A tag that shows as plain #hashtag text, lights up with its color when clicked
-function ActiveTag({ topic, color }: { topic: string; color: string }) {
-    const [active, setActive] = useState(false);
-    return (
-        <button
-            onClick={(e) => { e.stopPropagation(); setActive(a => !a); }}
-            className="text-[9px] font-bold tracking-tight transition-colors duration-150 hover:opacity-100"
-            style={{ color: active ? color : 'rgba(148,163,184,0.7)' }}
-            title={topic}
-        >
-            #{topic.toLowerCase().replace(/\s+/g, '-')}
-        </button>
-    );
-}
 
 
-export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueueToggle, onOpenInTab, isSelected, isHighlighted, isRead, isQueued, isEven, topicTextClass, titleColorStyle, onHighlight }: StoryCardProps) {
+
+export function StoryCard({
+    story, index, onSelect, onToggleSave, onHide, onQueueToggle, onOpenInTab,
+    isSelected, isHighlighted, isRead, isQueued, isEven,
+    topicTextClass, titleColorStyle, onHighlight, activeTopics
+}: StoryCardProps) {
     let domain = '';
     try {
         if (story.url) {
@@ -297,8 +290,20 @@ export function StoryCard({ story, index, onSelect, onToggleSave, onHide, onQueu
                                 <span className="text-slate-300 dark:text-slate-600">•</span>
                                 {story.topics.slice(0, 3).map((topic, i) => {
                                     const ts = getTagStyle(topic);
+                                    const isActive = activeTopics?.some(t => t.toLowerCase() === topic.toLowerCase());
                                     return (
-                                        <ActiveTag key={i} topic={topic} color={ts.color} />
+                                        <span
+                                            key={i}
+                                            className={`transition-all duration-200 ${isActive ? 'px-2 py-0.5 rounded-md shadow-[0_0_8px_rgba(249,115,22,0.4)] scale-110 z-10' : ''}`}
+                                            style={isActive ? {
+                                                background: '#f97316',
+                                                color: 'white',
+                                                fontWeight: 'bold',
+                                                border: '1px solid #ea580c'
+                                            } : { color: ts.color }}
+                                        >
+                                            #{topic}
+                                        </span>
                                     );
                                 })}
                                 {story.topics.length > 3 && (

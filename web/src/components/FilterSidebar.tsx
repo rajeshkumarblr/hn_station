@@ -13,7 +13,7 @@ interface FilterSidebarProps {
     highlightedStory?: Story | null;  // The hovered/selected story for summary display
 }
 
-const POPULAR_TAGS = ['Postgres', 'Rust', 'AI', 'LLM', 'Go', 'React', 'Linux', 'Apple', 'Google'];
+
 
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     activeTopics,
@@ -43,11 +43,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         }
     };
 
-    const matchingTags = POPULAR_TAGS.filter(tag =>
-        tag.toLowerCase().includes(inputValue.toLowerCase()) &&
-        !activeTopics.some(t => t.toLowerCase() === tag.toLowerCase())
-    );
-
     const topTags = availableTags.slice(0, 15);
     const summary = highlightedStory?.summary ?? null;
     const hasSummary = summary && summary.trim().length > 0;
@@ -56,7 +51,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         <div className="w-72 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
 
             {/* ── AI Summary (Now at Top) ────────────────────────────────────────────── */}
-            <div className="flex-[1.5] overflow-hidden flex flex-col min-h-0">
+            <div className="flex-initial max-h-[60%] overflow-hidden flex flex-col">
                 <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
                     <Sparkles size={12} className="text-orange-400" />
                     <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Summary</h3>
@@ -75,8 +70,10 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                     [&::-webkit-scrollbar-thumb]:rounded-full">
                     {hasSummary ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none
-                            prose-p:text-slate-600 dark:prose-p:text-slate-300
-                            prose-li:text-slate-600 dark:prose-li:text-slate-300
+                            prose-p:text-amber-500 dark:prose-p:text-amber-400
+                            prose-p:font-bold
+                            prose-li:text-amber-500 dark:prose-li:text-amber-400
+                            prose-li:font-bold
                             prose-li:my-0.5
                             prose-ul:my-1.5
                             [&>ul]:space-y-0.5
@@ -106,7 +103,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             <div className="flex-1 border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
                 {/* Search Input */}
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800/50 flex-shrink-0">
-                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Topic Filters</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Topic Search</h3>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
@@ -122,7 +119,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
                 <div className="p-4 overflow-y-auto flex-1">
                     <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Page Topics</h3>
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Page Tags</h3>
                         {activeTopics.length > 0 && (
                             <button
                                 onClick={onQueueAll}

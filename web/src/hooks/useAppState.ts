@@ -379,7 +379,7 @@ export function useAppState() {
                 setError(err.message);
                 setLoading(false);
             });
-    }, [mode, refreshKey, showHidden]);
+    }, [mode, refreshKey, showHidden, offset]);
 
     useEffect(() => {
         const REFILL_THRESHOLD = PAGE_SIZE + 2;
