@@ -32,9 +32,10 @@ interface ReaderPaneProps {
     activeTab?: 'discussion' | 'article' | 'split';
     onTabChange?: (tab: 'discussion' | 'article' | 'split') => void;
     onHide?: (id: number) => void;
+    isActive?: boolean;
 }
 
-export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onTabChange, onHide }: ReaderPaneProps) {
+export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onTabChange, onHide, isActive }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
@@ -201,7 +202,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
         <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] border-t border-slate-200 dark:border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)]">
 
             {/* Global Action Bar Portal */}
-            {portalTarget && createPortal(
+            {isActive && portalTarget && createPortal(
                 <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
                     {/* Compact Mode Switcher */}
                     <div className="flex bg-slate-800/50 p-0.5 rounded-md mr-1 border border-slate-700/30">

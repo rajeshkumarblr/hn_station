@@ -16,7 +16,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         tabs, activeTabId, showHidden,
         currentView, readingQueue, isAdminModalOpen, user,
         hiddenStories, offset, setOffset, totalStories, hasMore,
-        selectedStoryId, selectedStory, stories, availableTags,
+        selectedStoryId, selectedStory, stories,
         highlightedStoryId,
         setMode, setActiveTopics, setShowHidden,
         setCurrentView, setIsAdminModalOpen,
@@ -44,6 +44,15 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     }, [activeTopics, stories]);
 
     useGlobalKeyboardNav(app, storyRefs);
+
+    // Compute tags specifically for the current page of stories
+    const visiblePageStories = stories
+        .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
+        .slice(0, PAGE_SIZE);
+
+    const pageTags = Array.from(new Set(
+        visiblePageStories.flatMap(s => s.topics || [])
+    )).sort();
 
     return (
         <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
@@ -208,6 +217,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                             titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={handleStorySelect} onOpenInTab={handleStorySelect}
                                                             onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
                                                             onHighlight={app.setHighlightedStoryId}
+                                                            activeTopics={activeTopics}
                                                         />
                                                     </div>
                                                 );
@@ -256,7 +266,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     </div>
                                 )}
                             </div>
-                            <FilterSidebar activeTopics={activeTopics} setActiveTopics={setActiveTopics} getQueuedCount={() => readingQueue.length} onQueueAll={handleQueueAllFiltered} availableTags={availableTags} highlightedStory={highlightedStory} />
+                            <FilterSidebar activeTopics={activeTopics} setActiveTopics={setActiveTopics} getQueuedCount={() => readingQueue.length} onQueueAll={handleQueueAllFiltered} availableTags={pageTags} highlightedStory={highlightedStory} />
                         </div>
                     </main>
                 ) : (
@@ -273,6 +283,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 >
                                     <ReaderPane
                                         story={tab.story}
+                                        isActive={isActive}
                                         activeTab={activeMode as any}
                                         onTabChange={(m) => {
                                             app.handleStorySelect?.(tab.storyId, m);

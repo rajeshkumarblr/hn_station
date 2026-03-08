@@ -9,8 +9,8 @@ export function useGlobalKeyboardNav(
         const handleKeyDown = (e: KeyboardEvent) => {
             if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
 
-            // --- Feed Up/Down Navigation ---
-            if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && app.currentView === 'feed') {
+            // --- Feed Keyboard Navigation ---
+            if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key) && app.currentView === 'feed') {
                 e.preventDefault();
                 const visibleStories = app.stories.filter(s => app.showHidden || (!app.hiddenStories.has(s.id) && !s.is_hidden));
                 if (visibleStories.length === 0) return;
@@ -20,18 +20,22 @@ export function useGlobalKeyboardNav(
                 if (e.key === 'ArrowDown') {
                     if (currentIndex === -1) currentIndex = 0;
                     else if (currentIndex < visibleStories.length - 1) currentIndex++;
-                } else {
-                    if (currentIndex === -1) currentIndex = 0;
+                } else if (e.key === 'ArrowUp') {
+                    if (currentIndex === -1) currentIndex = visibleStories.length - 1;
                     else if (currentIndex > 0) currentIndex--;
+                } else if (e.key === 'Home') {
+                    currentIndex = 0;
+                } else if (e.key === 'End') {
+                    currentIndex = visibleStories.length - 1;
                 }
 
                 const nextStory = visibleStories[currentIndex];
                 if (nextStory) {
                     app.setHighlightedStoryId(nextStory.id);
-                    // Find actual index in stories array for refs
-                    const absoluteIndex = app.stories.findIndex(s => s.id === nextStory.id);
-                    if (absoluteIndex !== -1 && storyRefs.current[absoluteIndex]) {
-                        storyRefs.current[absoluteIndex]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    // Scroll to the element
+                    const el = document.getElementById(`story-${nextStory.id}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 }
                 return;

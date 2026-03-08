@@ -8,7 +8,7 @@
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
 [![Live](https://img.shields.io/badge/Live-hnstation.dev-orange?style=flat-square)](https://hnstation.dev)
 
-A modern, fast, and feature-rich Hacker News client built with Go and React. Live at **[hnstation.dev](https://hnstation.dev)**.
+A modern, fast, and feature-rich Hacker News client built with Go and React. Live at **[hnstation.dev](https://hnstation.dev)**, or as a **fully-contained local Desktop app**.
 
 ![HN Station Feed](screenshots/feed_view.png)
 
@@ -24,10 +24,12 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
   ![Article View](screenshots/article_view.png)
 - **Archive Retention**: Intelligently maintains an actively rolling 7-day database archive of the top stories for continuous scrolling, with permanent retention for securely bookmarked items.
 - **Advanced Comment Threads**: Deeply nested, recursive, and collapsible HN discussion threads. Navigate smoothly with deep keyboard bindings.
-  ![Discussion View](screenshots/discussion_view.png)
-- **Topic Filters & Search**: Full-text PostgreSQL `tsvector` search and dynamic tag filtering directly in the feed.
-- **Keyboard-First Navigation**: Vim-like feed navigation (`j`/`k`), `/` to search, `z` for Zen mode overlay, and `Delete` to hide/skip stories.
-- **Customization & Sync**: Native Google OAuth integration. Your read states, queued stories, skipped items, and bookmarks are seamlessly synced to the database.
+- **Dynamic "Zen" Sidebar**: A high-efficiency right sidebar that provides:
+  - **Bold AI Summaries**: Instantly read article takeaways in a stabilized, high-contrast amber summary pane.
+  - **Page-Aware Tags**: Automatically computes and displays tags relevant only to your current feed page.
+  - **Match Highlighting**: When clicking a tag, corresponding labels in the feed "light up" in orange for instant visual search confirmation.
+- **Zero-Login Local Mode**: The Desktop app runs an embedded SQLite backend locally. Browse, bookmark, and queue stories without ever needing an external account or internet sync.
+- **Keyboard-First Navigation**: Vim-like feed navigation (`j`/`k`), `Home`/`End` support, `/` to search, `z` for Zen mode, and `Delete` to hide stories.
 
 ---
 
@@ -38,8 +40,8 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 | Backend API | Go · `go-chi/chi` |
 | Ingestion | Go worker pool · HN Firebase REST API |
 | AI | Ollama (`qwen2.5-coder`) · Local GPU · Discussion Context |
-| Database | PostgreSQL · `pgx/v5` · `pgvector` |
-| Auth | Google OAuth 2.0 · JWT (HS256) cookies |
+| Database | PostgreSQL (Web) / SQLite (Local Desktop) |
+| Auth | Google OAuth 2.0 (Web) / No-Auth (Local Desktop) |
 | Frontend | React 18 · TypeScript · Tailwind CSS · Vite |
 | Infrastructure | Docker · Kubernetes (AKS / Kind) · NGINX Ingress |
 
@@ -76,20 +78,21 @@ Uses the manifests in `infrastructure/k8s-local/`, pointing Postgres at your hos
 
 ### Electron Desktop App
 
-A native desktop wrapper is available in the `web/` directory using [Electron](https://electronjs.org). It connects to the live `https://hnstation.dev` backend, runs frameless with a custom title bar, and embeds every article natively without CORS restrictions.
+A powerful, fully-contained desktop experience. It **bundles its own Go backend** and uses a local **SQLite** database for zero-config persistence.
 
 ```bash
 cd web
 npm install       # first time only
-npm run dev       # launches the Electron app (dev mode with hot reload)
+npm run dev       # launches the Electron app + local backend
 ```
 
 **Desktop features:**
-- Frameless window with native drag, macOS-style minimize/maximize/close controls
-- All articles open in native webview (no reader-mode fallback)
-- Persistent tab state — switching tabs never reloads the page or loses scroll position
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` to cycle through open article tabs
-- HN orange icon in taskbar (Linux PNG, Windows ICO)
+- **Bundled Backend**: Spawns a dedicated Go worker process on startup — no external server required.
+- **Local SQLite Persistence**: Your reading history and bookmarks are stored privately on your machine.
+- **Enhanced Visual Focus**: High-contrast "VS Code style" line highlighting for active stories.
+- **Native Browsing**: Frameless window with native drag, windows/macOS style window controls.
+- **Persistent Tab State**: Switching tabs never reloads the page or loses scroll position.
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` to cycle through open article tabs.
 
 ---
 
