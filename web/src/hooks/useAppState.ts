@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PAGE_SIZE, MAX_READ_IDS } from '../types';
 import type { Story, ReaderTab, ModeKey } from '../types';
-import { getApiBase } from '../utils/apiBase';
+import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 function loadReadIds(): Set<number> {
     try {
         const saved = localStorage.getItem('hn_read_stories');
@@ -83,6 +83,7 @@ export function useAppState() {
     const [bufferOffset, setBufferOffset] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [apiBase, setApiBase] = useState(getApiBase());
 
     const [mode, setMode] = useState<ModeKey>('default');
     const [offset, setOffset] = useState(0);
@@ -141,12 +142,16 @@ export function useAppState() {
     const stories = storyBuffer; // Backend already paginates this buffer
 
     useEffect(() => {
-        const baseUrl = getApiBase();
-        fetch(`${baseUrl}/api/me`, { credentials: 'include' })
+        return subscribeApiBase(url => setApiBase(url));
+    }, []);
+
+    useEffect(() => {
+        if (!apiBase) return;
+        fetch(`${apiBase}/api/me`, { credentials: 'include' })
             .then(res => res.ok ? res.json() : null)
             .then(data => { if (data && data.id) setUser(data); })
             .catch(() => { });
-    }, []);
+    }, [apiBase]);
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -317,12 +322,12 @@ export function useAppState() {
     }, [stories, highlightedStoryId]);
 
     const buildUrl = useCallback((currentOffset: number, limit: number = PAGE_SIZE) => {
-        const baseUrl = getApiBase();
-        if (mode === 'saved') return `${baseUrl}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
-        let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
+        if (!apiBase) return '';
+        if (mode === 'saved') return `${apiBase}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
+        let url = `${apiBase}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
         if (showHidden) url += `&show_hidden=true`;
         return url;
-    }, [mode, showHidden]);
+    }, [mode, showHidden, apiBase]);
 
     useEffect(() => {
         setLoading(true);
@@ -335,8 +340,10 @@ export function useAppState() {
     useEffect(() => {
         if (bufferOffset === 0) return;
         if (!hasMore || fetchingMore) return;
+        const url = buildUrl(bufferOffset);
+        if (!url) return;
         setFetchingMore(true);
-        fetch(buildUrl(bufferOffset))
+        fetch(url)
             .then(res => { if (!res.ok) throw new Error('Failed'); return res.json(); })
             .then(data => {
                 const incoming: Story[] = data.stories || [];
@@ -354,7 +361,9 @@ export function useAppState() {
     useEffect(() => {
         setLoading(true);
         setError(null);
-        fetch(buildUrl(0))
+        const url = buildUrl(0);
+        if (!url) return;
+        fetch(url)
             .then(res => { if (!res.ok) throw new Error('Failed to fetch stories'); return res.json(); })
             .then(data => {
                 const incoming: Story[] = data.stories || [];
@@ -379,7 +388,7 @@ export function useAppState() {
                 setError(err.message);
                 setLoading(false);
             });
-    }, [mode, refreshKey, showHidden, offset]);
+    }, [mode, refreshKey, showHidden, offset, apiBase]);
 
     useEffect(() => {
         const REFILL_THRESHOLD = PAGE_SIZE + 2;

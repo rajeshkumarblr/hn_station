@@ -46,7 +46,10 @@ func (s *SQLiteStore) migrate() error {
 		created_at  DATETIME NOT NULL DEFAULT (datetime('now')),
 		hn_rank     INTEGER,
 		summary     TEXT,
-		topics      TEXT    NOT NULL DEFAULT '[]'  -- JSON array of strings
+		topics      TEXT    NOT NULL DEFAULT '[]', -- JSON array of strings
+		is_read     BOOLEAN NOT NULL DEFAULT 0,
+		is_saved    BOOLEAN NOT NULL DEFAULT 0,
+		is_hidden   BOOLEAN NOT NULL DEFAULT 0
 	);
 
 	CREATE TABLE IF NOT EXISTS comments (
@@ -102,6 +105,7 @@ func scanStory(row interface{ Scan(...any) error }) (Story, error) {
 		&story.ID, &story.Title, &story.URL, &story.Score,
 		&story.By, &story.Descendants, &postedAt, &createdAt,
 		&hnRank, &summary, &topicsJSON,
+		&story.IsRead, &story.IsSaved, &story.IsHidden,
 	); err != nil {
 		return story, err
 	}
@@ -134,17 +138,13 @@ func scanStory(row interface{ Scan(...any) error }) (Story, error) {
 
 func (s *SQLiteStore) UpsertStory(ctx context.Context, story Story) error {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, created_at, hn_rank, topics)
-		VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, COALESCE(?, '[]'))
+		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, hn_rank, topics, is_read, is_saved, is_hidden)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
 		ON CONFLICT(id) DO UPDATE SET
-			title       = excluded.title,
-			url         = excluded.url,
-			score       = excluded.score,
-			by          = excluded.by,
-			descendants = excluded.descendants,
-			posted_at   = excluded.posted_at,
-			hn_rank     = excluded.hn_rank,
-			topics      = CASE WHEN excluded.topics != '[]' AND excluded.topics != '' THEN excluded.topics ELSE stories.topics END
+			title = excluded.title, url = excluded.url, score = excluded.score,
+			descendants = excluded.descendants, hn_rank = excluded.hn_rank,
+			topics = excluded.topics
+			-- DO NOT update is_read, is_saved, is_hidden on conflict
 	`,
 		story.ID, story.Title, story.URL, story.Score,
 		story.By, story.Descendants,
@@ -157,7 +157,7 @@ func (s *SQLiteStore) UpsertStory(ctx context.Context, story Story) error {
 
 func (s *SQLiteStore) GetStory(ctx context.Context, id int) (*Story, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics
+		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden
 		 FROM stories WHERE id = ?`, id)
 	story, err := scanStory(row)
 	if err != nil {
@@ -173,6 +173,9 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 
 	if sortStrategy == "show" {
 		whereClause += " AND title LIKE 'Show HN:%'"
+	}
+	if !showHidden {
+		whereClause += " AND is_hidden = 0"
 	}
 
 	// Build ORDER BY
@@ -194,7 +197,7 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 	}
 
 	// Get stories
-	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics
+	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden
 	          FROM stories ` + whereClause + ` ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
 	finalArgs := append(args, limit, offset)
 
@@ -395,12 +398,58 @@ func (s *SQLiteStore) GetAppStats(ctx context.Context) (*AppStats, error) {
 
 // ─── Interaction stubs (no-ops in local mode) ───
 
-func (s *SQLiteStore) UpsertInteraction(_ context.Context, _ string, _ int, _, _, _ *bool) error {
-	return nil
+func (s *SQLiteStore) UpsertInteraction(ctx context.Context, _ string, storyID int, read, saved, hidden *bool) error {
+	query := "UPDATE stories SET "
+	var updates []string
+	var args []interface{}
+
+	if read != nil {
+		updates = append(updates, "is_read = ?")
+		args = append(args, *read)
+	}
+	if saved != nil {
+		updates = append(updates, "is_saved = ?")
+		args = append(args, *saved)
+	}
+	if hidden != nil {
+		updates = append(updates, "is_hidden = ?")
+		args = append(args, *hidden)
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	query += strings.Join(updates, ", ") + " WHERE id = ?"
+	args = append(args, storyID)
+
+	_, err := s.db.ExecContext(ctx, query, args...)
+	return err
 }
 
-func (s *SQLiteStore) GetSavedStories(_ context.Context, _ string, _, _ int) ([]Story, int, error) {
-	return nil, 0, nil
+func (s *SQLiteStore) GetSavedStories(ctx context.Context, _ string, limit, offset int) ([]Story, int, error) {
+	var total int
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM stories WHERE is_saved = 1").Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden
+		 FROM stories WHERE is_saved = 1 ORDER BY posted_at DESC LIMIT ? OFFSET ?`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var stories []Story
+	for rows.Next() {
+		story, err := scanStory(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		stories = append(stories, story)
+	}
+	return stories, total, nil
 }
 
 // ─── Chat stubs ───

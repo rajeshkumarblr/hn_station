@@ -277,6 +277,20 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)
+
+	// In local mode, if not authenticated, return a default mock user
+	if userID == "" && s.localMode {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":         "local_user",
+			"email":      "local@hnstation.app",
+			"name":       "Local User",
+			"avatar_url": "",
+			"is_admin":   true,
+		})
+		return
+	}
+
 	if userID == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
