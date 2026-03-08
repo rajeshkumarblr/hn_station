@@ -17,12 +17,16 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         currentView, readingQueue, isAdminModalOpen, user,
         hiddenStories, offset, setOffset, totalStories, hasMore,
         selectedStoryId, selectedStory, stories, availableTags,
+        highlightedStoryId,
         setMode, setActiveTopics, setShowHidden,
         setCurrentView, setIsAdminModalOpen,
         handleRefresh, toggleTheme, closeTab, handleHideStory,
         handleToggleQueue, handleStorySelect, handleToggleSave,
         handleStoryInteractWithQueue, handleQueueAllFiltered, readIds
     } = app;
+
+    // Resolve the story object for the highlighted (keyboard/hovered) card
+    const highlightedStory = stories.find(s => s.id === highlightedStoryId) ?? null;
 
     const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
     const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -251,7 +255,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     </div>
                                 )}
                             </div>
-                            <FilterSidebar activeTopics={activeTopics} setActiveTopics={setActiveTopics} getQueuedCount={() => readingQueue.length} onQueueAll={handleQueueAllFiltered} availableTags={availableTags} />
+                            <FilterSidebar activeTopics={activeTopics} setActiveTopics={setActiveTopics} getQueuedCount={() => readingQueue.length} onQueueAll={handleQueueAllFiltered} availableTags={availableTags} highlightedStory={highlightedStory} />
                         </div>
                     </main>
                 ) : (
