@@ -416,8 +416,12 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleInteract(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)
 	if userID == "" {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
+		if s.localMode {
+			userID = "local-user"
+		} else {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
 	}
 
 	idStr := chi.URLParam(r, "id")
@@ -450,8 +454,12 @@ func (s *Server) handleInteract(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetSavedStories(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)
 	if userID == "" {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
+		if s.localMode {
+			userID = "local-user"
+		} else {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
 	}
 
 	limitStr := r.URL.Query().Get("limit")

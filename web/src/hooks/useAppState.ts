@@ -397,12 +397,16 @@ export function useAppState() {
     }, [mode, refreshKey, showHidden, offset, apiBase]);
 
     useEffect(() => {
+        // Only trigger the "refill" logic if we are on the first page (offset 0).
+        // If the user uses explicit pagination (offset > 0), we disable refill to avoid conflicts.
+        if (offset > 0) return;
+
         const REFILL_THRESHOLD = PAGE_SIZE + 2;
         const visibleCount = storyBuffer.filter(s => !hiddenStories.has(s.id)).length;
         if (!fetchingMore && hasMore && visibleCount < REFILL_THRESHOLD && storyBuffer.length > 0) {
             setBufferOffset(storyBuffer.length);
         }
-    }, [storyBuffer, hiddenStories, hasMore, fetchingMore]);
+    }, [storyBuffer, hiddenStories, hasMore, fetchingMore, offset]);
 
     const availableTags = useMemo(() => {
         const tags = new Set<string>();
