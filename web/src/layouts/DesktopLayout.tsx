@@ -175,10 +175,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <button
                             key={t.id}
                             onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
-                            className={`flex flex-shrink-0 items-center gap-3 px-4 py-3 min-w-[160px] max-w-[280px] border-r border-slate-800 ${currentView === 'reader' && activeTabId === t.id ? 'bg-[#1e293b] text-blue-400 border-t-2 border-t-blue-500' : 'bg-[#111622] text-slate-400 border-t-2 border-t-transparent hover:bg-[#1a2332]'}`}
+                            className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-3 max-w-[240px] border-r border-slate-800 relative group transition-all duration-200 ${currentView === 'reader' && activeTabId === t.id ? 'bg-[#1e293b] text-blue-400 border-t-2 border-t-blue-500' : 'bg-[#111622] text-slate-400 border-t-2 border-t-transparent hover:bg-[#1a2332]'}`}
                         >
-                            <span className="truncate flex-1 text-sm text-left font-medium">{t.story.title}</span>
-                            <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className="p-1 rounded-md text-slate-500 hover:text-red-400"><X size={14} /></div>
+                            <span className="truncate flex-1 text-xs text-left font-medium select-none">{t.story.title}</span>
+                            <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className="p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-slate-800/50 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"><X size={12} /></div>
                         </button>
                     ))}
                 </div>
