@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import { getApiBase } from '../utils/apiBase';
 import { createPortal } from 'react-dom';
 import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -74,7 +75,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
     useEffect(() => {
         setComments([]);
         setCommentsLoading(true);
-        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const baseUrl = getApiBase();
         const controller = new AbortController();
         fetch(`${baseUrl}/api/stories/${story.id}`, { signal: controller.signal })
             .then(res => res.ok ? res.json() : null)
@@ -88,13 +89,23 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
         return () => controller.abort();
     }, [story.id]);
 
-    useEffect(() => {
-        setPortalTarget(document.getElementById('reader-controls-portal'));
-    }, [activeTab]);
+    const [summarizing, setSummarizing] = useState(false);
 
     useEffect(() => {
         setPortalTarget(document.getElementById('reader-controls-portal'));
-    }, [activeTab]);
+    }, [activeTab, isActive, summarizing]);
+
+    const handleSummarize = async () => {
+        setSummarizing(true);
+        const baseUrl = getApiBase();
+        try {
+            await fetch(`${baseUrl}/api/stories/${story.id}/summarize`, { method: 'POST' });
+        } catch (err) {
+            console.error('Summarization failed:', err);
+        } finally {
+            setSummarizing(false);
+        }
+    };
 
     const handleCopyLink = () => {
         navigator.clipboard.writeText(storyUrl);
@@ -156,13 +167,10 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
         setUseIframe(true);  // Start in Web view; API will override if site blocks iframes
     }, [story.id]);
 
-    // Fetch article content on tab switch
     useEffect(() => {
         if ((activeTab === 'article' || activeTab === 'split') && !articleContent && !articleLoading) {
             const controller = new AbortController();
-            setArticleLoading(true);
-            setArticleError(null);
-            const baseUrl = import.meta.env.VITE_API_URL || '';
+            const baseUrl = getApiBase();
 
             fetch(`${baseUrl}/api/stories/${story.id}/content`, { signal: controller.signal })
                 .then(res => {
@@ -233,16 +241,25 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                         </button>
                     )}
 
-                    {story.summary && (
+                    {story.summary ? (
                         <button
                             onClick={() => {
                                 setShowSummary(!showSummary);
-                                setUserManuallyToggledSummary(!showSummary); // Pin it open if toggled on, unpin if toggled off
+                                setUserManuallyToggledSummary(!showSummary);
                             }}
                             className={`p-1.5 transition-colors rounded-md ${userManuallyToggledSummary && showSummary ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'}`}
                             title={userManuallyToggledSummary && showSummary ? "Unpin AI Summary" : "Pin AI Summary"}
                         >
                             <Sparkles size={14} className={userManuallyToggledSummary && showSummary ? 'fill-current' : ''} />
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleSummarize}
+                            disabled={summarizing}
+                            className={`p-1.5 transition-colors rounded-md bg-slate-800/50 text-slate-400 hover:text-orange-400 hover:bg-slate-700/50 disabled:opacity-50`}
+                            title="Generate AI Summary"
+                        >
+                            <Sparkles size={14} className={summarizing ? 'animate-pulse text-orange-400' : ''} />
                         </button>
                     )}
 

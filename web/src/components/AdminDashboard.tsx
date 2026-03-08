@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getApiBase } from '../utils/apiBase';
 import { Users, MousePointerClick, FileText, MessageSquare, Search, X } from 'lucide-react';
 import { AdminHeader } from './AdminHeader';
 
@@ -34,7 +35,7 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
 
     const fetchData = async () => {
         setLoading(true);
-        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const baseUrl = getApiBase();
         try {
             const [statsRes, usersRes] = await Promise.all([
                 fetch(`${baseUrl}/api/admin/stats`, { credentials: 'include' }),
