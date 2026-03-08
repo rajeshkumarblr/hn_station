@@ -138,15 +138,15 @@ export function StoryCard({
     // Focus (keyboard/hover) vs Selection (open tab)
     // We want the current focus to be the most prominent.
     const activeBg = isHighlighted
-        ? 'bg-blue-100/50 dark:bg-[#264f78]/60 border-l-4 border-l-blue-600 dark:border-l-blue-400 shadow-xl shadow-blue-500/20 dark:shadow-black/60 ring-1 ring-blue-300 dark:ring-blue-500/50 z-10'
+        ? 'bg-blue-100/70 dark:bg-[#264f78]/80 border-l-4 border-l-blue-600 dark:border-l-blue-400 shadow-xl shadow-blue-500/20 dark:shadow-black/60 ring-1 ring-blue-300 dark:ring-blue-500/50 z-10'
         : isSelected
-            ? 'bg-blue-50/30 dark:bg-blue-900/10 border-l-4 border-l-blue-500/50 dark:border-l-blue-500/30'
+            ? 'bg-blue-50/40 dark:bg-blue-900/20 border-l-4 border-l-blue-500/50 dark:border-l-blue-500/30'
             : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 border-l-transparent`;
 
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all h-[112px] flex flex-col relative border-b border-slate-100 dark:border-slate-800 ${bgClass} ${activeBg}`}
+            className={`group transition-all h-[112px] flex flex-col relative border-b border-slate-100 dark:border-slate-800 ${activeBg}`}
             onClick={() => onSelect && onSelect(story.id)}
             onMouseEnter={() => onHighlight && onHighlight(story.id)}
             onContextMenu={handleContextMenu}
