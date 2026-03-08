@@ -367,7 +367,7 @@ export function useAppState() {
     useEffect(() => {
         setLoading(true);
         setError(null);
-        const url = buildUrl(0);
+        const url = buildUrl(offset);
         if (!url) return;
         fetch(url)
             .then(res => { if (!res.ok) throw new Error('Failed to fetch stories'); return res.json(); })
