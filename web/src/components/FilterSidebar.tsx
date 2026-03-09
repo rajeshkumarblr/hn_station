@@ -77,7 +77,13 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                             prose-li:my-0.5
                             prose-ul:my-1.5
                             [&>ul]:space-y-0.5
-                            text-[12px] leading-relaxed">
+                            prose-li:marker:text-slate-400
+                            [&_li:nth-child(5n+1)]:text-orange-400
+                            [&_li:nth-child(5n+2)]:text-blue-400
+                            [&_li:nth-child(5n+3)]:text-emerald-400
+                            [&_li:nth-child(5n+4)]:text-purple-400
+                            [&_li:nth-child(5n+5)]:text-teal-400
+                            text-[13px] leading-relaxed">
                             <ReactMarkdown>{summary!}</ReactMarkdown>
                         </div>
                     ) : highlightedStory ? (

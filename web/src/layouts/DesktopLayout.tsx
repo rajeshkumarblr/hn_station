@@ -84,7 +84,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div className="flex items-center gap-2 pointer-events-auto">
                             <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 select-none pointer-events-none">
                                 <span className="text-sm font-black tracking-tighter text-slate-200 dark:text-slate-100 uppercase">HN Station</span>
-                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.13</span>
+                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.14</span>
                                 {app.apiBase && <span className="text-[8px] font-mono text-slate-500 lowercase opacity-50 ml-1">{app.apiBase.replace('http://', '')}</span>}
                             </div>
                         </div>
@@ -187,8 +187,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 {currentView === 'feed' ? (
                     <main className="flex-1 overflow-hidden bg-white dark:bg-slate-950 flex focus:outline-none" tabIndex={-1}>
                         <div className="flex w-full h-full relative">
-                            <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-                                <div className="flex-1 overflow-hidden px-3 pt-1">
+                            <div className="flex-1 flex flex-col p-4 md:p-6 pb-20 overflow-y-auto custom-scrollbar ml-4 md:ml-8">
+                                <div className="space-y-4 max-w-5xl">
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
                                         // CSS grid: always exactly 10 equal rows, no scroll, fills all space
@@ -233,22 +233,48 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                 Prev
                                             </button>
                                             <div className="flex items-center gap-1">
-                                                {Array.from({ length: Math.ceil((totalStories || 0) / PAGE_SIZE) }, (_, i) => i + 1).map(p => {
-                                                    const pageOffset = (p - 1) * PAGE_SIZE;
-                                                    const isActive = offset === pageOffset;
-                                                    return (
-                                                        <button
-                                                            key={p}
-                                                            onClick={() => setOffset?.(pageOffset)}
-                                                            className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-bold transition-all ${isActive
-                                                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-110'
-                                                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
-                                                                }`}
-                                                        >
-                                                            {p}
-                                                        </button>
-                                                    );
-                                                })}
+                                                {(() => {
+                                                    const totalPages = Math.ceil((totalStories || 0) / PAGE_SIZE);
+                                                    const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+                                                    const pages = [];
+
+                                                    // Logic for 1, 2, 3... lastPage
+                                                    if (totalPages <= 7) {
+                                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                                    } else {
+                                                        pages.push(1);
+                                                        if (currentPage > 3) pages.push('...');
+
+                                                        const start = Math.max(2, currentPage - 1);
+                                                        const end = Math.min(totalPages - 1, currentPage + 1);
+
+                                                        for (let i = start; i <= end; i++) {
+                                                            if (!pages.includes(i)) pages.push(i);
+                                                        }
+
+                                                        if (currentPage < totalPages - 2) pages.push('...');
+                                                        if (!pages.includes(totalPages)) pages.push(totalPages);
+                                                    }
+
+                                                    return pages.map((p, idx) => {
+                                                        if (p === '...') return <span key={`dots-${idx}`} className="px-2 text-slate-500 font-bold">...</span>;
+
+                                                        const pageOffset = (Number(p) - 1) * PAGE_SIZE;
+                                                        const isActive = offset === pageOffset;
+                                                        return (
+                                                            <button
+                                                                key={p}
+                                                                onClick={() => setOffset?.(pageOffset)}
+                                                                className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-bold transition-all ${isActive
+                                                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-110'
+                                                                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                                                    }`}
+                                                            >
+                                                                {p}
+                                                            </button>
+                                                        );
+                                                    });
+                                                })()}
                                             </div>
                                             <button
                                                 onClick={() => setOffset?.(offset + PAGE_SIZE)}
