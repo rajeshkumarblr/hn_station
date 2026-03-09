@@ -48,7 +48,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     const hasSummary = summary && summary.trim().length > 0;
 
     return (
-        <div className="w-72 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
+        <div className="w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
 
             {/* ── AI Summary (Now at Top) ────────────────────────────────────────────── */}
             <div className="flex-initial max-h-[60%] overflow-hidden flex flex-col">
