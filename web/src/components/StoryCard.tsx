@@ -146,7 +146,7 @@ export function StoryCard({
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all h-[112px] flex flex-col relative border-b border-slate-100 dark:border-slate-800 ${activeBg}`}
+            className={`group transition-all py-3.5 px-4 flex flex-col justify-center relative border-b border-slate-100 dark:border-slate-800 ${activeBg}`}
             onClick={() => onSelect && onSelect(story.id)}
             onMouseEnter={() => onHighlight && onHighlight(story.id)}
             onContextMenu={handleContextMenu}
