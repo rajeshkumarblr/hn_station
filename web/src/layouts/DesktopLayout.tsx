@@ -84,7 +84,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div className="flex items-center gap-2 pointer-events-auto">
                             <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 select-none pointer-events-none">
                                 <span className="text-sm font-black tracking-tighter text-slate-200 dark:text-slate-100 uppercase">HN Station</span>
-                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.16</span>
+                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.16.1</span>
                                 {app.apiBase && <span className="text-[8px] font-mono text-slate-500 lowercase opacity-50 ml-1">{app.apiBase.replace('http://', '')}</span>}
                             </div>
                         </div>
@@ -188,7 +188,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <main className="flex-1 overflow-hidden bg-white dark:bg-slate-950 flex focus:outline-none" tabIndex={-1}>
                         <div className="flex w-full h-full relative">
                             <div className="flex-1 flex flex-col pt-0 pb-20 px-4 md:px-6 overflow-y-auto custom-scrollbar ml-4 md:ml-8">
-                                <div className="space-y-4 max-w-5xl">
+                                <div className="space-y-4 max-w-7xl">
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
                                         // CSS grid: always exactly 10 equal rows, no scroll, fills all space
