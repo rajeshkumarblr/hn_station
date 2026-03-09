@@ -28,7 +28,7 @@ export function KeyboardHelpModal({ isOpen, onClose }: KeyboardHelpModalProps) {
                             <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">Feed Navigation</h3>
                             <div className="space-y-2">
                                 <ShortcutRow keys={['↑', '↓']} action="Navigate up/down in the feed" />
-                                <ShortcutRow keys={['Enter']} action="Open the selected story in a new tab" />
+                                <ShortcutRow keys={['Enter']} action="Open the selected story in Split View" />
                                 <ShortcutRow keys={['/']} action="Focus the search/filter box" />
                             </div>
                         </section>
@@ -38,8 +38,9 @@ export function KeyboardHelpModal({ isOpen, onClose }: KeyboardHelpModalProps) {
                             <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3 ml-1">Tab & View Management</h3>
                             <div className="space-y-2">
                                 <ShortcutRow keys={['Ctrl', 'Tab']} action="Cycle through open tabs and the feed" />
-                                <ShortcutRow keys={['Ctrl', 'Alt', '→']} action="Switch current tab to Discussion View" />
-                                <ShortcutRow keys={['Ctrl', 'Alt', '←']} action="Switch current tab to Article View" />
+                                <ShortcutRow keys={['Ctrl', 'Alt', '→']} action="Switch to Discussion View" />
+                                <ShortcutRow keys={['Ctrl', 'Alt', '←']} action="Switch to Article View" />
+                                <ShortcutRow keys={['Ctrl', 'Space']} action="Cycle Article → Disc → Split" />
                             </div>
                         </section>
 
