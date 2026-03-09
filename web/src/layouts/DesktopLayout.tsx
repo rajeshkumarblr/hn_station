@@ -21,7 +21,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         setMode, setActiveTopics, setShowHidden,
         setCurrentView, setIsAdminModalOpen,
         handleRefresh, toggleTheme, closeTab, handleHideStory,
-        handleToggleQueue, handleStorySelect, handleToggleSave,
+        handleToggleQueue, handleToggleSave,
         handleStoryInteractWithQueue, handleQueueAllFiltered, readIds
     } = app;
 
@@ -84,7 +84,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div className="flex items-center gap-2 pointer-events-auto">
                             <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 select-none pointer-events-none">
                                 <span className="text-sm font-black tracking-tighter text-slate-200 dark:text-slate-100 uppercase">HN Station</span>
-                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.16.1</span>
+                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.17</span>
                                 {app.apiBase && <span className="text-[8px] font-mono text-slate-500 lowercase opacity-50 ml-1">{app.apiBase.replace('http://', '')}</span>}
                             </div>
                         </div>
@@ -203,13 +203,15 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                 const tagStyle = matchedTopic ? getTagStyle(matchedTopic) : null;
                                                 return (
                                                     <div key={story.id} ref={el => storyRefs.current[index] = el}
-                                                        onClick={() => handleStoryInteractWithQueue(story.id, matchedTopic)}
+                                                        onClick={() => app.setHighlightedStoryId(story.id)}
+                                                        onDoubleClick={() => handleStoryInteractWithQueue(story.id, matchedTopic)}
                                                         style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
                                                         className="transition-all duration-150 rounded-lg overflow-hidden"
                                                     >
                                                         <StoryCard
                                                             story={story} index={index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
-                                                            titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={handleStorySelect} onOpenInTab={handleStorySelect}
+                                                            titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => app.setHighlightedStoryId(story.id)}
+                                                            onOpenInTab={(id, mode) => app.handleStorySelect(id, mode)}
                                                             onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
                                                             onHighlight={app.setHighlightedStoryId}
                                                             activeTopics={activeTopics}

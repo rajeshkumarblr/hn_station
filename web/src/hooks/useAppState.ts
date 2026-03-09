@@ -231,7 +231,7 @@ export function useAppState() {
 
         if (!story) return;
 
-        const actualMode = overrideMode || (story.url ? 'article' : 'discussion');
+        const actualMode = overrideMode || (story.url ? 'split' : 'discussion');
 
         setTabs(prev => {
             // Check if tab already exists
@@ -314,7 +314,7 @@ export function useAppState() {
             newQueue.push(storyId);
         }
         setReadingQueue(newQueue);
-        handleStorySelect(storyId);
+        handleStorySelect(storyId, 'split');
     }, [readingQueue, stories, showHidden, hiddenStories, handleStorySelect]);
 
     const handleQueueAllFiltered = useCallback(() => {

@@ -44,7 +44,7 @@ export function useGlobalKeyboardNav(
             // --- Enter to Open Story ---
             if (e.key === 'Enter' && app.currentView === 'feed' && app.highlightedStoryId) {
                 e.preventDefault();
-                app.handleStorySelect(app.highlightedStoryId);
+                app.handleStorySelect(app.highlightedStoryId, 'split');
                 return;
             }
 
@@ -102,6 +102,22 @@ export function useGlobalKeyboardNav(
                 }
 
                 app.handleStorySelect(tab.storyId, modes[nextIndex]);
+                return;
+            }
+
+            // --- Ctrl + Space to cycle Article -> Discussion -> Split ---
+            if (e.ctrlKey && e.code === 'Space') {
+                e.preventDefault();
+                if (app.currentView !== 'reader' || !app.activeTabId) return;
+
+                const tab = app.tabs.find(t => t.id === app.activeTabId);
+                if (!tab) return;
+
+                const order: ('article' | 'discussion' | 'split')[] = ['article', 'discussion', 'split'];
+                const currentIndex = order.indexOf(tab.mode || 'split');
+                const nextIndex = (currentIndex + 1) % order.length;
+
+                app.handleStorySelect(tab.storyId, order[nextIndex]);
                 return;
             }
         };
