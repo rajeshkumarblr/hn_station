@@ -118,62 +118,22 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:text-slate-200 placeholder:text-slate-400"
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-10 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:text-slate-200 placeholder:text-slate-400"
                         />
-                    </div>
-                </div>
-
-                <div className="p-4 overflow-y-auto flex-1">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Page Tags</h3>
                         {activeTopics.length > 0 && (
                             <button
-                                onClick={onQueueAll}
-                                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 transition-colors"
-                                title="Add all highlighted stories to Queue"
+                                onClick={() => setActiveTopics([])}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+                                title="Clear Search"
                             >
-                                <Layers size={12} />
-                                Queue All
+                                <X size={16} />
                             </button>
                         )}
                     </div>
+                </div>
 
-                    <div className="flex flex-wrap gap-2">
-                        {/* "All" Tag */}
-                        <button
-                            onClick={() => setActiveTopics([])}
-                            className={`inline-flex items-center text-[11px] font-bold px-2 py-1 rounded-md border transition-all hover:scale-105 active:scale-95 ${activeTopics.length === 0
-                                ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/20'
-                                : 'bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-blue-500/50 hover:text-blue-500'
-                                }`}
-                        >
-                            All
-                        </button>
-
-                        {topTags.map(tag => {
-                            const isActive = activeTopics.some(t => t.toLowerCase() === tag.toLowerCase());
-                            const ts = getTagStyle(tag);
-                            return (
-                                <button
-                                    key={tag.toLowerCase()}
-                                    onClick={() => handleToggleTag(tag)}
-                                    className="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md transition-all hover:scale-105 active:scale-95"
-                                    style={isActive ? {
-                                        color: ts.color,
-                                        background: ts.bg,
-                                        border: `2px solid ${ts.color}`,
-                                        boxShadow: `0 0 0 1px ${ts.color}`,
-                                    } : {
-                                        color: ts.color,
-                                        background: ts.bg,
-                                        border: `1px solid ${ts.border}`,
-                                    }}
-                                >
-                                    {tag}
-                                </button>
-                            );
-                        })}
-                    </div>
+                <div className="p-4 overflow-y-auto flex-1 hidden">
+                    {/* Page tags removed as per user request */}
                 </div>
             </div>
 

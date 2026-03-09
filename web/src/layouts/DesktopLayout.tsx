@@ -84,7 +84,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div className="flex items-center gap-2 pointer-events-auto">
                             <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 select-none pointer-events-none">
                                 <span className="text-sm font-black tracking-tighter text-slate-200 dark:text-slate-100 uppercase">HN Station</span>
-                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.17</span>
+                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.18</span>
                                 {app.apiBase && <span className="text-[8px] font-mono text-slate-500 lowercase opacity-50 ml-1">{app.apiBase.replace('http://', '')}</span>}
                             </div>
                         </div>
@@ -191,40 +191,55 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 <div className="space-y-4 max-w-7xl">
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
-                                        // CSS grid: always exactly 10 equal rows, no scroll, fills all space
-                                        <div className="h-full" style={{ display: 'grid', gridTemplateRows: `repeat(${PAGE_SIZE}, 1fr)`, gap: '2px' }}>
-                                            {stories.length === 0 && <div className="p-10 text-white bg-red-600 rounded-lg col-span-full">ZERO STORIES IN BUFFER</div>}
-                                            {stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden)).slice(0, PAGE_SIZE).map((story, index) => {
-                                                const isSelected = selectedStoryId === story.id;
-                                                const isHighlighted = app.highlightedStoryId === story.id;
-                                                const isRead = readIds.has(story.id) || !!story.is_read;
-                                                const isQueued = readingQueue.includes(story.id);
-                                                const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, story.topics, activeTopics) : null;
-                                                const tagStyle = matchedTopic ? getTagStyle(matchedTopic) : null;
-                                                return (
-                                                    <div key={story.id} ref={el => storyRefs.current[index] = el}
-                                                        onClick={() => app.setHighlightedStoryId(story.id)}
-                                                        onDoubleClick={() => handleStoryInteractWithQueue(story.id, matchedTopic)}
-                                                        style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
-                                                        className="transition-all duration-150 rounded-lg overflow-hidden"
-                                                    >
-                                                        <StoryCard
-                                                            story={story} index={index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
-                                                            titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => app.setHighlightedStoryId(story.id)}
-                                                            onOpenInTab={(id, mode) => app.handleStorySelect(id, mode)}
-                                                            onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
-                                                            onHighlight={app.setHighlightedStoryId}
-                                                            activeTopics={activeTopics}
-                                                        />
-                                                    </div>
-                                                );
-                                            })}
+                                        <div className="flex flex-col gap-0.5 min-h-0">
+                                            {(() => {
+                                                const unfiltered = stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden));
+                                                const isSearchActive = activeTopics.length > 0;
+                                                const filtered = isSearchActive
+                                                    ? unfiltered.filter(s => getStoryTopicMatch(s.title, s.topics, activeTopics) !== null)
+                                                    : unfiltered.slice(0, PAGE_SIZE);
+
+                                                if (filtered.length === 0) {
+                                                    return (
+                                                        <div className="p-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+                                                            <div className="text-slate-400 dark:text-slate-500 font-medium mb-1">No matching stories found</div>
+                                                            <button onClick={() => setActiveTopics([])} className="text-blue-500 text-xs font-bold hover:underline">Clear search filters</button>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return filtered.map((story, index) => {
+                                                    const isSelected = selectedStoryId === story.id;
+                                                    const isHighlighted = app.highlightedStoryId === story.id;
+                                                    const isRead = readIds.has(story.id) || !!story.is_read;
+                                                    const isQueued = readingQueue.includes(story.id);
+                                                    const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, story.topics, activeTopics) : null;
+                                                    const tagStyle = matchedTopic ? getTagStyle(matchedTopic) : null;
+                                                    return (
+                                                        <div key={story.id} ref={el => storyRefs.current[index] = el}
+                                                            onClick={() => app.setHighlightedStoryId(story.id)}
+                                                            onDoubleClick={() => handleStoryInteractWithQueue(story.id, matchedTopic)}
+                                                            style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
+                                                            className="transition-all duration-150 rounded-lg overflow-hidden"
+                                                        >
+                                                            <StoryCard
+                                                                story={story} index={index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
+                                                                titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => app.setHighlightedStoryId(story.id)}
+                                                                onOpenInTab={(id, mode) => app.handleStorySelect(id, mode)}
+                                                                onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
+                                                                onHighlight={app.setHighlightedStoryId}
+                                                                activeTopics={activeTopics}
+                                                            />
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Pagination Controls Fixed at Bottom */}
-                                {!loading && (
+                                {activeTopics.length === 0 && !loading && (
                                     <div className="shrink-0 w-full bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/60 flex justify-center mt-auto">
                                         <div className="w-full max-w-4xl flex justify-center items-center px-6 py-4 gap-2">
                                             <button

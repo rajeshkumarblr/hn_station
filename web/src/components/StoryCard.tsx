@@ -294,7 +294,7 @@ export function StoryCard({
                                     return (
                                         <span
                                             key={i}
-                                            className={`transition-all duration-200 ${isActive ? 'px-2 py-0.5 rounded-md shadow-[0_0_8px_rgba(249,115,22,0.4)] scale-110 z-10' : ''}`}
+                                            className={`text-[12px] font-bold transition-all duration-200 ${isActive ? 'px-2 py-0.5 rounded-md shadow-[0_0_8px_rgba(249,115,22,0.4)] scale-110 z-10' : ''}`}
                                             style={isActive ? {
                                                 background: '#f97316',
                                                 color: 'white',
