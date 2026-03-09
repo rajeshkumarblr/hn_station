@@ -25,7 +25,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 - **Archive Retention**: Intelligently maintains an actively rolling 7-day database archive of the top stories for continuous scrolling, with permanent retention for securely bookmarked items.
 - **Advanced Comment Threads**: Deeply nested, recursive, and collapsible HN discussion threads. Navigate smoothly with deep keyboard bindings.
 - **Dynamic "Zen" Sidebar**: A high-efficiency right sidebar that provides:
-  - **Bold AI Summaries**: Instantly read article takeaways in a stabilized, high-contrast amber summary pane.
+  - **Bold Multi-Colored Summaries**: Instantly read article takeaways in a stabilized, high-contrast amber summary pane. Summary bullets now cycle through a vibrant harmonious palette (Emerald, Blue, Orange, Purple) for effortless scanning.
   - **Page-Aware Tags**: Automatically computes and displays tags relevant only to your current feed page.
   - **Match Highlighting**: When clicking a tag, corresponding labels in the feed "light up" in orange for instant visual search confirmation.
 - **Zero-Login Local Mode**: The Desktop app runs an embedded SQLite backend locally. Browse, bookmark, and queue stories without ever needing an external account or internet sync.
@@ -93,13 +93,15 @@ npm install       # first time only
 npm run dev       # launches the Electron app + local backend
 ```
 
-**Desktop features:**
-- **Bundled Backend**: Spawns a dedicated Go worker process on startup — no external server required.
-- **Local SQLite Persistence**: Your reading history and bookmarks are stored privately on your machine.
-- **Enhanced Visual Focus**: High-contrast "VS Code style" line highlighting for active stories.
-- **Native Browsing**: Frameless window with native drag, windows/macOS style window controls.
-- **Persistent Tab State**: Switching tabs never reloads the page or loses scroll position.
-- `Ctrl+Tab` / `Ctrl+Shift+Tab` to cycle through open article tabs.
+- **Focus-First Navigation**: 
+    - **Single-click** highlights a story and triggers the sidebar summary.
+    - **Double-click** or **Enter** opens the story in the immersive **Split View** by default.
+- **Instant Mode Cycling**: Press `Ctrl+Space` while reading to cycle between Article, Discussion, and Split views.
+- **Optimized Widescreen Layout**: Expanded maximum widths for feeds and sidebars to eliminate wasted space on large monitors.
+- **Smart Reader view**: Increased font sizes (`prose-lg`) and symmetric padding for a premium reading experience.
+- **Browser-like Tabs**: Overhauled tab headers that automatically resize to fit, ensuring stability when dozens of articles are open.
+- **Truncated Pagination**: A clean, smart footer that displays limited page ranges (e.g., 1, 2... 24) to prevent UI clutter.
+- `Ctrl+Tab` to cycle through open article tabs.
 
 ---
 
