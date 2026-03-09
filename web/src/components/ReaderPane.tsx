@@ -329,8 +329,8 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                                 </div>
                             ) : (
                                 // Reader View (Markdown or Sanitized HTML)
-                                <div className="flex-1 w-full max-w-3xl mx-auto py-8 px-6">
-                                    <article className="prose prose-sm md:prose-base dark:prose-invert prose-slate max-w-none">
+                                <div className="flex-1 w-full max-w-4xl mx-auto py-8 px-8 md:px-12">
+                                    <article className="prose prose-base md:prose-lg dark:prose-invert prose-slate max-w-none">
                                         {contentType === 'markdown' ? (
                                             <ReactMarkdown rehypePlugins={[rehypeRaw]}>{articleContent || ''}</ReactMarkdown>
                                         ) : (
