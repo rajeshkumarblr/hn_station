@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, session, ipcMain, nativeImage, screen } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
@@ -138,9 +138,12 @@ function createWindow() {
     // Wait for the renderer to be ready before showing to avoid white flashes
     win.once('ready-to-show', () => {
         if (win) {
-            // Some Linux WMs prefer show() before maximize() for frameless windows
+            // v4.24: Use workArea to ensure 'maximized' fit that respects the taskbar/panels
+            const primaryDisplay = screen.getPrimaryDisplay();
+            const { workArea } = primaryDisplay;
+            win.setBounds(workArea);
+
             win.show();
-            win.maximize();
             win.focus();
 
             // v4.20 Deep Debug: Open DevTools in DETACHED window so they are visible even if win is white
