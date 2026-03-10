@@ -25,9 +25,10 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 - **Archive Retention**: Intelligently maintains an actively rolling 7-day database archive of the top stories for continuous scrolling, with permanent retention for securely bookmarked items.
 - **Advanced Comment Threads**: Deeply nested, recursive, and collapsible HN discussion threads. Navigate smoothly with deep keyboard bindings.
 - **Dynamic "Zen" Sidebar**: A high-efficiency right sidebar that provides:
-  - **Bold Multi-Colored Summaries**: Instantly read article takeaways in a stabilized, high-contrast amber summary pane. Summary bullets now cycle through a vibrant harmonious palette (Emerald, Blue, Orange, Purple) for effortless scanning.
-  - **Page-Aware Tags**: Automatically computes and displays tags relevant only to your current feed page.
-  - **Match Highlighting**: When clicking a tag, corresponding labels in the feed "light up" in orange for instant visual search confirmation.
+  - **Bold Multi-Colored Summaries**: Instantly read article takeaways in a stabilized, high-contrast amber summary pane. Summary bullets now cycle through a vibrant harmonious palette (Emerald, Blue, Orange, Purple) for effortless scanning. Capped at 60% height to ensure UI balance.
+  - **Power Search**: Overhauled topic search filters the *entire* 100-story buffer instantly. Hides all non-matches across all pages for a focused research experience.
+  - **Clear Button**: One-click reset to clear active search filters and return to the main feed.
+- **Enhanced Visual Cues**: Story tags next to articles are now larger and bold for better scanability. Corresponding labels in the feed "light up" in orange for instant visual search confirmation.
 - **Zero-Login Local Mode**: The Desktop app runs an embedded SQLite backend locally. Browse, bookmark, and queue stories without ever needing an external account or internet sync.
 - **Keyboard-First Navigation**: Vim-like feed navigation (`j`/`k`), `Home`/`End` support, `/` to search, `z` for Zen mode, and `Delete` to hide stories.
 
@@ -100,7 +101,11 @@ npm run dev       # launches the Electron app + local backend
 - **Optimized Widescreen Layout**: Expanded maximum widths for feeds and sidebars to eliminate wasted space on large monitors.
 - **Smart Reader view**: Increased font sizes (`prose-lg`) and symmetric padding for a premium reading experience.
 - **Browser-like Tabs**: Overhauled tab headers that automatically resize to fit, ensuring stability when dozens of articles are open.
-- **Truncated Pagination**: A clean, smart footer that displays limited page ranges (e.g., 1, 2... 24) to prevent UI clutter.
+- **Truncated Pagination**: A clean, smart footer that displays limited page ranges (e.g., 1, 2... 24) to prevent UI clutter. Automatically hidden during active search to show all results on one screen.
+- **Stability Overhaul**: 
+    - **No White Screens**: Implemented the `ready-to-show` pattern with a dark base CSS fallback (#0f172a) to ensure a smooth, flicker-free startup experience.
+    - **App Initializing Logs**: Detailed diagnostic logging and global error catching in the renderer for rapid troubleshooting.
+    - **Maximized Mode**: Starts in a maximized window state by default, respecting the system workspace.
 - `Ctrl+Tab` to cycle through open article tabs.
 
 ---
