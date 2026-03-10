@@ -143,16 +143,25 @@ export function useAppState() {
     const stories = storyBuffer; // Backend already paginates this buffer
 
     useEffect(() => {
-        return subscribeApiBase(url => setApiBase(url));
+        console.log('[state] Subscribing to API base...');
+        return subscribeApiBase(url => {
+            console.log('[state] API base resolved to:', url);
+            setApiBase(url);
+        });
     }, []);
 
     useEffect(() => {
         // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
         const isElectron = !!(window as any).electronAPI;
         if (isElectron && (!apiBase || apiBase.includes('hnstation.dev'))) {
+            console.log('[state] Electron detected, waiting for non-fallback apiBase to fetch user data.');
             return;
         }
-        if (!apiBase) return;
+        if (!apiBase) {
+            console.log('[state] apiBase not resolved yet, skipping user data fetch.');
+            return;
+        }
+        console.log('[state] Fetching user data from:', apiBase);
 
         fetch(`${apiBase}/api/me`, { credentials: 'include' })
             .then(res => res.ok ? res.json() : null)
