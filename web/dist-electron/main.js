@@ -1,4 +1,4 @@
-import { app, ipcMain, BrowserWindow, nativeImage, session } from "electron";
+import { app, ipcMain, BrowserWindow, screen, nativeImage, session } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -104,8 +104,10 @@ function createWindow() {
   ipcMain.handle("window-is-maximized", () => (win == null ? void 0 : win.isMaximized()) ?? false);
   win.once("ready-to-show", () => {
     if (win) {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { workArea } = primaryDisplay;
+      win.setBounds(workArea);
       win.show();
-      win.maximize();
       win.focus();
       if (VITE_DEV_SERVER_URL) {
         win.webContents.openDevTools({ mode: "detach" });

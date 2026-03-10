@@ -138,11 +138,8 @@ function createWindow() {
     // Wait for the renderer to be ready before showing to avoid white flashes
     win.once('ready-to-show', () => {
         if (win) {
-            // v4.24: Use workArea to ensure 'maximized' fit that respects the taskbar/panels
-            const primaryDisplay = screen.getPrimaryDisplay();
-            const { workArea } = primaryDisplay;
-            win.setBounds(workArea);
-
+            // v4.25: Call maximize() BEFORE show() to ensure Linux respects the taskbar/panels
+            win.maximize();
             win.show();
             win.focus();
 
