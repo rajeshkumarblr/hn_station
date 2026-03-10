@@ -64,14 +64,15 @@ interface User {
     is_admin: boolean;
 }
 
-export function getStoryTopicMatch(storyTitle: string, storyTopics: string[] | undefined, activeTopics: string[]): string | null {
+export function getStoryTopicMatch(storyTitle: string | undefined, storyTopics: string[] | undefined, activeTopics: string[]): string | null {
+    if (!storyTitle) return null;
     const titleLower = storyTitle.toLowerCase();
     for (const active of activeTopics) {
         const activeLower = active.toLowerCase();
         if (titleLower.includes(activeLower)) return active;
         if (storyTopics) {
             for (const t of storyTopics) {
-                if (t.toLowerCase() === activeLower) return active;
+                if (t && t.toLowerCase() === activeLower) return active;
             }
         }
     }

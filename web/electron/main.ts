@@ -117,6 +117,7 @@ function createWindow() {
         height: 900,
         show: false,
         frame: false,
+        backgroundColor: '#0f172a', // Prevents white flashes
         icon: path.join(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png'),
         webPreferences: {
             webviewTag: true,
@@ -134,9 +135,21 @@ function createWindow() {
     });
     ipcMain.handle('window-is-maximized', () => win?.isMaximized() ?? false);
 
-    win.maximize();
+    // Wait for the renderer to be ready before showing to avoid white flashes
+    win.once('ready-to-show', () => {
+        if (win) {
+            win.maximize();
+            win.show();
+            win.focus();
+
+            // Automatically open DevTools in dev mode to diagnose crashes
+            if (VITE_DEV_SERVER_URL) {
+                win.webContents.openDevTools();
+            }
+        }
+    });
+
     win.setMenu(null);
-    win.show();
 
     // Icon
     const iconPath = path.join(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png');
