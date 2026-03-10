@@ -104,9 +104,14 @@ function createWindow() {
   ipcMain.handle("window-is-maximized", () => (win == null ? void 0 : win.isMaximized()) ?? false);
   win.once("ready-to-show", () => {
     if (win) {
-      win.maximize();
       win.show();
       win.focus();
+      win.setFullScreen(false);
+      setTimeout(() => {
+        if (win && !win.isMaximized()) {
+          win.maximize();
+        }
+      }, 300);
       if (VITE_DEV_SERVER_URL) {
         win.webContents.openDevTools({ mode: "detach" });
       }
