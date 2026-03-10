@@ -138,13 +138,14 @@ function createWindow() {
     // Wait for the renderer to be ready before showing to avoid white flashes
     win.once('ready-to-show', () => {
         if (win) {
-            win.maximize();
+            // Some Linux WMs prefer show() before maximize() for frameless windows
             win.show();
+            win.maximize();
             win.focus();
 
-            // Automatically open DevTools in dev mode to diagnose crashes
+            // v4.20 Deep Debug: Open DevTools in DETACHED window so they are visible even if win is white
             if (VITE_DEV_SERVER_URL) {
-                win.webContents.openDevTools();
+                win.webContents.openDevTools({ mode: 'detach' });
             }
         }
     });

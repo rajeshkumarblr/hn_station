@@ -5,10 +5,9 @@
 body {
     margin: 0;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #f8fafc;
-    /* slate-50 (Light Mode Default) */
-    color: #0f172a;
-    /* slate-900 */
+    background-color: #0f172a;
+    /* Force dark base to avoid white flashes */
+    color: #f8fafc;
 }
 
 /* Dark Mode Override */

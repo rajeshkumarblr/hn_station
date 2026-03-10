@@ -86,6 +86,8 @@ function createWindow() {
     height: 900,
     show: false,
     frame: false,
+    backgroundColor: "#0f172a",
+    // Prevents white flashes
     icon: path.join(process.env.VITE_PUBLIC, process.platform === "win32" ? "hn.ico" : "hn_256.png"),
     webPreferences: {
       webviewTag: true,
@@ -100,9 +102,17 @@ function createWindow() {
     else win == null ? void 0 : win.maximize();
   });
   ipcMain.handle("window-is-maximized", () => (win == null ? void 0 : win.isMaximized()) ?? false);
-  win.maximize();
+  win.once("ready-to-show", () => {
+    if (win) {
+      win.show();
+      win.maximize();
+      win.focus();
+      if (VITE_DEV_SERVER_URL) {
+        win.webContents.openDevTools({ mode: "detach" });
+      }
+    }
+  });
   win.setMenu(null);
-  win.show();
   const iconPath = path.join(process.env.VITE_PUBLIC, process.platform === "win32" ? "hn.ico" : "hn_256.png");
   const appIcon = nativeImage.createFromPath(iconPath);
   if (!appIcon.isEmpty()) win.setIcon(appIcon);
