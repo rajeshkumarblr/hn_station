@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-import { Search, Layers, Sparkles } from 'lucide-react';
-import { getTagStyle } from './StoryCard';
+import { Search, Sparkles, X } from 'lucide-react';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
 
@@ -8,8 +6,6 @@ interface FilterSidebarProps {
     activeTopics: string[];
     setActiveTopics: React.Dispatch<React.SetStateAction<string[]>>;
     getQueuedCount: () => number;
-    onQueueAll: () => void;
-    availableTags: string[];
     highlightedStory?: Story | null;  // The hovered/selected story for summary display
 }
 
@@ -19,8 +15,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     activeTopics,
     setActiveTopics,
     getQueuedCount,
-    onQueueAll,
-    availableTags,
     highlightedStory,
 }) => {
     const [inputValue, setInputValue] = useState('');
@@ -33,17 +27,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         }
     };
 
-    const handleToggleTag = (tag: string) => {
-        const lowerTag = tag.toLowerCase();
-        const isActive = activeTopics.some(t => t.toLowerCase() === lowerTag);
-        if (isActive) {
-            setActiveTopics([]);
-        } else {
-            setActiveTopics([tag]);
-        }
-    };
-
-    const topTags = availableTags.slice(0, 15);
     const summary = highlightedStory?.summary ?? null;
     const hasSummary = summary && summary.trim().length > 0;
 
