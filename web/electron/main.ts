@@ -138,10 +138,20 @@ function createWindow() {
     // Wait for the renderer to be ready before showing to avoid white flashes
     win.once('ready-to-show', () => {
         if (win) {
-            // v4.25: Call maximize() BEFORE show() to ensure Linux respects the taskbar/panels
-            win.maximize();
+            // v4.26: Deferred Maximization Fix for Linux
+            // 1. Show the window in its normal state first
             win.show();
             win.focus();
+
+            // 2. Explicitly ensure we are NOT in fullscreen mode (which often triggers overlap)
+            win.setFullScreen(false);
+
+            // 3. Defer maximization to allow the OS compositor to register the window properly
+            setTimeout(() => {
+                if (win && !win.isMaximized()) {
+                    win.maximize();
+                }
+            }, 300);
 
             // v4.20 Deep Debug: Open DevTools in DETACHED window so they are visible even if win is white
             if (VITE_DEV_SERVER_URL) {
