@@ -19,7 +19,10 @@ export async function resolveApiBase(): Promise<string> {
         // Strict Electron mode: Poll until we get the port. Do NOT fallback to production.
         console.log('[api] Electron detected, waiting for local backend...');
 
-        while (true) {
+        let retries = 0;
+        const maxRetries = 150; // 30 seconds (150 * 200ms)
+
+        while (retries < maxRetries) {
             try {
                 const url = await electronAPI.getLocalApiUrl();
                 if (url) {
@@ -31,9 +34,14 @@ export async function resolveApiBase(): Promise<string> {
             } catch (err) {
                 console.error('[api] IPC error:', err);
             }
+            retries++;
             // Wait 200ms before retrying
             await new Promise(resolve => setTimeout(resolve, 200));
         }
+        console.error('[api] Failed to resolve local backend after 30s');
+        _cachedBase = ''; // Fallback to empty (will try to fetch and fail, better than hang)
+        finish(_cachedBase);
+        return _cachedBase;
     }
 
     // Web / dev fallback: VITE_API_URL or same-origin
