@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Search, Sparkles, X } from 'lucide-react';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';

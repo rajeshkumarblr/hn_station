@@ -22,7 +22,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         setCurrentView, setIsAdminModalOpen,
         handleRefresh, toggleTheme, closeTab, handleHideStory,
         handleToggleQueue, handleToggleSave,
-        handleStoryInteractWithQueue, handleQueueAllFiltered, readIds
+        handleStoryInteractWithQueue, readIds
     } = app;
 
     // Resolve the story object for the highlighted (keyboard/hovered) card
@@ -39,14 +39,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
     useGlobalKeyboardNav(app, storyRefs);
 
-    // Compute tags specifically for the current page of stories
-    const visiblePageStories = stories
-        .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
-        .slice(0, PAGE_SIZE);
-
-    const pageTags = Array.from(new Set(
-        visiblePageStories.flatMap(s => s.topics || [])
-    )).sort();
 
     return (
         <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
@@ -84,7 +76,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div className="flex items-center gap-2 pointer-events-auto">
                             <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 select-none pointer-events-none">
                                 <span className="text-sm font-black tracking-tighter text-slate-200 dark:text-slate-100 uppercase">HN Station</span>
-                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.22</span>
+                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.23</span>
                                 {app.apiBase && <span className="text-[8px] font-mono text-slate-500 lowercase opacity-50 ml-1">{app.apiBase.replace('http://', '')}</span>}
                             </div>
                         </div>
@@ -304,7 +296,12 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     </div>
                                 )}
                             </div>
-                            <FilterSidebar activeTopics={activeTopics} setActiveTopics={setActiveTopics} getQueuedCount={() => readingQueue.length} onQueueAll={handleQueueAllFiltered} availableTags={pageTags} highlightedStory={highlightedStory} />
+                            <FilterSidebar
+                                activeTopics={activeTopics}
+                                setActiveTopics={setActiveTopics}
+                                getQueuedCount={() => readingQueue.length}
+                                highlightedStory={highlightedStory}
+                            />
                         </div>
                     </main>
                 ) : (
