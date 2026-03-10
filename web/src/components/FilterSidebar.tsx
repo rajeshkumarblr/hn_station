@@ -35,7 +35,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         <div className="w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
 
             {/* ── AI Summary (Now at Top) ────────────────────────────────────────────── */}
-            <div className="basis-[60%] flex-shrink-0 overflow-hidden flex flex-col">
+            <div className="h-[60%] flex-shrink-0 overflow-hidden flex flex-col">
                 <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
                     <Sparkles size={12} className="text-orange-400" />
                     <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Summary</h3>
@@ -90,7 +90,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             </div>
 
             {/* Topics / Tags (Now and Middle/Bottom) */}
-            <div className="flex-1 border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+            <div className="h-[40%] border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
                 {/* Search Input */}
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800/50 flex-shrink-0">
                     <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Topic Search</h3>
