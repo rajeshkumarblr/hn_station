@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { RefreshCw, X, Moon, Sun, LogIn, LogOut, Settings, Shield, Home, Keyboard } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { RefreshCw, X, Moon, Sun, LogIn, LogOut, Settings, Shield, Home, Keyboard, Search } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
@@ -21,8 +21,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         setMode, setActiveTopics, setShowHidden,
         setCurrentView, setIsAdminModalOpen,
         handleRefresh, toggleTheme, closeTab, handleHideStory,
-        handleToggleQueue, handleToggleSave,
-        handleStoryInteractWithQueue, readIds
+        handleToggleQueue, handleStorySelect, handleToggleSave,
+        readIds, setReadIds, setHighlightedStoryId
     } = app;
 
     // Resolve the story object for the highlighted (keyboard/hovered) card
@@ -39,13 +39,52 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
     useGlobalKeyboardNav(app, storyRefs);
 
+    // Default focus: if we have stories and none is highlighted, pick the first one.
+    // Also if the stories list changes (e.g. refresh/page change), reset to first.
+    useEffect(() => {
+        if (!loading && stories.length > 0) {
+            const hasHighlighted = stories.some(s => s.id === highlightedStoryId);
+            if (!hasHighlighted) {
+                setHighlightedStoryId(stories[0].id);
+            }
+        }
+    }, [stories, loading, highlightedStoryId]);
 
+    // 10s Auto-Read Timer
+    useEffect(() => {
+        if (!highlightedStoryId || !user) return;
+        const isAlreadyRead = readIds.has(highlightedStoryId) || highlightedStory?.is_read;
+        if (isAlreadyRead) return;
+
+        const timer = setTimeout(() => {
+            const baseUrl = app.apiBase;
+            if (!baseUrl) return;
+
+            // Mark as read in state
+            setReadIds(prev => {
+                const next = new Set(prev);
+                next.add(highlightedStoryId);
+                // saveReadIds is handled in useAppState's useEffect but we can be explicit if needed
+                return next;
+            });
+
+            // Mark as read in backend
+            fetch(`${baseUrl}/api/stories/${highlightedStoryId}/interact`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ read: true }),
+            }).catch(() => { });
+        }, 10000); // 10 seconds
+
+        return () => clearTimeout(timer);
+    }, [highlightedStoryId, readIds, user, highlightedStory, app.apiBase]);
     return (
         <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
             {/* ─── Zen Header ─── */}
             <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
             {/* -webkit-app-region:drag makes the header the native Electron drag handle */}
-            <header className="bg-[#1a2332] border-b border-slate-700 px-5 flex-shrink-0 z-50 h-[76px] relative" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+            <header className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-5 flex-shrink-0 z-50 h-[76px] relative" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
                 <div className="flex items-center h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                     {/* Left — Nav Tabs */}
                     <nav className="h-full flex items-center gap-6 flex-1">
@@ -61,8 +100,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         setCurrentView('feed');
                                     }}
                                     className={`h-full flex items-center gap-1.5 text-sm font-medium border-b-2 transition-all outline-none ${isActive
-                                        ? 'text-white border-orange-500 pb-3 mt-3'
-                                        : 'text-gray-500 border-transparent hover:text-gray-300 hover:border-b-2 hover:border-gray-600'
+                                        ? 'text-blue-600 dark:text-blue-400 border-orange-500 pb-3 mt-3'
+                                        : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200 hover:border-b-2 hover:border-slate-300 dark:hover:border-slate-700'
                                         }`}
                                 >
                                     {m.label}
@@ -75,9 +114,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none h-full py-1 z-10 w-full max-w-[600px]">
                         <div className="flex items-center gap-2 pointer-events-auto">
                             <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 select-none pointer-events-none">
-                                <span className="text-sm font-black tracking-tighter text-slate-200 dark:text-slate-100 uppercase">HN Station</span>
-                                <span className="text-[10px] font-bold text-slate-400/80 px-1.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/30">v4.26</span>
-                                {app.apiBase && <span className="text-[8px] font-mono text-slate-500 lowercase opacity-50 ml-1">{app.apiBase.replace('http://', '')}</span>}
+                                <span className="text-sm font-black tracking-tighter text-slate-800 dark:text-slate-100 uppercase">HN Station</span>
+                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/30">v4.26</span>
+                                {app.apiBase && <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 lowercase opacity-60 ml-1">{app.apiBase.replace('http://', '')}</span>}
                             </div>
                         </div>
                         {currentView === 'reader' && (
@@ -89,39 +128,43 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                     {/* Right controls */}
                     <div className="flex items-center gap-1.5 shrink-0">
-                        <button onClick={() => { handleRefresh(); setOffset?.(0); }} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400">
+                        <button onClick={() => { handleRefresh(); setOffset?.(0); }} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400">
                             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                         </button>
-                        <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400">
+                        <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400">
                             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                         </button>
-                        <button onClick={() => setShowHidden(!showHidden)} className={`p-2 rounded-lg ${showHidden ? 'bg-orange-500/20 text-orange-500' : 'hover:bg-slate-800 text-slate-400'}`}>
+                        <button onClick={() => setShowHidden(!showHidden)} className={`p-2 rounded-lg ${showHidden ? 'bg-orange-500/20 text-orange-500' : 'hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
                             <Settings size={16} />
                         </button>
-                        <button onClick={() => setIsHelpOpen(true)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 ml-1" title="Keyboard Shortcuts">
+                        <button onClick={() => setIsHelpOpen(true)} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 ml-1" title="Keyboard Shortcuts">
                             <Keyboard size={16} />
                         </button>
 
-                        {/* Auth */}
-                        {user ? (
-                            <div className="flex items-center gap-2 ml-1">
-                                {user.is_admin && (
-                                    <button onClick={() => setIsAdminModalOpen(true)} className="p-2 mr-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
-                                        <Shield size={14} />
-                                    </button>
+                        {/* Auth — Only show in Web version */}
+                        {!isElectron && (
+                            <>
+                                {user ? (
+                                    <div className="flex items-center gap-2 ml-1">
+                                        {user.is_admin && (
+                                            <button onClick={() => setIsAdminModalOpen(true)} className="p-2 mr-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
+                                                <Shield size={14} />
+                                            </button>
+                                        )}
+                                        <img src={user.avatar_url} alt={user.name} className="w-7 h-7 rounded-full ring-2 ring-slate-300 dark:ring-slate-700" title={user.name} />
+                                        <a href="/auth/logout" className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"><LogOut size={16} /></a>
+                                    </div>
+                                ) : (
+                                    <a href="/auth/google" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold ml-1">
+                                        <LogIn size={14} /> Sign in
+                                    </a>
                                 )}
-                                <img src={user.avatar_url} alt={user.name} className="w-7 h-7 rounded-full ring-2 ring-slate-700" title={user.name} />
-                                <a href="/auth/logout" className="p-2 rounded-lg hover:bg-slate-800 text-slate-400"><LogOut size={16} /></a>
-                            </div>
-                        ) : !isElectron ? (
-                            <a href="/auth/google" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold ml-1">
-                                <LogIn size={14} /> Sign in
-                            </a>
-                        ) : null}
+                            </>
+                        )}
 
                         {/* Window controls — Windows style, only in Electron */}
                         {isElectron && (
-                            <div className="flex items-center ml-3 pl-2 border-l border-slate-700/60" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                            <div className="flex items-center ml-3 pl-2 border-l border-slate-300 dark:border-slate-700/60" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                                 {/* Minimize */}
                                 <button
                                     onClick={() => (window as any).electronAPI.minimize()}
@@ -154,10 +197,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
             {/* Global Tab Bar Container */}
             {tabs.length > 0 && (
-                <div className="flex bg-[#0f172a] overflow-x-auto shadow-sm border-b border-slate-700/50 shrink-0">
+                <div className="flex bg-slate-200 dark:bg-slate-900 overflow-x-auto shadow-sm border-b border-slate-300 dark:border-slate-700 shrink-0">
                     <button
                         onClick={() => { setCurrentView('feed'); }}
-                        className={`flex flex-shrink-0 items-center gap-2 px-4 py-3 min-w-[100px] border-r border-slate-800 ${currentView === 'feed' ? 'bg-[#1e293b] text-blue-400 border-t-2 border-t-blue-500' : 'bg-[#111622] text-slate-400 border-t-2 border-t-transparent hover:bg-[#1a2332]'}`}
+                        className={`flex flex-shrink-0 items-center gap-2 px-4 py-3 min-w-[100px] border-r border-slate-300 dark:border-slate-700 ${currentView === 'feed' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 border-t-2 border-t-orange-500' : 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-300 border-t-2 border-t-transparent hover:bg-white dark:hover:bg-slate-800'}`}
                     >
                         <Home size={16} /> <span className="text-sm font-medium">Feed</span>
                     </button>
@@ -165,10 +208,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <button
                             key={t.id}
                             onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
-                            className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-3 max-w-[240px] border-r border-slate-800 relative group transition-all duration-200 ${currentView === 'reader' && activeTabId === t.id ? 'bg-[#1e293b] text-blue-400 border-t-2 border-t-blue-500' : 'bg-[#111622] text-slate-400 border-t-2 border-t-transparent hover:bg-[#1a2332]'}`}
+                            className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-3 max-w-[240px] border-r border-slate-300 dark:border-slate-700 relative group transition-all duration-200 ${currentView === 'reader' && activeTabId === t.id ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 border-t-2 border-t-orange-500' : 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-300 border-t-2 border-t-transparent hover:bg-white dark:hover:bg-slate-800'}`}
                         >
                             <span className="truncate flex-1 text-xs text-left font-medium select-none">{t.story.title}</span>
-                            <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className="p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-slate-800/50 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"><X size={12} /></div>
+                            <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"><X size={12} /></div>
                         </button>
                     ))}
                 </div>
@@ -179,17 +222,30 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 {currentView === 'feed' ? (
                     <main className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-950 flex focus:outline-none" tabIndex={-1}>
                         <div className="flex w-full h-full relative">
-                            <div className="flex-1 flex flex-col pt-0 pb-20 px-4 md:px-6 overflow-y-auto custom-scrollbar ml-4 md:ml-8">
-                                <div className="space-y-4 max-w-7xl">
+                            <div className="flex-1 flex flex-col h-full pt-0 pb-0 px-4 md:px-6 overflow-hidden ml-4 md:ml-8">
+                                <div className="flex-1 flex flex-col h-full max-w-7xl">
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
-                                        <div className="flex flex-col gap-0.5 min-h-0">
+                                        <div className="flex-1 flex flex-col h-full gap-0 overflow-y-auto custom-scrollbar">
+                                            {activeTopics.length > 0 && (
+                                                <div className="flex items-center justify-between px-4 py-2 bg-blue-50/50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/50 flex-shrink-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <Search size={12} className="text-blue-500" />
+                                                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                                                            Showing results for: <span className="text-blue-600 dark:text-blue-400 font-bold">{activeTopics.join(', ')}</span>
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setActiveTopics([])}
+                                                        className="text-xs font-bold text-blue-500 hover:text-red-500 hover:underline transition-colors flex items-center gap-1"
+                                                    >
+                                                        <X size={12} /> Clear search
+                                                    </button>
+                                                </div>
+                                            )}
                                             {(() => {
                                                 const unfiltered = stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden));
-                                                const isSearchActive = activeTopics.length > 0;
-                                                const filtered = isSearchActive
-                                                    ? unfiltered.filter(s => getStoryTopicMatch(s.title, s.topics, activeTopics) !== null)
-                                                    : unfiltered.slice(0, PAGE_SIZE);
+                                                const filtered = unfiltered.slice(0, PAGE_SIZE);
 
                                                 if (filtered.length === 0) {
                                                     return (
@@ -209,17 +265,16 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     const tagStyle = matchedTopic ? getTagStyle(matchedTopic) : null;
                                                     return (
                                                         <div key={story.id} ref={el => storyRefs.current[index] = el}
-                                                            onClick={() => app.setHighlightedStoryId(story.id)}
-                                                            onDoubleClick={() => handleStoryInteractWithQueue(story.id, matchedTopic)}
+                                                            onClick={(e) => { e.stopPropagation(); setHighlightedStoryId(story.id); }}
+                                                            onDoubleClick={(e) => { e.stopPropagation(); handleStorySelect(story.id, 'split'); }}
                                                             style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
-                                                            className="transition-all duration-150 rounded-lg overflow-hidden"
+                                                            className="basis-[10%] flex-shrink-0 flex flex-col transition-all duration-150 overflow-hidden"
                                                         >
                                                             <StoryCard
                                                                 story={story} index={index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
-                                                                titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => app.setHighlightedStoryId(story.id)}
-                                                                onOpenInTab={(id, mode) => app.handleStorySelect(id, mode)}
+                                                                titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => setHighlightedStoryId(story.id)}
+                                                                onOpenInTab={(id, mode) => handleStorySelect(id, mode)}
                                                                 onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
-                                                                onHighlight={app.setHighlightedStoryId}
                                                                 activeTopics={activeTopics}
                                                             />
                                                         </div>

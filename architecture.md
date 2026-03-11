@@ -155,7 +155,7 @@ Google OAuth 2.0 + JWT session management.
 - Anonymous usage is fully supported — auth is optional.
 
 ### `internal/content`
-Fetches and parses article content for the "Reader" pane using `go-shiori/go-readability` (Mozilla Readability port). Falls back to raw HTML if parsing fails. Has special handling for GitHub URLs (falls back to raw `README.md`). Also detects `X-Frame-Options` / CSP headers to determine iframe compatibility.
+Fetches and parses article content for **AI summarization** using `go-shiori/go-readability`. While the Reader Pane now utilizes the native Electron `webview` for maximum reliability and layout fidelity, `internal/content` remains critical for the "behind-the-scenes" extraction required for LLM processing.
 
 ---
 
@@ -193,8 +193,8 @@ Migrations live in `migrations/` and are applied sequentially.
 ### Layout
 
 A three-pane, resizable layout:
-1. **Story List** (left sidebar) — filterable, sortable, infinite scroll (50 stories per page), keyboard navigable.
-2. **Reader Pane** (center) — article content or threaded HN comments with collapsible tree.
+1. **Story List** (left sidebar) — filterable, sortable, infinite scroll (10 stories per page for perfect layout matching), keyboard navigable.
+2. **Reader Pane** (center) — native Electron `webview` for articles or threaded HN comments with collapsible tree.
 3. **AI Sidebar** (right, optional) — chat interface with Gemini, discussion summary, article summary.
 
 ### Key Frontend Features
