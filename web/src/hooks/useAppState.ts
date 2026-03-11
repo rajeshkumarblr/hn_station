@@ -352,8 +352,13 @@ export function useAppState() {
         if (mode === 'saved') return `${apiBase}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
         let url = `${apiBase}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
         if (showHidden) url += `&show_hidden=true`;
+        if (activeTopics.length > 0) {
+            activeTopics.forEach(t => {
+                url += `&topic=${encodeURIComponent(t)}`;
+            });
+        }
         return url;
-    }, [mode, showHidden, apiBase]);
+    }, [mode, showHidden, apiBase, activeTopics]);
 
     useEffect(() => {
         setLoading(true);
@@ -421,7 +426,7 @@ export function useAppState() {
         // If the user uses explicit pagination (offset > 0), we disable refill to avoid conflicts.
         if (offset > 0) return;
 
-        const REFILL_THRESHOLD = PAGE_SIZE + 2;
+        const REFILL_THRESHOLD = PAGE_SIZE - 2;
         const visibleCount = storyBuffer.filter(s => !hiddenStories.has(s.id)).length;
         if (!fetchingMore && hasMore && visibleCount < REFILL_THRESHOLD && storyBuffer.length > 0) {
             setBufferOffset(storyBuffer.length);
@@ -460,7 +465,7 @@ export function useAppState() {
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         // Setters
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
-        setCurrentView, setReadingQueue, setIsAdminModalOpen, setHighlightedStoryId,
+        setCurrentView, setReadingQueue, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         // Handlers
         handleRefresh, toggleTheme, closeTab, setReaderTab, handleHideStory,
         handleToggleQueue, handleStorySelect, handleToggleSave,

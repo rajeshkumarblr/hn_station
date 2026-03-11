@@ -32,7 +32,6 @@ interface StoryCardProps {
     isEven?: boolean;
     topicTextClass?: string | null;
     titleColorStyle?: string | null; // inline CSS color for the title
-    onHighlight?: (id: number) => void;
     activeTopics?: string[];
 }
 
@@ -82,7 +81,7 @@ export function getTagColor(tag: string) {
 export function StoryCard({
     story, index, onSelect, onToggleSave, onHide, onQueueToggle, onOpenInTab,
     isSelected, isHighlighted, isRead, isQueued, isEven,
-    topicTextClass, titleColorStyle, onHighlight, activeTopics
+    topicTextClass, titleColorStyle, activeTopics
 }: StoryCardProps) {
     let domain = '';
     try {
@@ -146,9 +145,8 @@ export function StoryCard({
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all py-3.5 px-4 flex flex-col justify-center relative border-b border-slate-100 dark:border-slate-800 ${activeBg}`}
+            className={`group transition-all flex-1 pt-2 px-4 flex flex-col justify-start relative border-b border-slate-100 dark:border-slate-800 ${activeBg}`}
             onClick={() => onSelect && onSelect(story.id)}
-            onMouseEnter={() => onHighlight && onHighlight(story.id)}
             onContextMenu={handleContextMenu}
         >
             {/* Action Buttons Container - Top Right */}
@@ -209,7 +207,7 @@ export function StoryCard({
             </div>
 
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
-                <h3 className="text-[14px] leading-snug mb-0.5 font-semibold whitespace-normal transition-all duration-200">
+                <h3 className="text-[14px] leading-snug mb-0 font-semibold whitespace-normal transition-all duration-200">
                     {displayRank && (
                         <span className="text-slate-400 dark:text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
                             {displayRank}.
@@ -240,7 +238,7 @@ export function StoryCard({
 
                 {/* Details Row - Visible on selection OR hover */}
                 {/* We use grid/height transition for smooth expansion effect on hover, or just simple block display for now */}
-                <div className="overflow-hidden transition-all duration-200 ease-in-out mt-1 opacity-100 max-h-20">
+                <div className="overflow-hidden transition-all duration-200 ease-in-out mt-0.5 opacity-100 max-h-20">
                     <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-0.5">
                         {domain && (
                             <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-500">

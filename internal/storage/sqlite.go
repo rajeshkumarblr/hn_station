@@ -194,6 +194,16 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 		whereClause += " AND is_hidden = 0"
 	}
 
+	if len(topics) > 0 {
+		var topicClauses []string
+		for _, t := range topics {
+			pattern := "%" + strings.ToLower(t) + "%"
+			topicClauses = append(topicClauses, "(LOWER(title) LIKE ? OR LOWER(topics) LIKE ?)")
+			args = append(args, pattern, pattern)
+		}
+		whereClause += " AND (" + strings.Join(topicClauses, " OR ") + ")"
+	}
+
 	// Build ORDER BY
 	orderBy := "hn_rank ASC NULLS LAST"
 	switch sortStrategy {
@@ -229,24 +239,6 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 		if err != nil {
 			return nil, 0, err
 		}
-
-		// Client-side topic filtering (SQLite doesn't have tsquery)
-		if len(topics) > 0 {
-			matched := false
-			storyTopicsLower := strings.ToLower(strings.Join(story.Topics, " "))
-			titleLower := strings.ToLower(story.Title)
-			for _, t := range topics {
-				tl := strings.ToLower(t)
-				if strings.Contains(storyTopicsLower, tl) || strings.Contains(titleLower, tl) {
-					matched = true
-					break
-				}
-			}
-			if !matched {
-				continue
-			}
-		}
-
 		stories = append(stories, story)
 	}
 	return stories, total, nil

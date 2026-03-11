@@ -316,7 +316,7 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 
-	limit := 20
+	limit := 10
 	offset := 0
 
 	if limitStr != "" {
