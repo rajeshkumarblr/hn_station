@@ -94,7 +94,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-black tracking-tight text-slate-800 dark:text-slate-100 uppercase">HN Station</span>
-                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60">v4.37</span>
+                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60">v4.38</span>
                         </div>
                     </div>
 
