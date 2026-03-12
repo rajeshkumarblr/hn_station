@@ -333,6 +333,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <FilterSidebar
                                 activeTopics={activeTopics}
                                 setActiveTopics={setActiveTopics}
+                                disabledTopics={app.disabledTopics}
+                                setDisabledTopics={app.setDisabledTopics}
                                 getQueuedCount={() => readingQueue.length}
                                 highlightedStory={highlightedStory}
                             />

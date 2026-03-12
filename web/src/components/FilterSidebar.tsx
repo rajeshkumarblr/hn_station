@@ -6,8 +6,10 @@ import ReactMarkdown from 'react-markdown';
 interface FilterSidebarProps {
     activeTopics: string[];
     setActiveTopics: React.Dispatch<React.SetStateAction<string[]>>;
+    disabledTopics: string[];
+    setDisabledTopics: React.Dispatch<React.SetStateAction<string[]>>;
     getQueuedCount: () => number;
-    highlightedStory?: Story | null;  // The hovered/selected story for summary display
+    highlightedStory?: Story | null;
 }
 
 
@@ -15,6 +17,8 @@ interface FilterSidebarProps {
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     activeTopics,
     setActiveTopics,
+    disabledTopics,
+    setDisabledTopics,
     getQueuedCount,
     highlightedStory,
 }) => {
@@ -31,8 +35,13 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         }
     };
 
-    const toggleTopic = (topic: string) => {
-        setActiveTopics(prev => prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]);
+    const toggleTopicEnabled = (topic: string) => {
+        setDisabledTopics(prev => prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]);
+    };
+
+    const removeTopic = (topic: string) => {
+        setActiveTopics(prev => prev.filter(t => t !== topic));
+        setDisabledTopics(prev => prev.filter(t => t !== topic));
     };
 
     const summary = highlightedStory?.summary ?? null;
@@ -71,7 +80,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Topic Search</h3>
                         {activeTopics.length > 0 && (
                             <button
-                                onClick={() => setActiveTopics([])}
+                                onClick={() => { setActiveTopics([]); setDisabledTopics([]); }}
                                 className="text-[10px] font-bold text-red-500 hover:text-red-400 uppercase tracking-tighter transition-colors"
                             >
                                 #clear all
@@ -91,16 +100,27 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                     </div>
 
                     <div className="flex flex-wrap gap-2 min-h-[32px]">
-                        {activeTopics.map(topic => (
-                            <button
-                                key={topic}
-                                onClick={() => toggleTopic(topic)}
-                                className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-500/10 hover:bg-red-500/20 text-blue-500 hover:text-red-500 border border-blue-500/30 hover:border-red-500/50 text-[11px] font-bold transition-all group animate-in fade-in zoom-in duration-200"
-                            >
-                                #{topic}
-                                <X size={10} className="opacity-60 group-hover:opacity-100" />
-                            </button>
-                        ))}
+                        {activeTopics.map(topic => {
+                            const isDisabled = disabledTopics.includes(topic);
+                            return (
+                                <button
+                                    key={topic}
+                                    onClick={() => toggleTopicEnabled(topic)}
+                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all group animate-in fade-in zoom-in duration-200 border ${isDisabled
+                                        ? 'bg-slate-200/50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 opacity-60'
+                                        : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 border-blue-500/30 hover:border-blue-500/50 font-bold'
+                                        }`}
+                                >
+                                    <span className={isDisabled ? 'line-through decoration-slate-400/50' : ''}>#{topic}</span>
+                                    <div
+                                        onClick={(e) => { e.stopPropagation(); removeTopic(topic); }}
+                                        className="p-0.5 rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors"
+                                    >
+                                        <X size={10} className="opacity-60 group-hover:opacity-100" />
+                                    </div>
+                                </button>
+                            );
+                        })}
                         {activeTopics.length === 0 && (
                             <p className="text-[11px] text-slate-400 italic py-1">No active tags. Type above to add.</p>
                         )}
