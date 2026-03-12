@@ -84,10 +84,22 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             {/* ─── Zen Header ─── */}
             <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
             {/* -webkit-app-region:drag makes the header the native Electron drag handle */}
-            <header className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-5 flex-shrink-0 z-50 h-[76px] relative" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-                <div className="flex items-center h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-                    {/* Left — Nav Tabs */}
-                    <nav className="h-full flex items-center gap-6 flex-1">
+            <header className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-5 flex-shrink-0 z-50 h-[56px] relative" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
+                <div className="flex items-center h-full gap-8" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+
+                    {/* Brand — Left */}
+                    <div className="flex items-center gap-3 select-none flex-shrink-0">
+                        <div className="w-6 h-6 bg-[#ff6600] flex items-center justify-center rounded-sm">
+                            <span className="text-white font-black text-xs">HN</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-black tracking-tight text-slate-800 dark:text-slate-100 uppercase">HN Station</span>
+                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60">v4.36</span>
+                        </div>
+                    </div>
+
+                    {/* Nav Tabs — Inline */}
+                    <nav className="h-full flex items-center gap-6">
                         {MODES.map((m, i) => {
                             const isActive = mode === m.key;
                             return (
@@ -99,9 +111,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         else { setMode(m.key as any); setOffset?.(0); }
                                         setCurrentView('feed');
                                     }}
-                                    className={`h-full flex items-center gap-1.5 text-sm font-medium border-b-2 transition-all outline-none ${isActive
-                                        ? 'text-blue-600 dark:text-blue-400 border-orange-500 pb-3 mt-3'
-                                        : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200 hover:border-b-2 hover:border-slate-300 dark:hover:border-slate-700'
+                                    className={`h-full flex items-center text-sm font-bold transition-all outline-none border-b-2 ${isActive
+                                        ? 'text-blue-600 dark:text-blue-400 border-blue-500'
+                                        : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
                                         }`}
                                 >
                                     {m.label}
@@ -110,17 +122,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         })}
                     </nav>
 
-                    {/* Center — Brand */}
-                    <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none h-full py-1 z-10 w-full max-w-[600px]">
-                        <div className="flex items-center gap-2 pointer-events-auto">
-                            <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 select-none pointer-events-none">
-                                <span className="text-sm font-black tracking-tighter text-slate-800 dark:text-slate-100 uppercase">HN Station</span>
-                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/30">v4.35</span>
-                                {app.apiBase && <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 lowercase opacity-60 ml-1">{app.apiBase.replace('http://', '')}</span>}
-                            </div>
-                        </div>
+                    <div className="flex-1 min-w-0">
                         {currentView === 'reader' && (
-                            <div id="reader-controls-portal" className="flex items-center mt-1.5 pointer-events-auto"></div>
+                            <div id="reader-controls-portal" className="flex items-center"></div>
                         )}
                     </div>
 
@@ -270,7 +274,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </div>
 
                                 {/* Pagination Controls Fixed at Bottom */}
-                                {activeTopics.length === 0 && !loading && (
+                                {totalStories > PAGE_SIZE && !loading && (
                                     <div className="shrink-0 w-full bg-slate-900 border-t border-slate-700/50 flex justify-center mt-auto shadow-[0_-4px_12px_rgba(0,0,0,0.2)]">
                                         <div className="w-full max-w-none flex justify-center items-center px-6 py-4 gap-4">
                                             <button
