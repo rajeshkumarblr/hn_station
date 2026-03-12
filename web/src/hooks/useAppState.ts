@@ -89,6 +89,13 @@ export function useAppState() {
     const [mode, setMode] = useState<ModeKey>('default');
     const [offset, setOffset] = useState(0);
     const [activeTopics, setActiveTopics] = useState<string[]>(loadTopicChips);
+    const [disabledTopics, setDisabledTopics] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem('hn_disabled_topics');
+            if (saved) return JSON.parse(saved);
+        } catch { }
+        return [];
+    });
     const [totalStories, setTotalStories] = useState(0);
     const [refreshKey, setRefreshKey] = useState(0);
 
@@ -177,11 +184,16 @@ export function useAppState() {
     }, [theme]);
 
     useEffect(() => { saveTopicChips(activeTopics); }, [activeTopics]);
+    useEffect(() => {
+        try {
+            localStorage.setItem('hn_disabled_topics', JSON.stringify(disabledTopics));
+        } catch { }
+    }, [disabledTopics]);
 
     // Reset offset when search topics change
     useEffect(() => {
         setOffset(0);
-    }, [activeTopics]);
+    }, [activeTopics, disabledTopics]);
 
     useEffect(() => {
         try {
@@ -357,13 +369,15 @@ export function useAppState() {
         if (mode === 'saved') return `${apiBase}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
         let url = `${apiBase}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
         if (showHidden) url += `&show_hidden=true`;
-        if (activeTopics.length > 0) {
-            activeTopics.forEach(t => {
+
+        const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
+        if (enabledTopics.length > 0) {
+            enabledTopics.forEach(t => {
                 url += `&topic=${encodeURIComponent(t)}`;
             });
         }
         return url;
-    }, [mode, showHidden, apiBase, activeTopics]);
+    }, [mode, showHidden, apiBase, activeTopics, disabledTopics]);
 
     useEffect(() => {
         setLoading(true);
@@ -371,7 +385,7 @@ export function useAppState() {
         setHasMore(true);
         setStoryBuffer([]);
         setBufferOffset(0);
-    }, [mode, refreshKey, showHidden, activeTopics]);
+    }, [mode, refreshKey, showHidden, activeTopics, disabledTopics]);
 
     useEffect(() => {
         if (bufferOffset === 0) return;
@@ -424,7 +438,7 @@ export function useAppState() {
                 setError(err.message);
                 setLoading(false);
             });
-    }, [mode, refreshKey, showHidden, offset, apiBase, activeTopics]);
+    }, [mode, refreshKey, showHidden, offset, apiBase, activeTopics, disabledTopics]);
 
     useEffect(() => {
         // Only trigger the "refill" logic if we are on the first page (offset 0).
@@ -461,7 +475,7 @@ export function useAppState() {
 
     return {
         // State
-        storyBuffer, loading, error, mode, activeTopics, totalStories,
+        storyBuffer, loading, error, mode, activeTopics, disabledTopics, totalStories,
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
         tabs, activeTabId, showHidden,
         isSettingsOpen, currentView, readingQueue, isAdminModalOpen, user,
@@ -471,6 +485,7 @@ export function useAppState() {
         // Setters
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setReadingQueue, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
+        setDisabledTopics,
         // Handlers
         handleRefresh, toggleTheme, closeTab, setReaderTab, handleHideStory,
         handleToggleQueue, handleStorySelect, handleToggleSave,
