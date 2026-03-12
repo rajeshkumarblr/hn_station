@@ -10,8 +10,20 @@ export function useGlobalKeyboardNav(
             if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
 
             // --- Feed Keyboard Navigation ---
-            if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key) && app.currentView === 'feed') {
+            if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'].includes(e.key) && app.currentView === 'feed') {
                 e.preventDefault();
+
+                // Handle Pagination Keys
+                if (e.key === 'PageDown' || e.key === 'PageUp') {
+                    const PAGE_SIZE = 10;
+                    if (e.key === 'PageDown' && app.hasMore) {
+                        app.setOffset?.(app.offset + PAGE_SIZE);
+                    } else if (e.key === 'PageUp' && app.offset > 0) {
+                        app.setOffset?.(Math.max(0, app.offset - PAGE_SIZE));
+                    }
+                    return;
+                }
+
                 const visibleStories = app.stories.filter(s => app.showHidden || (!app.hiddenStories.has(s.id) && !s.is_hidden));
                 if (visibleStories.length === 0) return;
 

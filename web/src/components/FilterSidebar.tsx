@@ -21,13 +21,16 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     const [inputValue, setInputValue] = useState('');
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && inputValue.trim()) {
+        if (e.key === 'Enter') {
             const newTopic = inputValue.trim();
-            setActiveTopics([newTopic]);
+            if (newTopic) {
+                setActiveTopics([newTopic]);
+            } else {
+                setActiveTopics([]);
+            }
             setInputValue('');
         }
     };
-
     const summary = highlightedStory?.summary ?? null;
     const hasSummary = summary && summary.trim().length > 0;
 

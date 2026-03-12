@@ -16,6 +16,11 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
     ? path.join(process.env.APP_ROOT, 'public')
     : RENDERER_DIST;
 
+// v4.33: Set App User Model ID early for correct Windows Taskbar grouping/pinning
+if (process.platform === 'win32' || process.env.WSL_DISTRO_NAME) {
+    app.setAppUserModelId('com.hnstation.app.v2');
+}
+
 let win: BrowserWindow | null = null;
 let localBackend: ChildProcess | null = null;
 let localApiPort: number | null = null;
@@ -118,7 +123,7 @@ function createWindow() {
         show: false,
         frame: false,
         backgroundColor: '#0f172a', // Prevents white flashes
-        icon: path.join(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png'),
+        icon: path.resolve(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png'),
         webPreferences: {
             webviewTag: true,
             preload: path.join(__dirname, 'preload.mjs'),
@@ -154,18 +159,26 @@ function createWindow() {
             }, 300);
 
             // v4.20 Deep Debug: Open DevTools in DETACHED window so they are visible even if win is white
-            if (VITE_DEV_SERVER_URL) {
-                win.webContents.openDevTools({ mode: 'detach' });
-            }
+            // if (VITE_DEV_SERVER_URL) {
+            //     win.webContents.openDevTools({ mode: 'detach' });
+            // }
         }
     });
 
     win.setMenu(null);
 
     // Icon
-    const iconPath = path.join(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png');
+    const iconPath = path.resolve(process.env.VITE_PUBLIC!, process.platform === 'win32' ? 'hn.ico' : 'hn_256.png');
+    console.log(`[main] Loading icon from: ${iconPath}`);
+    if (!fs.existsSync(iconPath)) {
+        console.warn(`[main] Icon NOT found at: ${iconPath}`);
+    }
     const appIcon = nativeImage.createFromPath(iconPath);
-    if (!appIcon.isEmpty()) win.setIcon(appIcon);
+    if (!appIcon.isEmpty()) {
+        win.setIcon(appIcon);
+    } else {
+        console.warn(`[main] Failed to create nativeImage from icon path`);
+    }
 
     // Lock window title (prevent Chromium '[WARN:COPY MODE]' override)
     win.setTitle('HN Station');

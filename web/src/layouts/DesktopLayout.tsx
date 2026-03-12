@@ -222,8 +222,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 {currentView === 'feed' ? (
                     <main className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-950 flex focus:outline-none" tabIndex={-1}>
                         <div className="flex w-full h-full relative">
-                            <div className="flex-1 flex flex-col h-full pt-0 pb-0 px-4 md:px-6 overflow-hidden ml-4 md:ml-8">
-                                <div className="flex-1 flex flex-col h-full max-w-7xl">
+                            <div className="flex-1 flex flex-col h-full overflow-hidden">
+                                <div className="flex-1 flex flex-col h-full w-full">
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
                                         <div className="flex-1 flex flex-col h-full gap-0 overflow-y-auto custom-scrollbar">
@@ -287,51 +287,46 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                                 {/* Pagination Controls Fixed at Bottom */}
                                 {activeTopics.length === 0 && !loading && (
-                                    <div className="shrink-0 w-full bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800/60 flex justify-center mt-auto">
-                                        <div className="w-full max-w-4xl flex justify-center items-center px-6 py-4 gap-2">
+                                    <div className="shrink-0 w-full bg-slate-900 border-t border-slate-700/50 flex justify-center mt-auto shadow-[0_-4px_12px_rgba(0,0,0,0.2)]">
+                                        <div className="w-full max-w-none flex justify-center items-center px-6 py-4 gap-4">
                                             <button
                                                 onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))}
                                                 disabled={offset === 0}
-                                                className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors"
+                                                className="px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg text-slate-400 hover:bg-slate-800 disabled:opacity-20 transition-all border border-slate-700/50"
                                             >
                                                 Prev
                                             </button>
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-2">
                                                 {(() => {
                                                     const totalPages = Math.ceil((totalStories || 0) / PAGE_SIZE);
-                                                    const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
-                                                    const pages = [];
 
-                                                    // Logic for 1, 2, 3... lastPage
-                                                    if (totalPages <= 7) {
-                                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                                    } else {
-                                                        pages.push(1);
-                                                        if (currentPage > 3) pages.push('...');
+                                                    // User requested: 1, 2, 3, 4, 5 ... <last page>
+                                                    const displayPages: (number | string)[] = [];
+                                                    const maxSequence = 5;
 
-                                                        const start = Math.max(2, currentPage - 1);
-                                                        const end = Math.min(totalPages - 1, currentPage + 1);
-
-                                                        for (let i = start; i <= end; i++) {
-                                                            if (!pages.includes(i)) pages.push(i);
-                                                        }
-
-                                                        if (currentPage < totalPages - 2) pages.push('...');
-                                                        if (!pages.includes(totalPages)) pages.push(totalPages);
+                                                    for (let i = 1; i <= Math.min(maxSequence, totalPages); i++) {
+                                                        displayPages.push(i);
                                                     }
 
-                                                    return pages.map((p, idx) => {
-                                                        if (p === '...') return <span key={`dots-${idx}`} className="px-2 text-slate-500 font-bold">...</span>;
+                                                    if (totalPages > maxSequence) {
+                                                        if (totalPages > maxSequence + 1) {
+                                                            displayPages.push('...');
+                                                        }
+                                                        displayPages.push(totalPages);
+                                                    }
+
+                                                    return displayPages.map((p, idx) => {
+                                                        if (p === '...') return <span key={`dots-${idx}`} className="px-3 text-slate-500 font-black text-lg select-none">···</span>;
 
                                                         const pageOffset = (Number(p) - 1) * PAGE_SIZE;
                                                         const isActive = offset === pageOffset;
                                                         return (
                                                             <button
-                                                                key={p}
+                                                                key={`page-${p}`}
                                                                 onClick={() => setOffset?.(pageOffset)}
-                                                                className={`w-8 h-8 flex items-center justify-center rounded-md text-sm font-bold transition-all ${isActive
-                                                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-110'
-                                                                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                                                className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-black transition-all duration-300 ${isActive
+                                                                    ? 'bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-110 border-2 border-blue-400/50'
+                                                                    : 'text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-700/30'
                                                                     }`}
                                                             >
                                                                 {p}
@@ -343,7 +338,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             <button
                                                 onClick={() => setOffset?.(offset + PAGE_SIZE)}
                                                 disabled={!hasMore}
-                                                className="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors"
+                                                className="px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg text-slate-400 hover:bg-slate-800 disabled:opacity-20 transition-all border border-slate-700/50"
                                             >
                                                 Next
                                             </button>

@@ -178,6 +178,11 @@ export function useAppState() {
 
     useEffect(() => { saveTopicChips(activeTopics); }, [activeTopics]);
 
+    // Reset offset when search topics change
+    useEffect(() => {
+        setOffset(0);
+    }, [activeTopics]);
+
     useEffect(() => {
         try {
             if (tabs.length === 0) {
@@ -366,7 +371,7 @@ export function useAppState() {
         setHasMore(true);
         setStoryBuffer([]);
         setBufferOffset(0);
-    }, [mode, refreshKey, showHidden]);
+    }, [mode, refreshKey, showHidden, activeTopics]);
 
     useEffect(() => {
         if (bufferOffset === 0) return;
@@ -419,7 +424,7 @@ export function useAppState() {
                 setError(err.message);
                 setLoading(false);
             });
-    }, [mode, refreshKey, showHidden, offset, apiBase]);
+    }, [mode, refreshKey, showHidden, offset, apiBase, activeTopics]);
 
     useEffect(() => {
         // Only trigger the "refill" logic if we are on the first page (offset 0).
