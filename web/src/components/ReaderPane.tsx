@@ -57,7 +57,6 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
     const [isCopied, setIsCopied] = useState(false);
     const [showSummary, setShowSummary] = useState(false);
     const [userManuallyToggledSummary, setUserManuallyToggledSummary] = useState(false);
-    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
     // Self-managed comments state
     const [comments, setComments] = useState<any[]>([]);
@@ -82,9 +81,6 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
 
     const [summarizing, setSummarizing] = useState(false);
 
-    useEffect(() => {
-        setPortalTarget(document.getElementById('reader-controls-portal'));
-    }, [activeTab, isActive, summarizing]);
 
     const handleSummarize = async () => {
         setSummarizing(true);
@@ -158,26 +154,27 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
     return (
         <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] border-t border-slate-200 dark:border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)]">
 
-            {/* Global Action Bar Portal */}
-            {isActive && portalTarget && createPortal(
-                <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
-                    {/* Compact Mode Switcher */}
-                    <div className="flex bg-slate-800/50 p-0.5 rounded-md mr-1 border border-slate-700/30">
-                        <button onClick={() => handleTabChange('article')} className={`px-2 py-1 text-[10px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'article' ? 'bg-[#1e293b] text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`} title="Article">Art</button>
-                        <button onClick={() => handleTabChange('discussion')} className={`px-2 py-1 text-[10px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'discussion' ? 'bg-[#1e293b] text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`} title="Discussion">Disc</button>
-                        <button onClick={() => handleTabChange('split')} className={`px-2 py-1 text-[10px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'split' ? 'bg-[#1e293b] text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`} title="Split View">Split</button>
-                    </div>
+            {/* Mode Switcher Portal (Targets Left of Branding) */}
+            {isActive && createPortal(
+                <div className="flex bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-md border border-slate-200 dark:border-slate-700/50 backdrop-blur-sm animate-in fade-in slide-in-from-left-1 duration-300">
+                    <button onClick={() => handleTabChange('article')} className={`px-2 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'article' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-400'}`} title="Article">Art</button>
+                    <button onClick={() => handleTabChange('discussion')} className={`px-2 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'discussion' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-400'}`} title="Discussion">Disc</button>
+                    <button onClick={() => handleTabChange('split')} className={`px-2 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'split' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-400'}`} title="Split View">Split</button>
+                </div>,
+                document.getElementById('reader-mode-portal') || document.body
+            )}
 
-                    <div className="h-4 w-px bg-slate-700/50 mx-1"></div>
-
-                    <a href={storyUrl} target="_blank" rel="noreferrer" className="p-1.5 text-slate-400 hover:text-blue-400 transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-md" title="Open in new tab"><ExternalLink size={14} /></a>
-                    <button onClick={handleCopyLink} className={`p-1.5 transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-md ${isCopied ? 'text-green-400' : 'text-slate-400 hover:text-blue-400'}`} title={isCopied ? 'Copied!' : 'Copy Link'}>{isCopied ? <Check size={14} /> : <Link size={14} />}</button>
+            {/* Action Bar Portal (Targets Right of Branding) */}
+            {isActive && createPortal(
+                <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-right-1 duration-200">
+                    <a href={storyUrl} target="_blank" rel="noreferrer" className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors" title="Open in new tab"><ExternalLink size={14} /></a>
+                    <button onClick={handleCopyLink} className={`p-1 rounded-md transition-all ${isCopied ? 'text-green-500' : 'text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800'}`} title={isCopied ? 'Copied!' : 'Copy Link'}>{isCopied ? <Check size={14} /> : <Link size={14} />}</button>
 
                     {onToggleSave && (
                         <button onClick={() => {
                             const nextSaved = !story.is_saved;
                             onToggleSave(story.id, nextSaved);
-                        }} className={`p-1.5 transition-colors bg-slate-800/50 hover:bg-slate-700/50 rounded-md ${story.is_saved ? 'text-yellow-500' : 'text-slate-400 hover:text-yellow-400'}`} title={story.is_saved ? 'Unbookmark' : 'Bookmark'}>
+                        }} className={`p-1 rounded-md transition-all ${story.is_saved ? 'text-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10' : 'text-slate-400 hover:text-yellow-500 hover:bg-yellow-50/50'}`} title={story.is_saved ? 'Unbookmark' : 'Bookmark'}>
                             <Bookmark size={14} fill={story.is_saved ? "currentColor" : "none"} />
                         </button>
                     )}
@@ -188,7 +185,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                                 setShowSummary(!showSummary);
                                 setUserManuallyToggledSummary(!showSummary);
                             }}
-                            className={`p-1.5 transition-colors rounded-md ${userManuallyToggledSummary && showSummary ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800/50 text-slate-400 hover:text-blue-400 hover:bg-slate-700/50'}`}
+                            className={`p-1 rounded-md transition-all ${userManuallyToggledSummary && showSummary ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50/50'}`}
                             title={userManuallyToggledSummary && showSummary ? "Unpin AI Summary" : "Pin AI Summary"}
                         >
                             <Sparkles size={14} className={userManuallyToggledSummary && showSummary ? 'fill-current' : ''} />
@@ -197,25 +194,25 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                         <button
                             onClick={handleSummarize}
                             disabled={summarizing}
-                            className={`p-1.5 transition-colors rounded-md bg-slate-800/50 text-slate-400 hover:text-orange-400 hover:bg-slate-700/50 disabled:opacity-50`}
+                            className={`p-1 rounded-md transition-all text-slate-400 hover:text-orange-500 hover:bg-orange-50/50 disabled:opacity-50`}
                             title="Generate AI Summary"
                         >
                             <Sparkles size={14} className={summarizing ? 'animate-pulse text-orange-400' : ''} />
                         </button>
                     )}
 
-                    <div className="h-4 w-px bg-slate-700/50 mx-1"></div>
+                    <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
 
                     {/* Skip/Delete Button */}
                     <button
                         onClick={() => onHide?.(story.id)}
-                        className="p-1 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 transition-colors bg-slate-800/50 rounded-md"
+                        className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50/50 transition-colors rounded-md"
                         title="Skip / Hide this story"
                     >
                         <X size={14} />
                     </button>
                 </div>,
-                portalTarget
+                document.getElementById('reader-actions-portal') || document.body
             )}
 
             {/* Content Container: Article/Discussion + optional right Summary Sidebar */}
