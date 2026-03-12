@@ -227,22 +227,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
                                         <div className="flex-1 flex flex-col h-full gap-0 overflow-y-auto custom-scrollbar">
-                                            {activeTopics.length > 0 && (
-                                                <div className="flex items-center justify-between px-4 py-2 bg-blue-50/50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800/50 flex-shrink-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <Search size={12} className="text-blue-500" />
-                                                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                                                            Showing results for: <span className="text-blue-600 dark:text-blue-400 font-bold">{activeTopics.join(', ')}</span>
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => setActiveTopics([])}
-                                                        className="text-xs font-bold text-blue-500 hover:text-red-500 hover:underline transition-colors flex items-center gap-1"
-                                                    >
-                                                        <X size={12} /> Clear search
-                                                    </button>
-                                                </div>
-                                            )}
                                             {(() => {
                                                 const unfiltered = stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden));
                                                 const filtered = unfiltered.slice(0, PAGE_SIZE);

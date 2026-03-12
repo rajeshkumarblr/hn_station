@@ -17,6 +17,7 @@
     "build": "tsc -b && vite build",
     "build:electron": "tsc -b && vite build && electron-builder",
     "build:win": "tsc -b && vite build && electron-builder --win",
+    "build:dir": "tsc -b && vite build && electron-builder --win --dir",
     "build:linux": "tsc -b && vite build && electron-builder --linux",
     "lint": "eslint .",
     "preview": "vite preview"

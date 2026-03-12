@@ -24,103 +24,89 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         if (e.key === 'Enter') {
             const newTopic = inputValue.trim();
             if (newTopic) {
-                setActiveTopics([newTopic]);
-            } else {
-                setActiveTopics([]);
+                // ADD to activeTopics if not already there
+                setActiveTopics(prev => prev.includes(newTopic) ? prev : [...prev, newTopic]);
             }
             setInputValue('');
         }
     };
+
+    const toggleTopic = (topic: string) => {
+        setActiveTopics(prev => prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]);
+    };
+
     const summary = highlightedStory?.summary ?? null;
     const hasSummary = summary && summary.trim().length > 0;
 
     return (
         <div className="w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
 
-            {/* ── AI Summary (Now at Top) ────────────────────────────────────────────── */}
-            <div className="h-[60%] flex-shrink-0 overflow-hidden flex flex-col">
+            {/* ── AI Summary (Top) ────────────────────────────────────────────── */}
+            <div className="h-[55%] flex-shrink-0 overflow-hidden flex flex-col">
                 <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
                     <Sparkles size={12} className="text-orange-400" />
                     <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Summary</h3>
-                    {highlightedStory && (
-                        <span className="ml-auto text-[10px] text-slate-500 truncate max-w-[100px]" title={highlightedStory.title}>
-                            {highlightedStory.title.slice(0, 25)}{highlightedStory.title.length > 25 ? '…' : ''}
-                        </span>
-                    )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0
-                    [&::-webkit-scrollbar]:w-1.5
-                    [&::-webkit-scrollbar-track]:bg-transparent
-                    [&::-webkit-scrollbar-thumb]:bg-slate-200
-                    dark:[&::-webkit-scrollbar-thumb]:bg-slate-700
-                    [&::-webkit-scrollbar-thumb]:rounded-full">
+                <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
                     {hasSummary ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none
-                            prose-p:text-amber-500 dark:prose-p:text-amber-400
-                            prose-p:font-bold
-                            prose-li:text-amber-500 dark:prose-li:text-amber-400
-                            prose-li:font-bold
-                            prose-li:my-0.5
-                            prose-ul:my-1.5
-                            [&>ul]:space-y-0.5
-                            prose-li:marker:text-slate-400
-                            [&_li:nth-child(5n+1)]:text-orange-400
-                            [&_li:nth-child(5n+2)]:text-blue-400
-                            [&_li:nth-child(5n+3)]:text-emerald-400
-                            [&_li:nth-child(5n+4)]:text-purple-400
-                            [&_li:nth-child(5n+5)]:text-teal-400
-                            text-[13px] leading-relaxed">
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold">
                             <ReactMarkdown>{summary!}</ReactMarkdown>
-                        </div>
-                    ) : highlightedStory ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-8 opacity-60">
-                            <Sparkles size={20} className="text-slate-300 dark:text-slate-600" />
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-snug">
-                                No summary yet.<br />
-                                <span className="text-orange-400">Hover over a story</span> with a score &gt;10 to trigger generation.
-                            </p>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-8 opacity-60">
                             <Sparkles size={20} className="text-slate-300 dark:text-slate-600" />
                             <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                                Hover a story to see its AI summary
+                                {highlightedStory ? 'No summary yet' : 'Hover a story to see summary'}
                             </p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Topics / Tags (Now and Middle/Bottom) */}
-            <div className="h-[40%] border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
-                {/* Search Input */}
+            {/* ── Topics / Multi-Tag Search (Middle) ─────────────────────────────────── */}
+            <div className="flex-1 border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800/50 flex-shrink-0">
-                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Topic Search</h3>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Topic Search</h3>
+                        {activeTopics.length > 0 && (
+                            <button
+                                onClick={() => setActiveTopics([])}
+                                className="text-[10px] font-bold text-red-500 hover:underline uppercase tracking-tighter"
+                            >
+                                #clear
+                            </button>
+                        )}
+                    </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
                             type="text"
-                            placeholder="Search or add tags..."
+                            placeholder="Add tags..."
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-10 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:text-slate-200 placeholder:text-slate-400"
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:text-slate-200 placeholder:text-slate-400"
                         />
-                        {activeTopics.length > 0 && (
-                            <button
-                                onClick={() => setActiveTopics([])}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
-                                title="Clear Search"
-                            >
-                                <X size={16} />
-                            </button>
-                        )}
                     </div>
                 </div>
 
-                <div className="p-4 overflow-y-auto flex-1 hidden">
-                    {/* Page tags removed as per user request */}
+                <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+                    <div className="flex flex-wrap gap-2">
+                        {activeTopics.map(topic => (
+                            <button
+                                key={topic}
+                                onClick={() => toggleTopic(topic)}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 hover:bg-red-500/20 text-blue-500 hover:text-red-500 border border-blue-500/30 hover:border-red-500/50 text-[11px] font-bold transition-all group"
+                            >
+                                #{topic}
+                                <X size={10} className="opacity-60 group-hover:opacity-100" />
+                            </button>
+                        ))}
+                        {activeTopics.length === 0 && (
+                            <p className="text-[11px] text-slate-400 italic">No active tags. Use search to add some.</p>
+                        )}
+                    </div>
                 </div>
             </div>
 
