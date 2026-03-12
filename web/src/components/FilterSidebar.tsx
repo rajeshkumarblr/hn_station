@@ -59,7 +59,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
                 <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
                     {hasSummary ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold">
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold text-yellow-500/90 dark:text-yellow-400/90">
                             <ReactMarkdown>{summary!}</ReactMarkdown>
                         </div>
                     ) : (

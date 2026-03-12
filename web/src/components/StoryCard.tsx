@@ -219,8 +219,8 @@ export function StoryCard({
                     >
                         {/* Title */}
                         <span
-                            className={`hover:opacity-80 transition-opacity cursor-pointer font-bold mr-1.5 ${!titleColorStyle && topicTextClass ? topicTextClass : ''} ${!titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-500/80 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-200') : ''}`}
-                            style={titleColorStyle ? { color: titleColorStyle } : undefined}
+                            className={`hover:opacity-80 transition-opacity cursor-pointer font-bold mr-1.5 ${isHighlighted ? 'text-yellow-600 dark:text-yellow-400 font-black' : (!titleColorStyle && topicTextClass ? topicTextClass : '')} ${!isHighlighted && !titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-500/80 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-200') : ''}`}
+                            style={!isHighlighted && titleColorStyle ? { color: titleColorStyle } : undefined}
                         >
                             {story.title}
                         </span>
