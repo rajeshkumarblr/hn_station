@@ -94,7 +94,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-black tracking-tight text-slate-800 dark:text-slate-100 uppercase">HN Station</span>
-                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60">v4.36</span>
+                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60">v4.37</span>
                         </div>
                     </div>
 
@@ -259,7 +259,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                             className="basis-[10%] flex-shrink-0 flex flex-col transition-all duration-150 overflow-hidden"
                                                         >
                                                             <StoryCard
-                                                                story={story} index={index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
+                                                                story={story} index={offset + index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
                                                                 titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => setHighlightedStoryId(story.id)}
                                                                 onOpenInTab={(id, mode) => handleStorySelect(id, mode)}
                                                                 onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
