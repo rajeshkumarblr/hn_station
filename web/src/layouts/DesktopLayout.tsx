@@ -85,53 +85,50 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
             {/* -webkit-app-region:drag makes the header the native Electron drag handle */}
             <header className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-5 flex-shrink-0 z-50 h-[56px] relative" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-                <div className="flex items-center h-full gap-8" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                <div className="grid grid-cols-3 items-center h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
 
-                    {/* Brand — Left */}
-                    <div className="flex items-center gap-3 select-none flex-shrink-0">
-                        <div className="w-6 h-6 bg-[#ff6600] flex items-center justify-center rounded-sm">
-                            <span className="text-white font-black text-xs">HN</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-sm font-black tracking-tight text-slate-800 dark:text-slate-100 uppercase">HN Station</span>
-                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60">v4.38</span>
-                        </div>
-                    </div>
-
-                    {/* Nav Tabs — Inline */}
-                    <nav className="h-full flex items-center gap-6">
-                        {MODES.map((m, i) => {
-                            const isActive = mode === m.key;
-                            return (
-                                <button
-                                    key={m.key}
-                                    ref={el => modeButtonRefs.current[i] = el}
-                                    onClick={() => {
-                                        if (mode === m.key) handleRefresh();
-                                        else { setMode(m.key as any); setOffset?.(0); }
-                                        setCurrentView('feed');
-                                    }}
-                                    className={`h-full flex items-center text-sm font-bold transition-all outline-none border-b-2 ${isActive
-                                        ? 'text-blue-600 dark:text-blue-400 border-blue-500'
-                                        : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
-                                        }`}
-                                >
-                                    {m.label}
-                                </button>
-                            );
-                        })}
-                    </nav>
-
-                    <div className="flex-1 min-w-0">
+                    {/* Left Section: Menu & Reader Controls */}
+                    <div className="flex items-center gap-6 h-full">
+                        <nav className="h-full flex items-center gap-6">
+                            {MODES.map((m, i) => {
+                                const isActive = mode === m.key;
+                                return (
+                                    <button
+                                        key={m.key}
+                                        ref={el => modeButtonRefs.current[i] = el}
+                                        onClick={() => {
+                                            if (mode === m.key) handleRefresh();
+                                            else { setMode(m.key as any); setOffset?.(0); }
+                                            setCurrentView('feed');
+                                        }}
+                                        className={`h-full flex items-center text-xs font-bold transition-all outline-none border-b-2 ${isActive
+                                            ? 'text-blue-600 dark:text-blue-400 border-blue-500'
+                                            : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+                                            }`}
+                                    >
+                                        {m.label}
+                                    </button>
+                                );
+                            })}
+                        </nav>
                         {currentView === 'reader' && (
                             <div id="reader-controls-portal" className="flex items-center"></div>
                         )}
                     </div>
 
-                    <div className="flex-1 min-w-0 flex items-center"></div>
+                    {/* Center Section: Branding (Prominent) */}
+                    <div className="flex items-center justify-center gap-3 select-none flex-shrink-0">
+                        <div className="w-6 h-6 bg-[#ff6600] flex items-center justify-center rounded-sm">
+                            <span className="text-white font-black text-xs">HN</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-sm font-black tracking-tighter text-slate-800 dark:text-slate-100 uppercase">HN Station</span>
+                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">v4.39</span>
+                        </div>
+                    </div>
 
-                    {/* Right controls */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Right Section: App Controls */}
+                    <div className="flex items-center justify-end gap-1.5 shrink-0">
                         <button onClick={() => { handleRefresh(); setOffset?.(0); }} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400">
                             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                         </button>
@@ -199,25 +196,37 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 </div>
             </header>
 
-            {/* Global Tab Bar Container */}
+            {/* Global Tab Bar Container (VS Code Style) */}
             {tabs.length > 0 && (
-                <div className="flex bg-slate-200 dark:bg-slate-900 overflow-x-auto shadow-sm border-b border-slate-300 dark:border-slate-700 shrink-0">
+                <div className="flex bg-[#e8e8e8] dark:bg-[#1e1e1e] overflow-x-auto shadow-sm border-b border-slate-300 dark:border-slate-800 shrink-0">
                     <button
                         onClick={() => { setCurrentView('feed'); }}
-                        className={`flex flex-shrink-0 items-center gap-2 px-4 py-3 min-w-[100px] border-r border-slate-300 dark:border-slate-700 ${currentView === 'feed' ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 border-t-2 border-t-orange-500' : 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-300 border-t-2 border-t-transparent hover:bg-white dark:hover:bg-slate-800'}`}
+                        className={`flex flex-shrink-0 items-center gap-2 px-5 py-2.5 min-w-[120px] border-r border-slate-300 dark:border-slate-800 transition-colors ${currentView === 'feed'
+                            ? 'bg-white dark:bg-[#1e1e1e] text-blue-600 dark:text-blue-400 border-b-2 border-b-blue-500'
+                            : 'bg-[#dcdcdc] dark:bg-[#2d2d2d] text-slate-500 dark:text-slate-400 border-b-2 border-b-transparent hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
                     >
-                        <Home size={16} /> <span className="text-sm font-medium">Feed</span>
+                        <Home size={14} /> <span className="text-[13px] font-semibold tracking-tight uppercase">Feed</span>
                     </button>
-                    {tabs.map(t => (
-                        <button
-                            key={t.id}
-                            onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
-                            className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-3 max-w-[240px] border-r border-slate-300 dark:border-slate-700 relative group transition-all duration-200 ${currentView === 'reader' && activeTabId === t.id ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-300 border-t-2 border-t-orange-500' : 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-300 border-t-2 border-t-transparent hover:bg-white dark:hover:bg-slate-800'}`}
-                        >
-                            <span className="truncate flex-1 text-xs text-left font-medium select-none">{t.story.title}</span>
-                            <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className="p-1 rounded-md text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"><X size={12} /></div>
-                        </button>
-                    ))}
+                    {tabs.map(t => {
+                        const isActive = currentView === 'reader' && activeTabId === t.id;
+                        return (
+                            <button
+                                key={t.id}
+                                onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
+                                className={`flex flex-1 min-w-0 items-center gap-2 px-4 py-2.5 max-w-[260px] border-r border-slate-300 dark:border-slate-800 relative group transition-colors ${isActive
+                                    ? 'bg-white dark:bg-[#1e1e1e] text-blue-600 dark:text-blue-400 border-b-2 border-b-blue-500'
+                                    : 'bg-[#dcdcdc] dark:bg-[#2d2d2d] text-slate-500 dark:text-slate-400 border-b-2 border-b-transparent hover:bg-white/50 dark:hover:bg-slate-800/50'}`}
+                            >
+                                <span className={`truncate flex-1 text-[13px] text-left font-semibold select-none ${isActive ? 'opacity-100' : 'opacity-80'}`}>{t.story.title}</span>
+                                <div
+                                    onClick={(e) => { e.stopPropagation(); closeTab(t.id); }}
+                                    className={`p-1 rounded-md text-slate-400 hover:text-white hover:bg-red-500 transition-all flex-shrink-0 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                >
+                                    <X size={12} />
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
             )}
 

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppState } from './useAppState';
+import type { Story, ReaderTab } from '../types';
 
 export function useGlobalKeyboardNav(
     app: ReturnType<typeof useAppState>,
@@ -13,21 +14,29 @@ export function useGlobalKeyboardNav(
             if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'].includes(e.key) && app.currentView === 'feed') {
                 e.preventDefault();
 
-                // Handle Pagination Keys
-                if (e.key === 'PageDown' || e.key === 'PageUp') {
+                // Handle Pagination Keys (PageDown/PageUp or Ctrl+Home/Ctrl+End)
+                if (e.key === 'PageDown' || e.key === 'PageUp' || (e.ctrlKey && (e.key === 'Home' || e.key === 'End'))) {
                     const PAGE_SIZE = 10;
                     if (e.key === 'PageDown' && app.hasMore) {
                         app.setOffset?.(app.offset + PAGE_SIZE);
                     } else if (e.key === 'PageUp' && app.offset > 0) {
                         app.setOffset?.(Math.max(0, app.offset - PAGE_SIZE));
+                    } else if (e.ctrlKey && e.key === 'Home') {
+                        app.setOffset?.(0);
+                    } else if (e.ctrlKey && e.key === 'End') {
+                        const total = app.totalStories || 0;
+                        if (total > 0) {
+                            const lastPageOffset = Math.max(0, Math.floor((total - 1) / PAGE_SIZE) * PAGE_SIZE);
+                            app.setOffset?.(lastPageOffset);
+                        }
                     }
                     return;
                 }
 
-                const visibleStories = app.stories.filter(s => app.showHidden || (!app.hiddenStories.has(s.id) && !s.is_hidden));
+                const visibleStories = app.stories.filter((s: Story) => app.showHidden || (!app.hiddenStories.has(s.id) && !s.is_hidden));
                 if (visibleStories.length === 0) return;
 
-                let currentIndex = visibleStories.findIndex(s => s.id === app.highlightedStoryId);
+                let currentIndex = visibleStories.findIndex((s: Story) => s.id === app.highlightedStoryId);
 
                 if (e.key === 'ArrowDown') {
                     if (currentIndex === -1) currentIndex = 0;
@@ -70,7 +79,7 @@ export function useGlobalKeyboardNav(
                             app.handleStorySelect(app.tabs[app.tabs.length - 1].storyId);
                         }
                     } else {
-                        const idx = app.tabs.findIndex(t => t.id === app.activeTabId);
+                        const idx = app.tabs.findIndex((t: ReaderTab) => t.id === app.activeTabId);
                         if (idx > 0) {
                             app.handleStorySelect(app.tabs[idx - 1].storyId);
                         } else {
@@ -84,7 +93,7 @@ export function useGlobalKeyboardNav(
                             app.handleStorySelect(app.tabs[0].storyId);
                         }
                     } else {
-                        const idx = app.tabs.findIndex(t => t.id === app.activeTabId);
+                        const idx = app.tabs.findIndex((t: ReaderTab) => t.id === app.activeTabId);
                         if (idx !== -1 && idx < app.tabs.length - 1) {
                             app.handleStorySelect(app.tabs[idx + 1].storyId);
                         } else {
@@ -100,7 +109,7 @@ export function useGlobalKeyboardNav(
                 e.preventDefault();
                 if (!app.activeTabId) return;
 
-                const tab = app.tabs.find(t => t.id === app.activeTabId);
+                const tab = app.tabs.find((t: ReaderTab) => t.id === app.activeTabId);
                 if (!tab) return;
 
                 const modes: ('article' | 'split' | 'discussion')[] = ['article', 'split', 'discussion'];
@@ -122,7 +131,7 @@ export function useGlobalKeyboardNav(
                 e.preventDefault();
                 if (app.currentView !== 'reader' || !app.activeTabId) return;
 
-                const tab = app.tabs.find(t => t.id === app.activeTabId);
+                const tab = app.tabs.find((t: ReaderTab) => t.id === app.activeTabId);
                 if (!tab) return;
 
                 const order: ('article' | 'discussion' | 'split')[] = ['article', 'discussion', 'split'];

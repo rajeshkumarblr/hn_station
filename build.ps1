@@ -35,7 +35,7 @@ if ($backendNeedsBuild) {
     Write-Host "Backend is up to date." -ForegroundColor Green
 }
 
-$frontendNeedsBuild = Test-IsNewer "$ROOT\web\src" $FRONTEND_DIST -or (Test-Path "$ROOT\web\src\components\FilterSidebar.tsx" -and (Get-Item "$ROOT\web\src\components\FilterSidebar.tsx").LastWriteTime -gt (Get-Item $FRONTEND_DIST).LastWriteTime)
+$frontendNeedsBuild = Test-IsNewer "$ROOT\web\src" $FRONTEND_DIST -or ((Test-Path "$ROOT\web\src\components\FilterSidebar.tsx") -and (Get-Item "$ROOT\web\src\components\FilterSidebar.tsx").LastWriteTime -gt (Get-Item $FRONTEND_DIST).LastWriteTime)
 
 # We also check the main.ts for Electron changes
 $electronNeedsBuild = Test-IsNewer "$ROOT\web\electron\main.ts" $EXE_PATH
