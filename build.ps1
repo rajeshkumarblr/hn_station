@@ -5,7 +5,7 @@ param(
 $ROOT = $PSScriptRoot
 
 if ($BumpVersion) {
-    Write-Host "📈 Bumping version..." -ForegroundColor Yellow
+    Write-Host "Bumping version..." -ForegroundColor Yellow
     & ".\bump-version.ps1"
 }
 
@@ -38,10 +38,10 @@ if ($backendNeedsBuild) {
 $frontendNeedsBuild = Test-IsNewer "$ROOT\web\src" $FRONTEND_DIST -or (Test-Path "$ROOT\web\src\components\FilterSidebar.tsx" -and (Get-Item "$ROOT\web\src\components\FilterSidebar.tsx").LastWriteTime -gt (Get-Item $FRONTEND_DIST).LastWriteTime)
 
 # We also check the main.ts for Electron changes
-$electronNeedsBuild = Test-IsNewer "$ROOT\main.ts" $EXE_PATH
+$electronNeedsBuild = Test-IsNewer "$ROOT\web\electron\main.ts" $EXE_PATH
 
 if ($frontendNeedsBuild -or $electronNeedsBuild -or (-not (Test-Path $EXE_PATH))) {
-    Write-Host "Rebuilding Branded Executable (Frontend/Electron changes detected)..." -ForegroundColor Yellow
+    Write-Host "Rebuilding Branded Executable (Changes detected)..." -ForegroundColor Yellow
     pushd "$ROOT\web"
     # Ensure dist is fresh
     if (Test-Path "$ROOT\web\dist") { Remove-Item -Recurse -Force "$ROOT\web\dist" }
