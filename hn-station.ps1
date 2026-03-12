@@ -16,6 +16,10 @@ go build -o web\resources\hn-local.exe .\cmd\local
 Set-Location web
 
 if ($args -contains "-Build") {
+    Write-Host "Cleaning stale builds..." -ForegroundColor Yellow
+    if (Test-Path "web\dist") { Remove-Item "web\dist" -Recurse -Force }
+    if (Test-Path "web\dist-electron") { Remove-Item "web\dist-electron" -Recurse -Force }
+    
     Write-Host "Building branded executable (this may take a minute)..." -ForegroundColor Yellow
     npm run build:dir
     Write-Host "Done! Branded EXE created at: web\dist\win-unpacked\HN Station.exe" -ForegroundColor Green
