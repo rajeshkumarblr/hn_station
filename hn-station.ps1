@@ -1,10 +1,15 @@
-# hn-station.ps1 - Launcher for HN Station Local on Windows
-# Usage: .\hn-station.ps1
+param(
+    [switch]$BumpVersion
+)
 
 $ErrorActionPreference = "Stop"
 
 # Use the smart incremental builder
-& ".\build.ps1"
+if ($BumpVersion) {
+    & ".\build.ps1" -BumpVersion
+} else {
+    & ".\build.ps1"
+}
 
 $EXE_PATH = "web\dist\win-unpacked\HN Station.exe"
 
