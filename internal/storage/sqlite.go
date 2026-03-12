@@ -195,13 +195,11 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 	}
 
 	if len(topics) > 0 {
-		var topicClauses []string
 		for _, t := range topics {
 			pattern := "%" + strings.ToLower(t) + "%"
-			topicClauses = append(topicClauses, "(LOWER(title) LIKE ? OR LOWER(topics) LIKE ?)")
+			whereClause += " AND (LOWER(title) LIKE ? OR LOWER(topics) LIKE ?)"
 			args = append(args, pattern, pattern)
 		}
-		whereClause += " AND (" + strings.Join(topicClauses, " OR ") + ")"
 	}
 
 	// Build ORDER BY

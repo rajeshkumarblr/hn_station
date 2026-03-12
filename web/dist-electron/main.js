@@ -1,22 +1,3 @@
-<<<<<<< HEAD
-import { app as r, ipcMain as m, BrowserWindow as R, nativeImage as S, session as k } from "electron";
-import o from "node:path";
-import { fileURLToPath as v } from "node:url";
-import { spawn as x } from "node:child_process";
-import T from "node:fs";
-const b = o.dirname(v(import.meta.url));
-process.env.APP_ROOT = o.join(b, "..");
-const h = process.env.VITE_DEV_SERVER_URL, M = o.join(process.env.APP_ROOT, "dist-electron"), _ = o.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = h ? o.join(process.env.APP_ROOT, "public") : _;
-let e = null, i = null, d = null;
-r.setName("HN Station");
-r.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-function y() {
-  const a = process.platform === "win32" ? "hn-local.exe" : "hn-local", s = o.join(process.resourcesPath ?? "", a);
-  if (T.existsSync(s)) return s;
-  const t = o.join(process.env.APP_ROOT ?? o.join(b, ".."), "resources", a);
-  return T.existsSync(t) ? t : null;
-=======
 import { app, ipcMain, BrowserWindow, nativeImage, session } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,116 +9,94 @@ const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
-if (process.platform === "win32" || process.env.WSL_DISTRO_NAME) {
-  app.setAppUserModelId("com.hnstation.app.v2");
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.hnstation.app");
 }
 let win = null;
 let localBackend = null;
 let localApiPort = null;
 app.setName("HN Station");
 app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-if (process.platform === "win32") {
-  app.commandLine.appendSwitch("no-sandbox");
-  app.commandLine.appendSwitch("disable-gpu-sandbox");
->>>>>>> 347ac66 (Refine search refresh, layout expansion, pagination redesign, and add PageUp/PageDown navigation)
+function getLocalBinaryPath() {
+  const binaryName = process.platform === "win32" ? "hn-local.exe" : "hn-local";
+  const packaged = path.join(process.resourcesPath ?? "", binaryName);
+  if (fs.existsSync(packaged)) return packaged;
+  const dev = path.join(process.env.APP_ROOT ?? path.join(__dirname$1, ".."), "resources", binaryName);
+  if (fs.existsSync(dev)) return dev;
+  return null;
 }
-function L() {
-  return new Promise((a, s) => {
-    var u, w;
-    const t = y();
-    if (!t) {
-      s(new Error("hn-local binary not found — run: make build-local-linux"));
+function startLocalBackend() {
+  return new Promise((resolve, reject) => {
+    var _a, _b;
+    const binaryPath = getLocalBinaryPath();
+    if (!binaryPath) {
+      reject(new Error("hn-local binary not found — run: make build-local-linux"));
       return;
     }
-<<<<<<< HEAD
-    const c = o.join(r.getPath("userData"), "hn.db");
-    console.log(`[backend] Starting ${t} --db ${c}`), i = x(t, ["--port", "0", "--db", c], {
-=======
-    let dbPath = path.join(app.getPath("userData"), "hn.db");
-    if (process.platform === "win32") {
-      const appRoot = process.env.APP_ROOT || path.join(__dirname$1, "..");
-      let currentPath = appRoot;
-      for (let i = 0; i < 6; i++) {
-        const potentialWslDb = path.join(currentPath, ".config", "HN Station", "hn.db");
-        if (fs.existsSync(potentialWslDb)) {
-          dbPath = potentialWslDb;
-          console.log(`[backend] WSL Bridge detected! Using shared WSL DB: ${dbPath}`);
-          break;
-        }
-        const parent = path.dirname(currentPath);
-        if (parent === currentPath) break;
-        currentPath = parent;
-      }
-    }
+    const dbPath = path.join(app.getPath("userData"), "hn.db");
     console.log(`[backend] Starting ${binaryPath} --db ${dbPath}`);
     localBackend = spawn(binaryPath, ["--port", "0", "--db", dbPath], {
->>>>>>> 347ac66 (Refine search refresh, layout expansion, pagination redesign, and add PageUp/PageDown navigation)
       stdio: ["ignore", "pipe", "pipe"]
     });
-    let n = !1, p = "";
-    (u = i.stdout) == null || u.on("data", (l) => {
-      p += l.toString();
-      const f = p.split(`
-`);
-      p = f.pop() ?? "";
-      for (const g of f) {
-        console.log(`[backend] ${g}`);
-        const P = g.match(/^LISTENING:(\d+)/);
-        P && !n && (n = !0, d = parseInt(P[1], 10), console.log(`[backend] API on port ${d}`), a(d));
+    let resolved = false;
+    let stdoutBuf = "";
+    (_a = localBackend.stdout) == null ? void 0 : _a.on("data", (chunk) => {
+      stdoutBuf += chunk.toString();
+      const lines = stdoutBuf.split("\n");
+      stdoutBuf = lines.pop() ?? "";
+      for (const line of lines) {
+        console.log(`[backend] ${line}`);
+        const m = line.match(/^LISTENING:(\d+)/);
+        if (m && !resolved) {
+          resolved = true;
+          localApiPort = parseInt(m[1], 10);
+          console.log(`[backend] API on port ${localApiPort}`);
+          resolve(localApiPort);
+        }
       }
-    }), (w = i.stderr) == null || w.on("data", (l) => {
-      process.stderr.write(`[backend] ${l}`);
-    }), i.on("error", (l) => {
-      n ? console.error("[backend] error:", l) : s(l);
-    }), i.on("exit", (l, f) => {
-      console.log(`[backend] exited code=${l} signal=${f}`), i = null, d = null;
-    }), setTimeout(() => {
-      n || s(new Error("Timed out waiting for hn-local to start"));
+    });
+    (_b = localBackend.stderr) == null ? void 0 : _b.on("data", (chunk) => {
+      process.stderr.write(`[backend] ${chunk}`);
+    });
+    localBackend.on("error", (err) => {
+      if (!resolved) reject(err);
+      else console.error("[backend] error:", err);
+    });
+    localBackend.on("exit", (code, signal) => {
+      console.log(`[backend] exited code=${code} signal=${signal}`);
+      localBackend = null;
+      localApiPort = null;
+    });
+    setTimeout(() => {
+      if (!resolved) reject(new Error("Timed out waiting for hn-local to start"));
     }, 6e4);
   });
 }
-function E() {
-  i && (console.log("[backend] Sending SIGTERM"), i.kill("SIGTERM"), i = null);
+function stopLocalBackend() {
+  if (localBackend) {
+    console.log("[backend] Sending SIGTERM");
+    localBackend.kill("SIGTERM");
+    localBackend = null;
+  }
 }
-m.handle(
+ipcMain.handle(
   "get-local-api-url",
-  () => d ? `http://localhost:${d}` : null
+  () => localApiPort ? `http://localhost:${localApiPort}` : null
 );
-function I() {
-  e = new R({
+function createWindow() {
+  win = new BrowserWindow({
     width: 1440,
     height: 900,
-    show: !1,
-    frame: !1,
+    show: false,
+    frame: false,
     backgroundColor: "#0f172a",
     // Prevents white flashes
-<<<<<<< HEAD
-    icon: o.join(process.env.VITE_PUBLIC, process.platform === "win32" ? "hn.ico" : "hn_256.png"),
-=======
-    icon: path.resolve(process.env.VITE_PUBLIC, process.platform === "win32" ? "hn.ico" : "hn_256.png"),
->>>>>>> 347ac66 (Refine search refresh, layout expansion, pagination redesign, and add PageUp/PageDown navigation)
+    icon: path.join(process.env.VITE_PUBLIC, "hn.ico"),
     webPreferences: {
-      webviewTag: !0,
-      preload: o.join(b, "preload.mjs"),
-      webSecurity: !1
+      webviewTag: true,
+      preload: path.join(__dirname$1, "preload.mjs"),
+      webSecurity: false
     }
-<<<<<<< HEAD
-  }), m.on("window-minimize", () => e == null ? void 0 : e.minimize()), m.on("window-close", () => e == null ? void 0 : e.close()), m.on("window-maximize", () => {
-    e != null && e.isMaximized() ? e.unmaximize() : e == null || e.maximize();
-  }), m.handle("window-is-maximized", () => (e == null ? void 0 : e.isMaximized()) ?? !1), e.once("ready-to-show", () => {
-    e && (e.show(), e.focus(), e.setFullScreen(!1), setTimeout(() => {
-      e && !e.isMaximized() && e.maximize();
-    }, 300), h && e.webContents.openDevTools({ mode: "detach" }));
-  }), e.setMenu(null);
-  const a = o.join(process.env.VITE_PUBLIC, process.platform === "win32" ? "hn.ico" : "hn_256.png"), s = S.createFromPath(a);
-  s.isEmpty() || e.setIcon(s), e.setTitle("HN Station"), e.webContents.on("page-title-updated", (t) => {
-    t.preventDefault(), e == null || e.setTitle("HN Station");
-  }), k.defaultSession.webRequest.onHeadersReceived((t, c) => {
-    const n = { ...t.responseHeaders };
-    delete n["x-frame-options"], delete n["X-Frame-Options"], delete n["content-security-policy"], delete n["Content-Security-Policy"], c({ cancel: !1, responseHeaders: n });
-  }), h ? e.loadURL(h) : e.loadFile(o.join(_, "index.html")), e.webContents.on("console-message", (t, c, n, p, u) => {
-    console.log(`[Renderer][${c}] ${n} (${u}:${p})`);
-=======
   });
   ipcMain.on("window-minimize", () => win == null ? void 0 : win.minimize());
   ipcMain.on("window-close", () => win == null ? void 0 : win.close());
@@ -151,28 +110,21 @@ function I() {
       win.show();
       win.focus();
       win.setFullScreen(false);
-      if (process.platform === "win32") {
-        if (!win.isMaximized()) win.maximize();
-      } else {
-        setTimeout(() => {
-          if (win && !win.isMaximized()) {
-            win.maximize();
-          }
-        }, 300);
-      }
+      setTimeout(() => {
+        if (win && !win.isMaximized()) {
+          win.maximize();
+        }
+      }, 300);
     }
   });
   win.setMenu(null);
-  const iconPath = path.resolve(process.env.VITE_PUBLIC, process.platform === "win32" ? "hn.ico" : "hn_256.png");
+  const iconPath = path.join(process.env.VITE_PUBLIC, "hn.ico");
   console.log(`[main] Loading icon from: ${iconPath}`);
-  if (!fs.existsSync(iconPath)) {
-    console.warn(`[main] Icon NOT found at: ${iconPath}`);
-  }
-  const appIcon = nativeImage.createFromPath(iconPath);
-  if (!appIcon.isEmpty()) {
-    win.setIcon(appIcon);
-  } else {
-    console.warn(`[main] Failed to create nativeImage from icon path`);
+  if (fs.existsSync(iconPath)) {
+    const appIcon = nativeImage.createFromPath(iconPath);
+    if (!appIcon.isEmpty()) {
+      win.setIcon(appIcon);
+    }
   }
   win.setTitle("HN Station");
   win.webContents.on("page-title-updated", (event) => {
@@ -194,32 +146,34 @@ function I() {
   }
   win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
     console.log(`[Renderer][${level}] ${message} (${sourceId}:${line})`);
->>>>>>> 347ac66 (Refine search refresh, layout expansion, pagination redesign, and add PageUp/PageDown navigation)
   });
 }
-r.whenReady().then(async () => {
+app.whenReady().then(async () => {
   try {
-    await L(), console.log("[main] Local backend ready");
-  } catch (a) {
-    console.error("[main] Failed to start local backend:", a);
+    await startLocalBackend();
+    console.log("[main] Local backend ready");
+  } catch (err) {
+    console.error("[main] Failed to start local backend:", err);
   }
-<<<<<<< HEAD
-  I();
-=======
   createWindow();
->>>>>>> 347ac66 (Refine search refresh, layout expansion, pagination redesign, and add PageUp/PageDown navigation)
 });
-r.on("before-quit", () => {
-  E();
+app.on("before-quit", () => {
+  stopLocalBackend();
 });
-r.on("window-all-closed", () => {
-  process.platform !== "darwin" && (E(), r.quit(), e = null);
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    stopLocalBackend();
+    app.quit();
+    win = null;
+  }
 });
-r.on("activate", () => {
-  R.getAllWindows().length === 0 && I();
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
 });
 export {
-  M as MAIN_DIST,
-  _ as RENDERER_DIST,
-  h as VITE_DEV_SERVER_URL
+  MAIN_DIST,
+  RENDERER_DIST,
+  VITE_DEV_SERVER_URL
 };
