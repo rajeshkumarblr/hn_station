@@ -72,39 +72,37 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         {activeTopics.length > 0 && (
                             <button
                                 onClick={() => setActiveTopics([])}
-                                className="text-[10px] font-bold text-red-500 hover:underline uppercase tracking-tighter"
+                                className="text-[10px] font-bold text-red-500 hover:text-red-400 uppercase tracking-tighter transition-colors"
                             >
-                                #clear
+                                #clear all
                             </button>
                         )}
                     </div>
-                    <div className="relative">
+                    <div className="relative mb-3">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
                             type="text"
-                            placeholder="Add tags..."
+                            placeholder="Add tag and press Enter..."
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyDown={handleKeyDown}
                             className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:text-slate-200 placeholder:text-slate-400"
                         />
                     </div>
-                </div>
 
-                <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 min-h-[32px]">
                         {activeTopics.map(topic => (
                             <button
                                 key={topic}
                                 onClick={() => toggleTopic(topic)}
-                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 hover:bg-red-500/20 text-blue-500 hover:text-red-500 border border-blue-500/30 hover:border-red-500/50 text-[11px] font-bold transition-all group"
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-500/10 hover:bg-red-500/20 text-blue-500 hover:text-red-500 border border-blue-500/30 hover:border-red-500/50 text-[11px] font-bold transition-all group animate-in fade-in zoom-in duration-200"
                             >
                                 #{topic}
                                 <X size={10} className="opacity-60 group-hover:opacity-100" />
                             </button>
                         ))}
                         {activeTopics.length === 0 && (
-                            <p className="text-[11px] text-slate-400 italic">No active tags. Use search to add some.</p>
+                            <p className="text-[11px] text-slate-400 italic py-1">No active tags. Type above to add.</p>
                         )}
                     </div>
                 </div>

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { RefreshCw, X, Moon, Sun, LogIn, LogOut, Settings, Shield, Home, Keyboard, Search } from 'lucide-react';
+import { RefreshCw, Moon, Sun, Home, Settings, Keyboard, Shield, LogIn, LogOut, X } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
@@ -115,7 +115,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div className="flex items-center gap-2 pointer-events-auto">
                             <div className="absolute top-1 left-1/2 -translate-x-1/2 flex items-center gap-1.5 select-none pointer-events-none">
                                 <span className="text-sm font-black tracking-tighter text-slate-800 dark:text-slate-100 uppercase">HN Station</span>
-                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/30">v4.26</span>
+                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700/30">v4.35</span>
                                 {app.apiBase && <span className="text-[8px] font-mono text-slate-400 dark:text-slate-500 lowercase opacity-60 ml-1">{app.apiBase.replace('http://', '')}</span>}
                             </div>
                         </div>
