@@ -14,6 +14,16 @@ interface FilterSidebarProps {
 
 
 
+const AI_COLORS = [
+    'text-blue-500 dark:text-blue-400',
+    'text-emerald-500 dark:text-emerald-400',
+    'text-orange-500 dark:text-orange-400',
+    'text-purple-500 dark:text-purple-400',
+    'text-pink-500 dark:text-pink-400',
+    'text-cyan-500 dark:text-cyan-400',
+    'text-amber-500 dark:text-amber-400'
+];
+
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     activeTopics,
     setActiveTopics,
@@ -59,8 +69,21 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
                 <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
                     {hasSummary ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold text-yellow-500/90 dark:text-yellow-400/90">
-                            <ReactMarkdown>{summary!}</ReactMarkdown>
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold">
+                            <ReactMarkdown
+                                components={{
+                                    li: ({ node, ...props }) => {
+                                        // Attempt to get index from parent if possible, otherwise deterministic hash
+                                        const text = String(props.children || '');
+                                        let hash = 0;
+                                        for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
+                                        const color = AI_COLORS[Math.abs(hash) % AI_COLORS.length];
+                                        return <li className={color} {...props} />;
+                                    }
+                                }}
+                            >
+                                {summary!}
+                            </ReactMarkdown>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-8 opacity-60">
