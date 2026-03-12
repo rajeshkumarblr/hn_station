@@ -136,16 +136,20 @@ export function StoryCard({
 
     // Focus (keyboard/hover) vs Selection (open tab)
     // We want the current focus to be the most prominent.
+    const firstActiveMatch = story.topics?.find(t => activeTopics?.some(at => at.toLowerCase() === t.toLowerCase()));
+    const activeStyle = firstActiveMatch ? getTagStyle(firstActiveMatch) : null;
+
     const activeBg = isHighlighted
         ? 'bg-blue-100/70 dark:bg-[#264f78]/80 border-l-4 border-l-blue-600 dark:border-l-blue-400 shadow-xl shadow-blue-500/20 dark:shadow-black/60 ring-1 ring-blue-300 dark:ring-blue-500/50 z-10'
         : isSelected
             ? 'bg-blue-50/40 dark:bg-blue-900/20 border-l-4 border-l-blue-500/50 dark:border-l-blue-500/30'
-            : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 border-l-transparent`;
+            : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 ${activeStyle ? '' : 'border-l-transparent'}`;
 
     return (
         <div
             id={`story-${story.id}`}
             className={`group transition-all flex-1 pt-2 px-4 flex flex-col justify-start relative border-b border-slate-100 dark:border-slate-800 ${activeBg}`}
+            style={!isHighlighted && !isSelected && activeStyle ? { borderLeftColor: activeStyle.color } : undefined}
             onClick={() => onSelect && onSelect(story.id)}
             onContextMenu={handleContextMenu}
         >
@@ -220,7 +224,7 @@ export function StoryCard({
                         {/* Title */}
                         <span
                             className={`hover:opacity-80 transition-opacity cursor-pointer font-bold mr-1.5 ${isHighlighted ? 'text-yellow-600 dark:text-yellow-400 font-black' : (!titleColorStyle && topicTextClass ? topicTextClass : '')} ${!isHighlighted && !titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-500/80 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-200') : ''}`}
-                            style={!isHighlighted && titleColorStyle ? { color: titleColorStyle } : undefined}
+                            style={!isHighlighted && (activeStyle?.color || titleColorStyle) ? { color: (activeStyle?.color || titleColorStyle) as string } : undefined}
                         >
                             {story.title}
                         </span>
@@ -292,13 +296,16 @@ export function StoryCard({
                                     return (
                                         <span
                                             key={i}
-                                            className={`text-[12px] font-bold transition-all duration-200 ${isActive ? 'px-2 py-0.5 rounded-md shadow-[0_0_8px_rgba(249,115,22,0.4)] scale-110 z-10' : ''}`}
+                                            className={`text-[12px] font-bold transition-all duration-200 ${isActive ? 'px-2 py-0.5 rounded-md shadow-sm scale-110 z-10' : ''}`}
                                             style={isActive ? {
-                                                background: '#f97316',
-                                                color: 'white',
-                                                fontWeight: 'bold',
-                                                border: '1px solid #ea580c'
-                                            } : { color: ts.color }}
+                                                background: ts.bg,
+                                                color: ts.color,
+                                                borderColor: ts.border,
+                                                borderWidth: '1px',
+                                                borderStyle: 'solid'
+                                            } : {
+                                                color: 'inherit'
+                                            }}
                                         >
                                             #{topic}
                                         </span>

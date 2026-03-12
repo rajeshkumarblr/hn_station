@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Sparkles, X } from 'lucide-react';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
+import { getTagStyle } from './StoryCard';
 
 interface FilterSidebarProps {
     activeTopics: string[];
@@ -125,22 +126,32 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                     <div className="flex flex-wrap gap-2 min-h-[32px]">
                         {activeTopics.map(topic => {
                             const isDisabled = disabledTopics.includes(topic);
+                            const style = getTagStyle(topic);
+
                             return (
                                 <button
                                     key={topic}
                                     onClick={() => toggleTopicEnabled(topic)}
                                     className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all group animate-in fade-in zoom-in duration-200 border ${isDisabled
-                                        ? 'bg-slate-200/50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 border-slate-300 dark:border-slate-700 opacity-60'
-                                        : 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 border-blue-500/30 hover:border-blue-500/50 font-bold'
+                                        ? 'bg-slate-100/50 dark:bg-slate-800/30 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800 opacity-40 hover:opacity-100'
+                                        : 'shadow-sm'
                                         }`}
+                                    style={!isDisabled ? {
+                                        backgroundColor: style.bg,
+                                        color: style.color,
+                                        borderColor: style.border,
+                                        fontWeight: 'bold'
+                                    } : {}}
                                 >
-                                    <span className={isDisabled ? 'line-through decoration-slate-400/50' : ''}>#{topic}</span>
-                                    <div
-                                        onClick={(e) => { e.stopPropagation(); removeTopic(topic); }}
-                                        className="p-0.5 rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors"
-                                    >
-                                        <X size={10} className="opacity-60 group-hover:opacity-100" />
-                                    </div>
+                                    <span>#{topic}</span>
+                                    {!isDisabled && (
+                                        <div
+                                            onClick={(e) => { e.stopPropagation(); removeTopic(topic); }}
+                                            className="p-0.5 rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors"
+                                        >
+                                            <X size={10} className="opacity-60 group-hover:opacity-100" />
+                                        </div>
+                                    )}
                                 </button>
                             );
                         })}

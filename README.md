@@ -40,6 +40,8 @@ To avoid window management issues common in WSL/Linux virtualization:
 - **Automated AI Summaries**: Concise article takeaways powered by local LLMs (Ollama).
 - **Zero-Login Local Mode**: Persistence via embedded SQLite; no account needed.
 - **Global Search**: Search the entire database by topic with server-side filtering.
+- **Multi-Tag "Union" Search**: Search for multiple topics simultaneously with `OR` logic (v4.46).
+- **Rich Color-Coded Tag UI**: Every tag has a unique, deterministic color that highlights matching articles in the feed (v4.46).
 - **Vibrant "Zen" Sidebar**: 60/40 split between AI summaries and topic search.
 - **Keyboard-First**: Vim-like navigation (`j`/`k`), `PageUp`/`PageDown` for pagination, `Enter` to read, `z` for Zen mode.
 - **Robust WebView Reader**: Seamless article reading using integrated Electron webviews.
