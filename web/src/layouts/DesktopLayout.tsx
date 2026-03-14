@@ -9,6 +9,8 @@ import { getStoryTopicMatch } from '../hooks/useAppState';
 import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
 import { MODES } from '../types';
+import { isWebPreview } from '../utils/env';
+import { Download } from 'lucide-react';
 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
@@ -24,6 +26,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         handleToggleQueue, handleStorySelect, handleToggleSave,
         readIds, setReadIds, setHighlightedStoryId
     } = app;
+    const isWebMode = isWebPreview();
 
     // Resolve the story object for the highlighted (keyboard/hovered) card
     const highlightedStory = stories.find(s => s.id === highlightedStoryId) ?? null;
@@ -95,7 +98,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             {/* Center: Branding */}
                             <div className="flex flex-col items-center">
                                 <span className="text-sm font-black tracking-tighter text-[#ff6600] uppercase">HN Station</span>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">v1.0.7</span>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web Preview' : 'v1.1.1'}</span>
                             </div>
 
                             {/* Right: Actions Portal */}
@@ -139,6 +142,16 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" title="Settings">
                                 <Settings size={16} />
                             </button>
+
+                            {isWebMode && (
+                                <a
+                                    href="/api/download/latest"
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all ml-2"
+                                >
+                                    <Download size={14} />
+                                    Download
+                                </a>
+                            )}
 
                             {/* Auth — Only show in Web version */}
                             {!isElectron && (
@@ -195,8 +208,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 </div>
             </header>
 
-            {/* Global Tab Bar Container (Neutral Theme - Flush) */}
-            {tabs.length > 0 && (
+            {/* Global Tab Bar Container (Neutral Theme - Flush) - HIDDEN in Web mode */}
+            {tabs.length > 0 && !isWebMode && (
                 <div className="flex bg-slate-100 dark:bg-slate-800 overflow-x-auto border-b border-slate-200 dark:border-slate-700 shrink-0 gap-0">
                     <button
                         onClick={() => { setCurrentView('feed'); }}

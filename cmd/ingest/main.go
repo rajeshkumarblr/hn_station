@@ -65,6 +65,11 @@ func main() {
 	client := hn.NewClient()
 	aiClient := ai.NewOllamaClient()
 
+	disableAI := os.Getenv("DISABLE_AI") == "true"
+	if disableAI {
+		log.Println("AI features are EXPLICITLY DISABLED via DISABLE_AI env var")
+	}
+
 	log.Printf("Starting Ingestion Service (Interval: %v, One-shot: %v)...", *interval, *oneShot)
 
 	// Start Summary Workers
@@ -90,7 +95,7 @@ func main() {
 	}
 
 	// Run initially
-	runIngestion(ctx, client, store, aiClient, summaryQueue)
+	runIngestion(ctx, client, store, aiClient, summaryQueue, disableAI)
 
 	if *oneShot {
 		log.Println("One-shot mode: waiting for summary queue to drain...")
@@ -112,7 +117,7 @@ func main() {
 			workerWg.Wait()
 			return
 		case <-ticker.C:
-			runIngestion(ctx, client, store, aiClient, summaryQueue)
+			runIngestion(ctx, client, store, aiClient, summaryQueue, disableAI)
 		}
 	}
 }
@@ -291,15 +296,17 @@ func parseOllamaResponse(responseStr string) (string, []string) {
 	return summary, topics
 }
 
-func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.OllamaClient, summaryQueue chan<- SummaryJob) {
+func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.OllamaClient, summaryQueue chan<- SummaryJob, disableAI bool) {
 	log.Println("Fetching top stories from HN front page...")
 
 	// Check if AI Summaries are enabled
 	aiEnabled := false
-	if val, err := store.GetSetting(ctx, "ai_summaries_enabled"); err == nil && val == "true" {
-		aiEnabled = true
-	} else if err != nil {
-		log.Printf("Failed to fetch settings: %v", err)
+	if !disableAI {
+		if val, err := store.GetSetting(ctx, "ai_summaries_enabled"); err == nil && val == "true" {
+			aiEnabled = true
+		} else if err != nil {
+			log.Printf("Failed to fetch settings: %v", err)
+		}
 	}
 
 	ollamaModel, _ := store.GetSetting(ctx, "ollama_model")

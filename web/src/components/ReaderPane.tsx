@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { getApiBase } from '../utils/apiBase';
+import { isWebPreview } from '../utils/env';
 import { createPortal } from 'react-dom';
 import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -39,14 +40,15 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
 
     const containerRef = useRef<HTMLDivElement>(null);
-    const [activeTab, setActiveTab] = useState<'discussion' | 'article' | 'split'>(activeTabProp || 'article');
+    const isWebMode = isWebPreview();
+    const [activeTab, setActiveTab] = useState<'discussion' | 'article' | 'split'>(isWebMode ? 'discussion' : (activeTabProp || 'article'));
 
     // Sync activeTab with prop
     useEffect(() => {
         if (activeTabProp) {
-            setActiveTab(activeTabProp);
+            setActiveTab(isWebMode ? 'discussion' : activeTabProp);
         }
-    }, [activeTabProp]);
+    }, [activeTabProp, isWebMode]);
 
 
     const [isCopied, setIsCopied] = useState(false);
@@ -205,10 +207,10 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
             {/* Content Container: Article/Discussion + optional right Summary Sidebar */}
             <div className="flex-1 flex flex-row min-h-0 overflow-hidden relative">
                 {/* Main content area */}
-                <div className={`flex-1 custom-scrollbar relative min-h-0 ${activeTab === 'split' ? 'flex flex-row overflow-hidden' : 'flex flex-col overflow-y-auto'}`}>
+                <div className={`flex-1 custom-scrollbar relative min-h-0 ${(!isWebMode && activeTab === 'split') ? 'flex flex-row overflow-hidden' : 'flex flex-col overflow-y-auto'}`}>
 
-                    {/* Article Tab Content — Always Web View in Electron */}
-                    {(activeTab === 'article' || activeTab === 'split') && (
+                    {/* Article Tab Content — Always Web View in Electron. Disabled in Web Preview. */}
+                    {!isWebMode && (activeTab === 'article' || activeTab === 'split') && (
                         <div className={`flex flex-col min-h-0 ${activeTab === 'split' ? 'flex-1 overflow-y-auto border-r border-slate-200 dark:border-white/5' : 'flex-1'}`}>
                             <div className="flex-1 w-full h-full bg-white overflow-hidden relative">
                                 <webview
@@ -221,11 +223,32 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                     )}
 
                     {/* Discussion Tab Content */}
-                    {(activeTab === 'discussion' || activeTab === 'split') && (
+                    {(isWebMode || activeTab === 'discussion' || activeTab === 'split') && (
                         <div
                             ref={containerRef}
-                            className={`relative cursor-text select-text pointer-events-auto px-6 pb-6 pt-3 ${activeTab === 'split' ? 'flex-1 overflow-y-auto' : 'flex-1 w-full max-w-5xl mx-auto'}`}
+                            className={`relative cursor-text select-text pointer-events-auto px-6 pb-6 pt-3 ${(activeTab === 'split' && !isWebMode) ? 'flex-1 overflow-y-auto' : 'flex-1 w-full max-w-5xl mx-auto'}`}
                         >
+                            {isWebMode && story.url && (
+                                <div className="mb-8 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                            <ExternalLink size={20} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Reading Mode: Full Article</h4>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">Click to open the source article in a new tab.</p>
+                                        </div>
+                                    </div>
+                                    <a
+                                        href={storyUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
+                                    >
+                                        Read Article
+                                    </a>
+                                </div>
+                            )}
                             {commentsLoading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-500">
                                     <RefreshCw size={24} className="animate-spin text-blue-500" />

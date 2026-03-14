@@ -79,6 +79,7 @@ func (s *Server) routes() {
 	s.router.Get("/api/stories/{id}/content", s.handleGetArticleContent)
 	s.router.Get("/api/me", s.handleGetMe)
 	s.router.Post("/api/settings", s.handleUpdateSettings)
+	s.router.Get("/api/download/latest", s.handleDownloadLatest)
 
 	// Auth routes
 	s.router.Get("/auth/google", s.handleGoogleLogin)
@@ -744,6 +745,12 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleDownloadLatest(w http.ResponseWriter, r *http.Request) {
+	// For now, redirect to a placeholder or a real static link if we have one.
+	// In the future, this can serve the actual EXE/DMG from a blob storage.
+	http.Redirect(w, r, "https://github.com/rajeshkumarblr/hn_station", http.StatusTemporaryRedirect)
 }
 
 // parseOllamaResponse handles the logic moved out of handleSummarizeStory for reuse

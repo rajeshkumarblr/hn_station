@@ -1,7 +1,0 @@
-# github.com/rajeshkumarblr/hn_station/cmd/local
-cmd\local\main.go:123:52: not enough arguments in call to api.NewServer
-	have (*storage.SQLiteStore, *"github.com/rajeshkumarblr/hn_station/internal/auth".Config, *ai.OllamaClient, bool)
-	want (storage.DB, *"github.com/rajeshkumarblr/hn_station/internal/auth".Config, *ai.OllamaClient, *ai.GeminiClient, bool)
-cmd\local\main.go:189:78: not enough arguments in call to aiClient.GenerateSummary
-	have (context.Context, string, string, string)
-	want (context.Context, string, string, string, string)
