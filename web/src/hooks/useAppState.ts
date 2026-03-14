@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PAGE_SIZE, MAX_READ_IDS } from '../types';
 import type { Story, ReaderTab, ModeKey } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
+import { isWebPreview } from '../utils/env';
 function loadReadIds(): Set<number> {
     try {
         const saved = localStorage.getItem('hn_read_stories');
@@ -156,11 +157,13 @@ export function useAppState() {
 
     useEffect(() => {
         console.log('[state] Subscribing to API base...');
-        return subscribeApiBase(url => {
+        return subscribeApiBase((url: string) => {
             console.log('[state] API base resolved to:', url);
             setApiBase(url);
         });
     }, []);
+
+    const isWebMode = isWebPreview();
 
     useEffect(() => {
         // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
@@ -261,16 +264,17 @@ export function useAppState() {
             }
         }
 
+
         if (!story) return;
 
-        const actualMode = overrideMode || (story.url ? 'split' : 'discussion');
+        const actualMode = isWebMode ? 'discussion' : (overrideMode || (story.url ? 'split' : 'discussion'));
 
         setTabs(prev => {
             // Check if tab already exists
             const existingTab = prev.find(t => t.storyId === id);
             if (existingTab) {
                 // If we forced a mode change, update it, otherwise just switch
-                if (overrideMode && existingTab.mode !== overrideMode) {
+                if (overrideMode && existingTab.mode !== overrideMode && !isWebMode) {
                     return prev.map(t => t.id === existingTab.id ? { ...t, mode: overrideMode } : t);
                 }
                 setTimeout(() => setActiveTabId(existingTab.id), 0);
@@ -285,8 +289,8 @@ export function useAppState() {
             setTimeout(() => setActiveTabId(newTabId), 0);
             setTimeout(() => setCurrentView('reader'), 0);
 
-            // On mobile devices, we prefer replacing the single tab to save memory/UI space
-            if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            // On web preview or mobile devices, we prefer replacing the single tab to save memory/UI space
+            if (typeof window !== 'undefined' && (isWebMode || window.innerWidth < 768)) {
                 return [newTab];
             }
 
@@ -487,6 +491,7 @@ export function useAppState() {
         hiddenStories, offset,
         // Derived
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
+        isWebMode,
         // Setters
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setReadingQueue, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,

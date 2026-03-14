@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, X } from 'lucide-react';
+import { Search, Sparkles, X, Download, ShieldCheck, Zap } from 'lucide-react';
+import { isWebPreview } from '../utils/env';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { getTagStyle } from './StoryCard';
@@ -57,13 +58,62 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
     const summary = highlightedStory?.summary ?? null;
     const hasSummary = summary && summary.trim().length > 0;
+    const isWebMode = isWebPreview();
     const aiEnabled = (window as any).appState?.user?.ai_summaries_enabled;
 
     return (
         <div className="w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
 
-            {/* ── AI Summary (Top) ────────────────────────────────────────────── */}
-            {(aiEnabled || hasSummary) ? (
+            {/* ── AI Summary (Top) / Web CTA ────────────────────────────────────────────── */}
+            {isWebMode ? (
+                <div className="h-[55%] flex-shrink-0 flex flex-col p-6 bg-gradient-to-b from-blue-50/30 to-white dark:from-blue-900/10 dark:to-[#111d2e]/0 border-b border-slate-100 dark:border-slate-800/50 relative overflow-hidden group">
+                    <div className="absolute -right-4 -top-4 opacity-[0.03] rotate-12 transition-transform group-hover:rotate-45 duration-700">
+                        <Sparkles size={120} />
+                    </div>
+
+                    <div className="relative z-10 flex flex-col h-full">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-600 dark:text-blue-400">
+                                <Zap size={14} />
+                            </div>
+                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">Desktop Exclusive</h3>
+                        </div>
+
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-2 leading-tight">
+                            Get AI Deep Summaries & Topic Analysis
+                        </h4>
+
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+                            Upgrade to the Desktop App for powerful Local AI features. Run private LLMs like Llama3 to summarize articles and discussions instantly.
+                        </p>
+
+                        <div className="space-y-2.5 mb-8">
+                            <div className="flex items-center gap-2 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+                                <ShieldCheck size={12} className="text-emerald-500" />
+                                <span>100% Private & Offline-first</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+                                <Sparkles size={12} className="text-amber-500" />
+                                <span>Local LLM Integration (Ollama)</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+                                <Zap size={12} className="text-blue-500" />
+                                <span>Multi-Tab Workspace & Split View</span>
+                            </div>
+                        </div>
+
+                        <div className="mt-auto">
+                            <a
+                                href="/api/download/latest"
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all font-bold text-xs"
+                            >
+                                <Download size={14} />
+                                Download for Windows
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            ) : (aiEnabled || hasSummary) ? (
                 <div className="h-[55%] flex-shrink-0 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
                         <Sparkles size={12} className="text-orange-400" />
