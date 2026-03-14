@@ -33,7 +33,7 @@ interface ReaderPaneProps {
     isActive?: boolean;
 }
 
-export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onTabChange, onHide, isActive }: ReaderPaneProps) {
+export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onHide, isActive }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
@@ -48,11 +48,6 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
         }
     }, [activeTabProp]);
 
-    // Internal tab change should notify parent if possible
-    const handleTabChange = (tab: 'discussion' | 'article' | 'split') => {
-        setActiveTab(tab);
-        onTabChange?.(tab);
-    };
 
     const [isCopied, setIsCopied] = useState(false);
     const [showSummary, setShowSummary] = useState(false);
@@ -154,15 +149,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
     return (
         <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] border-t border-slate-200 dark:border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)]">
 
-            {/* Mode Switcher Portal (Targets Left of Branding) */}
-            {isActive && createPortal(
-                <div className="flex bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-md border border-slate-200 dark:border-slate-700/50 backdrop-blur-sm animate-in fade-in slide-in-from-left-1 duration-300">
-                    <button onClick={() => handleTabChange('article')} className={`px-2 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'article' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-400'}`} title="Article">Art</button>
-                    <button onClick={() => handleTabChange('discussion')} className={`px-2 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'discussion' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-400'}`} title="Discussion">Disc</button>
-                    <button onClick={() => handleTabChange('split')} className={`px-2 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded transition-all ${activeTab === 'split' ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-400'}`} title="Split View">Split</button>
-                </div>,
-                document.getElementById('reader-mode-portal') || document.body
-            )}
+            {/* Mode Switcher Portal Removed - Now in Settings */}
 
             {/* Action Bar Portal (Targets Right of Branding) */}
             {isActive && createPortal(
@@ -186,7 +173,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                                 setUserManuallyToggledSummary(!showSummary);
                             }}
                             className={`p-1 rounded-md transition-all ${userManuallyToggledSummary && showSummary ? 'text-blue-600 bg-blue-50/50' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50/50'}`}
-                            title={userManuallyToggledSummary && showSummary ? "Unpin AI Summary" : "Pin AI Summary"}
+                            title={userManuallyToggledSummary && showSummary ? "Unpin Summary" : "Pin Summary"}
                         >
                             <Sparkles size={14} className={userManuallyToggledSummary && showSummary ? 'fill-current' : ''} />
                         </button>
@@ -195,7 +182,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                             onClick={handleSummarize}
                             disabled={summarizing}
                             className={`p-1 rounded-md transition-all text-slate-400 hover:text-orange-500 hover:bg-orange-50/50 disabled:opacity-50`}
-                            title="Generate AI Summary"
+                            title="Generate Summary"
                         >
                             <Sparkles size={14} className={summarizing ? 'animate-pulse text-orange-400' : ''} />
                         </button>
@@ -283,7 +270,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                         <div className="px-4 py-3 border-b border-amber-200/60 dark:border-amber-500/20 flex items-center justify-between bg-amber-100/60 dark:bg-amber-500/10 sticky top-0 z-10">
                             <div className="flex items-center gap-2">
                                 <Sparkles size={14} className="text-amber-500 dark:text-amber-400" />
-                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">AI Summary</h4>
+                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">Article Summary by AI</h4>
                             </div>
                             <button
                                 onClick={() => { setShowSummary(false); setUserManuallyToggledSummary(false); }}

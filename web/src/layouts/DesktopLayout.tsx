@@ -1,9 +1,10 @@
 import { useRef, useState, useEffect } from 'react';
-import { RefreshCw, Moon, Sun, Home, Settings, Keyboard, Shield, LogIn, LogOut, X } from 'lucide-react';
+import { RefreshCw, Home, Settings, Shield, LogIn, LogOut, X } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
 import { AdminDashboard } from '../components/AdminDashboard';
+import { SettingsModal } from '../components/SettingsModal';
 import { getStoryTopicMatch } from '../hooks/useAppState';
 import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
@@ -12,15 +13,14 @@ import { MODES } from '../types';
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
         loading, mode, activeTopics,
-        theme,
         tabs, activeTabId, showHidden,
         currentView, readingQueue, isAdminModalOpen, user,
         hiddenStories, offset, setOffset, totalStories, hasMore,
         selectedStoryId, selectedStory, stories,
-        highlightedStoryId,
-        setMode, setActiveTopics, setShowHidden,
-        setCurrentView, setIsAdminModalOpen,
-        handleRefresh, toggleTheme, closeTab, handleHideStory,
+        highlightedStoryId, isSettingsOpen,
+        setMode, setActiveTopics,
+        setCurrentView, setIsAdminModalOpen, setIsSettingsOpen,
+        handleRefresh, closeTab, handleHideStory,
         handleToggleQueue, handleStorySelect, handleToggleSave,
         readIds, setReadIds, setHighlightedStoryId
     } = app;
@@ -89,13 +89,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     {/* Absolute Center Layer: Branding & Reader Controls */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
                         <div className="flex items-center gap-10 whitespace-nowrap pointer-events-auto">
-                            {/* Left: Mode Switcher Portal */}
-                            <div id="reader-mode-portal" className="flex items-center min-w-[120px] justify-end"></div>
+                            {/* Left: Branding Left Spacer */}
+                            <div className="min-w-[120px]"></div>
 
                             {/* Center: Branding */}
                             <div className="flex flex-col items-center">
                                 <span className="text-sm font-black tracking-tighter text-[#ff6600] uppercase">HN Station</span>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">v4.46</span>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">v1.0.7</span>
                             </div>
 
                             {/* Right: Actions Portal */}
@@ -136,14 +136,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <button onClick={() => { handleRefresh(); setOffset?.(0); }} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400">
                                 <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                             </button>
-                            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400">
-                                {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                            </button>
-                            <button onClick={() => setShowHidden(!showHidden)} className={`p-2 rounded-lg ${showHidden ? 'bg-orange-500/20 text-orange-500' : 'hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                            <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" title="Settings">
                                 <Settings size={16} />
-                            </button>
-                            <button onClick={() => setIsHelpOpen(true)} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 ml-1" title="Keyboard Shortcuts">
-                                <Keyboard size={16} />
                             </button>
 
                             {/* Auth — Only show in Web version */}
@@ -397,6 +391,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     </div>
                 )}
                 {isAdminModalOpen && <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />}
+                {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} user={user} />}
             </div>
 
             {/* Status Bar */}

@@ -38,4 +38,7 @@ type DB interface {
 	// Chat history (cloud only — local is no-op)
 	SaveChatMessage(ctx context.Context, userID string, storyID int, role, content string) error
 	GetChatHistory(ctx context.Context, userID string, storyID int) ([]ChatMessage, error)
+	// Settings
+	GetSetting(ctx context.Context, key string) (string, error)
+	SetSetting(ctx context.Context, key, value string) error
 }

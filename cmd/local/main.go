@@ -82,6 +82,7 @@ func main() {
 	// ── Ingestion worker ───────────────────────────────────────────────────────
 	hnClient := hn.NewClient()
 	aiClient := ai.NewOllamaClient()
+	geminiClient := ai.NewGeminiClient()
 	summaryQueue := make(chan summaryJob, 100)
 	limiter := time.NewTicker(500 * time.Millisecond)
 	defer limiter.Stop()
@@ -91,7 +92,7 @@ func main() {
 		workerWg.Add(1)
 		go func(id int) {
 			defer workerWg.Done()
-			runSummaryWorker(id, ctx, store, aiClient, *ollamaURL, summaryQueue, limiter)
+			runSummaryWorker(id, ctx, store, aiClient, geminiClient, *ollamaURL, summaryQueue, limiter)
 		}(i)
 	}
 
@@ -120,7 +121,7 @@ func main() {
 	// ── HTTP server ────────────────────────────────────────────────────────────
 	// Use a stub auth config (no OAuth in local mode)
 	authCfg := auth.NewLocalConfig()
-	server := api.NewServer(store, authCfg, aiClient, true /* localMode */)
+	server := api.NewServer(store, authCfg, aiClient, geminiClient, true /* localMode */)
 
 	srv := &http.Server{Handler: server}
 	go func() {
@@ -154,7 +155,7 @@ type summaryJob struct {
 	Title string
 }
 
-func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, jobs <-chan summaryJob, limiter *time.Ticker) {
+func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, ollamaURL string, jobs <-chan summaryJob, limiter *time.Ticker) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -164,12 +165,12 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 				return
 			}
 			<-limiter.C
-			processSummary(ctx, store, aiClient, ollamaURL, job)
+			processSummary(ctx, store, aiClient, geminiClient, ollamaURL, job)
 		}
 	}
 }
 
-func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, job summaryJob) {
+func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, ollamaURL string, job summaryJob) {
 	log.Printf("[ingest] Summarising story %d: %s", job.ID, job.Title)
 
 	workCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -186,9 +187,48 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 		text = text[:8000] + "..."
 	}
 
-	responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Title, text)
-	if err != nil {
-		log.Printf("[ingest] Ollama error for story %d: %v", job.ID, err)
+	// Determine provider preference
+	provider, _ := store.GetSetting(workCtx, "ai_provider")
+	if provider == "" {
+		provider = "local"
+	}
+
+	var responseStr string
+	var summarizeErr error
+
+	// 1. Try Local Ollama if provider is "local" or "both"
+	if provider == "local" || provider == "both" {
+		model, _ := store.GetSetting(workCtx, "ollama_model")
+		responseStr, err = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
+		if err != nil {
+			summarizeErr = err
+			log.Printf("[ingest] Ollama error for story %d: %v", job.ID, err)
+		}
+	}
+
+	// 2. Fallback to Gemini if:
+	// - Local failed OR provider is "gemini"
+	// - AND provider is "gemini" or "both"
+	if responseStr == "" && (provider == "gemini" || provider == "both") {
+		geminiKey, _ := store.GetSetting(workCtx, "gemini_api_key")
+		if geminiKey == "" {
+			geminiKey = os.Getenv("GEMINI_API_KEY")
+		}
+
+		if geminiKey != "" {
+			log.Printf("[ingest] Falling back to Gemini for story %d...", job.ID)
+			responseStr, err = geminiClient.GenerateSummary(workCtx, geminiKey, text)
+			if err != nil {
+				log.Printf("[ingest] Gemini error for story %d: %v", job.ID, err)
+				summarizeErr = err
+			}
+		} else {
+			log.Printf("[ingest] Gemini fallback skipped (No API Key) for story %d", job.ID)
+		}
+	}
+
+	if responseStr == "" {
+		log.Printf("[ingest] All AI providers failed for story %d: %v", job.ID, summarizeErr)
 		return
 	}
 

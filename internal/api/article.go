@@ -89,18 +89,53 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 	// If it's raw HTML, we might want to strip script/style tags if possible, but Gemini handles it okay.
 	// For now, raw HTML is better than nothing.
 
-	// Use unified GenerateSummary which takes title and text
-	// For now we still use ollamaURL. If this was intended to stay Gemini, we would need a separate method.
-	// But the signature changed, so we must update.
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" {
-		ollamaURL = "http://ollama:11434"
+	// Determine provider preference
+	provider, _ := s.store.GetSetting(r.Context(), "ai_provider")
+	if provider == "" {
+		provider = "local"
 	}
 
-	responseStr, err := s.aiClient.GenerateSummary(r.Context(), ollamaURL, story.Title, finalContent)
-	if err != nil {
-		log.Printf("Summarization failed: %v", err)
-		http.Error(w, "Failed to generate summary: "+err.Error(), http.StatusInternalServerError)
+	var responseStr string
+	var summarizeErr error
+
+	// 1. Try Local Ollama if provider is "local" or "both"
+	if provider == "local" || provider == "both" {
+		ollamaURL := os.Getenv("OLLAMA_URL")
+		if ollamaURL == "" {
+			ollamaURL = "http://localhost:11434"
+		}
+		model, _ := s.store.GetSetting(r.Context(), "ollama_model")
+		responseStr, err = s.aiClient.GenerateSummary(r.Context(), ollamaURL, model, story.Title, finalContent)
+		if err != nil {
+			summarizeErr = err
+			log.Printf("Ollama article summarization failed: %v", err)
+		}
+	}
+
+	// 2. Fallback to Gemini if:
+	// - Local failed OR provider is "gemini"
+	// - AND provider is "gemini" or "both"
+	if responseStr == "" && (provider == "gemini" || provider == "both") {
+		geminiKey := user.GeminiAPIKey
+		if geminiKey == "" {
+			geminiKey = os.Getenv("GEMINI_API_KEY")
+		}
+
+		if geminiKey != "" {
+			log.Printf("Falling back to Gemini for article summary...")
+			// Gemini signature is (ctx, apiKey, text)
+			responseStr, err = s.geminiClient.GenerateSummary(r.Context(), geminiKey, finalContent)
+			if err != nil {
+				log.Printf("Gemini article summarization failed: %v", err)
+				summarizeErr = err
+			}
+		} else {
+			log.Printf("Gemini fallback skipped: No API Key available")
+		}
+	}
+
+	if responseStr == "" {
+		http.Error(w, "Failed to generate summary: "+summarizeErr.Error(), http.StatusInternalServerError)
 		return
 	}
 

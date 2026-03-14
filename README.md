@@ -37,12 +37,12 @@ To avoid window management issues common in WSL/Linux virtualization:
 ## ✨ Features
 
 - **Split-Pane Workspace**: Browse the feed and read articles side-by-side.
-- **Automated AI Summaries**: Concise article takeaways powered by local LLMs (Ollama).
+- **Automated AI Summaries**: Concise article takeaways powered by Local Ollama or Gemini Pro with intelligent fallback (v1.1.1).
+- **Tabbed Settings Modal**: Centralized management for AI providers, UI themes, and keyboard shortcuts in a modern tabbed interface (v1.1.1).
 - **Zero-Login Local Mode**: Persistence via embedded SQLite; no account needed.
 - **Global Search**: Search the entire database by topic with server-side filtering.
-- **Multi-Tag "Union" Search**: Search for multiple topics simultaneously with `OR` logic (v4.46).
-- **Rich Color-Coded Tag UI**: Every tag has a unique, deterministic color that highlights matching articles in the feed (v4.46).
-- **Vibrant "Zen" Sidebar**: 60/40 split between AI summaries and topic search.
+- **Multi-Tag Search**: Comprehensive topic management with the ability to filter by multiple tags simultaneously (v1.1.1).
+- **Simplified "Zen" UI**: Minimalist top navigation and optimized reader workspace for focus (v1.1.1).
 - **Keyboard-First**: Vim-like navigation (`j`/`k`), `PageUp`/`PageDown` for pagination, `Enter` to read, `z` for Zen mode.
 - **Robust WebView Reader**: Seamless article reading using integrated Electron webviews.
 - **Precise 10-Item Layout**: Optimized feed view that fits exactly 10 stories per page for perfect alignment.

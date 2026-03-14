@@ -62,6 +62,11 @@ interface User {
     name: string;
     avatar_url: string;
     is_admin: boolean;
+    ai_summaries_enabled: boolean;
+    ollama_available: boolean;
+    ollama_model?: string;
+    ollama_models?: string[];
+    gemini_api_key?: string;
 }
 
 export function getStoryTopicMatch(storyTitle: string | undefined, storyTopics: string[] | undefined, activeTopics: string[]): string | null {
@@ -473,7 +478,7 @@ export function useAppState() {
             .catch(() => { });
     }, [selectedStoryId]);
 
-    return {
+    const state = {
         // State
         storyBuffer, loading, error, mode, activeTopics, disabledTopics, totalStories,
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
@@ -491,4 +496,10 @@ export function useAppState() {
         handleToggleQueue, handleStorySelect, handleToggleSave,
         handleStoryInteractWithQueue, handleQueueAllFiltered
     };
+
+    if (typeof window !== 'undefined') {
+        (window as any).appState = state;
+    }
+
+    return state;
 }

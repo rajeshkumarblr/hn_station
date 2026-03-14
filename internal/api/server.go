@@ -21,20 +21,22 @@ import (
 )
 
 type Server struct {
-	store     storage.DB
-	router    *chi.Mux
-	auth      *auth.Config
-	aiClient  *ai.OllamaClient
-	localMode bool // true = SQLite local mode, auth disabled
+	store        storage.DB
+	router       *chi.Mux
+	auth         *auth.Config
+	aiClient     *ai.OllamaClient
+	geminiClient *ai.GeminiClient
+	localMode    bool // true = SQLite local mode, auth disabled
 }
 
-func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient, localMode bool) *Server {
+func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, localMode bool) *Server {
 	s := &Server{
-		store:     store,
-		router:    chi.NewRouter(),
-		auth:      authCfg,
-		aiClient:  aiClient,
-		localMode: localMode,
+		store:        store,
+		router:       chi.NewRouter(),
+		auth:         authCfg,
+		aiClient:     aiClient,
+		geminiClient: geminiClient,
+		localMode:    localMode,
 	}
 
 	s.middlewares()
@@ -84,6 +86,7 @@ func (s *Server) routes() {
 	s.router.Get("/auth/logout", s.handleLogout)
 
 	// AI routes
+	s.router.Get("/api/models/ollama", s.handleListOllamaModels)
 	s.router.Post("/api/stories/{id}/summarize", s.handleSummarizeStory)
 	s.router.Post("/api/stories/{id}/summarize_article", s.handleSummarizeArticle)
 
@@ -278,15 +281,44 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)
 
+	// Determine Ollama availability
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://localhost:11434"
+	}
+	ollamaAvailable := s.aiClient.CheckAvailability(r.Context(), ollamaURL)
+
+	// Get AI enabled setting
+	aiEnabled := false
+	if val, err := s.store.GetSetting(r.Context(), "ai_summaries_enabled"); err == nil && val == "true" {
+		aiEnabled = true
+	}
+
+	ollamaModel, _ := s.store.GetSetting(r.Context(), "ollama_model")
+	aiProvider, _ := s.store.GetSetting(r.Context(), "ai_provider")
+	if aiProvider == "" {
+		aiProvider = "local" // Default to local
+	}
+
+	// Get available models if Ollama is available
+	var ollamaModels []string
+	if ollamaAvailable {
+		ollamaModels, _ = s.aiClient.ListModels(r.Context(), ollamaURL)
+	}
+
 	// In local mode, if not authenticated, return a default mock user
 	if userID == "" && s.localMode {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":         "local_user",
-			"email":      "local@hnstation.app",
-			"name":       "Local User",
-			"avatar_url": "",
-			"is_admin":   true,
+			"id":                   "local_user",
+			"email":                "local@hnstation.app",
+			"name":                 "Local User",
+			"avatar_url":           "",
+			"is_admin":             true,
+			"ai_summaries_enabled": aiEnabled,
+			"ollama_available":     ollamaAvailable,
+			"ollama_model":         ollamaModel,
+			"ollama_models":        ollamaModels,
 		})
 		return
 	}
@@ -306,8 +338,25 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Map to response struct that includes the extra fields
+	resp := struct {
+		*storage.AuthUser
+		AISummariesEnabled bool     `json:"ai_summaries_enabled"`
+		OllamaAvailable    bool     `json:"ollama_available"`
+		OllamaModel        string   `json:"ollama_model"`
+		OllamaModels       []string `json:"ollama_models"`
+		AIProvider         string   `json:"ai_provider"`
+	}{
+		AuthUser:           user,
+		AISummariesEnabled: aiEnabled,
+		OllamaAvailable:    ollamaAvailable,
+		OllamaModel:        ollamaModel,
+		OllamaModels:       ollamaModels,
+		AIProvider:         aiProvider,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(resp)
 }
 
 // ─── Story Handlers ───
@@ -556,60 +605,79 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		totalChars += len(text)
 	}
 
-	// Use system global Ollama URL
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" {
-		ollamaURL = "http://ollama:11434"
+	// Determine provider preference
+	provider, _ := s.store.GetSetting(r.Context(), "ai_provider")
+	if provider == "" {
+		provider = "local"
 	}
 
-	// Use unified GenerateSummary which takes title and text
-	responseStr, err := s.aiClient.GenerateSummary(r.Context(), ollamaURL, story.Title, sb.String())
-	if err != nil {
-		log.Printf("Summarization failed: %v", err)
+	var summary string
+	var topics []string
+	var summarizeErr error
+
+	// 1. Try Local Ollama if provider is "local" or "both"
+	if provider == "local" || provider == "both" {
+		ollamaURL := os.Getenv("OLLAMA_URL")
+		if ollamaURL == "" {
+			ollamaURL = "http://localhost:11434"
+		}
+		model, _ := s.store.GetSetting(r.Context(), "ollama_model")
+		responseStr, err := s.aiClient.GenerateSummary(r.Context(), ollamaURL, model, story.Title, sb.String())
+		if err == nil {
+			// Success with local
+			summary, topics = parseOllamaResponse(responseStr)
+		} else {
+			summarizeErr = err
+			log.Printf("Ollama summarization failed: %v", err)
+		}
+	}
+
+	// 2. Fallback to Gemini if:
+	// - Local failed OR provider is "gemini"
+	// - AND provider is "gemini" or "both"
+	// - AND user has gemini key
+	if summary == "" && (provider == "gemini" || provider == "both") {
+		// Get Gemini API Key
+		var geminiKey string
+		if s.localMode {
+			geminiKey = os.Getenv("GEMINI_API_KEY") // System key fallback
+		}
+		if u, err := s.store.GetAuthUser(r.Context(), userID); err == nil && u.GeminiAPIKey != "" {
+			geminiKey = u.GeminiAPIKey
+		}
+
+		if geminiKey != "" {
+			log.Printf("Attempting fallback/primary Gemini summarization for story %d", id)
+			resp, err := s.geminiClient.GenerateSummary(r.Context(), geminiKey, sb.String())
+			if err == nil {
+				summary = resp
+				// topics? Gemini client doesn't explicitly return topics yet, but we can extract them if they are in bullet points
+				// or just leave them empty for now.
+			} else {
+				summarizeErr = err
+				log.Printf("Gemini summarization failed: %v", err)
+			}
+		}
+	}
+
+	if summary == "" {
+		log.Printf("All summarization attempts failed for story %d", id)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to generate summary: " + err.Error()})
+		errMsg := "Failed to generate summary"
+		if summarizeErr != nil {
+			errMsg += ": " + summarizeErr.Error()
+		}
+		json.NewEncoder(w).Encode(map[string]string{"error": errMsg})
 		return
 	}
 
-	// Try to parse the JSON
-	cleanJSON := strings.TrimSpace(responseStr)
-	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
-	cleanJSON = strings.TrimPrefix(cleanJSON, "```")
-	cleanJSON = strings.TrimSuffix(cleanJSON, "```")
-	cleanJSON = strings.TrimSpace(cleanJSON)
-
-	var intermediate struct {
-		Summary interface{} `json:"summary"`
-		Topics  []string    `json:"topics"`
-	}
-
-	var result struct {
+	result := struct {
 		Summary string
 		Topics  []string
-	}
-
-	if err := json.Unmarshal([]byte(cleanJSON), &intermediate); err != nil {
-		log.Printf("Failed to parse JSON in manual summary. Error: %v. Raw: %s", err, responseStr)
-		result.Summary = responseStr // Fallback
-		result.Topics = []string{}
-	} else {
-		// Handle Summary being either a string or an array of strings
-		switch v := intermediate.Summary.(type) {
-		case string:
-			result.Summary = v
-		case []interface{}:
-			var parts []string
-			for _, part := range v {
-				if s, ok := part.(string); ok {
-					parts = append(parts, s)
-				}
-			}
-			result.Summary = strings.Join(parts, " ")
-		default:
-			result.Summary = fmt.Sprintf("%v", v)
-		}
-		result.Topics = intermediate.Topics
+	}{
+		Summary: summary,
+		Topics:  topics,
 	}
 
 	// 2. Save both Summary and Topics to Global Cache
@@ -631,26 +699,90 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)
-	if userID == "" {
+	if userID == "" && !s.localMode {
 		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return
 	}
 
 	var body struct {
-		GeminiAPIKey string `json:"gemini_api_key"`
+		GeminiAPIKey       string `json:"gemini_api_key"`
+		AISummariesEnabled *bool  `json:"ai_summaries_enabled"`
+		OllamaModel        string `json:"ollama_model"`
+		AIProvider         string `json:"ai_provider"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := s.store.UpdateUserGeminiKey(r.Context(), userID, body.GeminiAPIKey); err != nil {
-		log.Printf("Failed to update gemini key: %v", err)
-		http.Error(w, "Failed to update settings", http.StatusInternalServerError)
-		return
+	if body.GeminiAPIKey != "" {
+		if err := s.store.UpdateUserGeminiKey(r.Context(), userID, body.GeminiAPIKey); err != nil {
+			log.Printf("Failed to update gemini key: %v", err)
+			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if body.AISummariesEnabled != nil {
+		val := "false"
+		if *body.AISummariesEnabled {
+			val = "true"
+		}
+		if err := s.store.SetSetting(r.Context(), "ai_summaries_enabled", val); err != nil {
+			log.Printf("Failed to update AI enabled setting: %v", err)
+			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if body.AIProvider != "" {
+		if err := s.store.SetSetting(r.Context(), "ai_provider", body.AIProvider); err != nil {
+			log.Printf("Failed to update AI provider setting: %v", err)
+			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// parseOllamaResponse handles the logic moved out of handleSummarizeStory for reuse
+func parseOllamaResponse(responseStr string) (string, []string) {
+	cleanJSON := strings.TrimSpace(responseStr)
+	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
+	cleanJSON = strings.TrimPrefix(cleanJSON, "```")
+	cleanJSON = strings.TrimSuffix(cleanJSON, "```")
+	cleanJSON = strings.TrimSpace(cleanJSON)
+
+	var intermediate struct {
+		Summary interface{} `json:"summary"`
+		Topics  []string    `json:"topics"`
+	}
+
+	var summary string
+	var topics []string
+
+	if err := json.Unmarshal([]byte(cleanJSON), &intermediate); err != nil {
+		log.Printf("Failed to parse Ollama JSON. Error: %v. Raw: %s", err, responseStr)
+		summary = responseStr // Fallback
+	} else {
+		switch v := intermediate.Summary.(type) {
+		case string:
+			summary = v
+		case []interface{}:
+			var parts []string
+			for _, part := range v {
+				if s, ok := part.(string); ok {
+					parts = append(parts, s)
+				}
+			}
+			summary = strings.Join(parts, "\n")
+		default:
+			summary = fmt.Sprintf("%v", v)
+		}
+		topics = intermediate.Topics
+	}
+	return summary, topics
 }
 
 // ─── Admin Handlers ───
@@ -700,4 +832,20 @@ func (s *Server) handleGetAdminUsers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(users)
+}
+
+func (s *Server) handleListOllamaModels(w http.ResponseWriter, r *http.Request) {
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://localhost:11434"
+	}
+
+	models, err := s.aiClient.ListModels(r.Context(), ollamaURL)
+	if err != nil {
+		http.Error(w, "Failed to list models: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string][]string{"models": models})
 }

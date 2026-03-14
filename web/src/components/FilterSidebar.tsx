@@ -57,45 +57,54 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
     const summary = highlightedStory?.summary ?? null;
     const hasSummary = summary && summary.trim().length > 0;
+    const aiEnabled = (window as any).appState?.user?.ai_summaries_enabled;
 
     return (
         <div className="w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
 
             {/* ── AI Summary (Top) ────────────────────────────────────────────── */}
-            <div className="h-[55%] flex-shrink-0 overflow-hidden flex flex-col">
-                <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
-                    <Sparkles size={12} className="text-orange-400" />
-                    <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Summary</h3>
-                </div>
+            {(aiEnabled || hasSummary) ? (
+                <div className="h-[55%] flex-shrink-0 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
+                        <Sparkles size={12} className="text-orange-400" />
+                        <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Article Summary by AI</h3>
+                    </div>
 
-                <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
-                    {hasSummary ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold">
-                            <ReactMarkdown
-                                components={{
-                                    li: ({ node, ...props }) => {
-                                        // Attempt to get index from parent if possible, otherwise deterministic hash
-                                        const text = String(props.children || '');
-                                        let hash = 0;
-                                        for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
-                                        const color = AI_COLORS[Math.abs(hash) % AI_COLORS.length];
-                                        return <li className={color} {...props} />;
-                                    }
-                                }}
-                            >
-                                {summary!}
-                            </ReactMarkdown>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-8 opacity-60">
-                            <Sparkles size={20} className="text-slate-300 dark:text-slate-600" />
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                                {highlightedStory ? 'No summary yet' : 'Hover a story to see summary'}
-                            </p>
-                        </div>
-                    )}
+                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
+                        {hasSummary ? (
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold">
+                                <ReactMarkdown
+                                    components={{
+                                        li: ({ node, ...props }) => {
+                                            // Attempt to get index from parent if possible, otherwise deterministic hash
+                                            const text = String(props.children || '');
+                                            let hash = 0;
+                                            for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
+                                            const color = AI_COLORS[Math.abs(hash) % AI_COLORS.length];
+                                            return <li className={color} {...props} />;
+                                        }
+                                    }}
+                                >
+                                    {summary!}
+                                </ReactMarkdown>
+                            </div>
+                        ) : aiEnabled ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-8 opacity-60">
+                                <Sparkles size={20} className="text-slate-300 dark:text-slate-600" />
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                    {highlightedStory ? 'No summary yet' : 'Hover a story to see summary'}
+                                </p>
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
-            </div>
+            ) : (
+                <div className="h-48 flex-shrink-0 flex flex-col items-center justify-center text-center p-6 border-b border-slate-100 dark:border-slate-800/50 opacity-40 grayscale scale-95 transition-all">
+                    <Sparkles size={24} className="text-slate-300 dark:text-slate-600 mb-2" />
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Features Disabled</h3>
+                    <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-tighter">Enable in Settings</p>
+                </div>
+            )}
 
             {/* ── Topics / Multi-Tag Search (Middle) ─────────────────────────────────── */}
             <div className="flex-1 border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
