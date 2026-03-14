@@ -20,9 +20,27 @@ func NewOllamaClient() *OllamaClient {
 	return &OllamaClient{}
 }
 
-// GenerateSummary generates a concise summary and tags using the provided local Ollama server URL.
-func (c *OllamaClient) GenerateSummary(ctx context.Context, apiURL string, title string, text string) (string, error) {
-	log.Printf("OllamaClient: Starting summarization for %q. Input text length: %d", title, len(text))
+// CheckAvailability verifies if the Ollama server is reachable.
+func (c *OllamaClient) CheckAvailability(ctx context.Context, apiURL string) bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+// GenerateSummary generates a concise summary and tags using the provided local Ollama server URL and model.
+func (c *OllamaClient) GenerateSummary(ctx context.Context, apiURL string, model string, title string, text string) (string, error) {
+	if model == "" {
+		model = "llama3:latest"
+	}
+	log.Printf("OllamaClient: Starting summarization for %q using model %q. Input text length: %d", title, model, len(text))
 
 	prompt := fmt.Sprintf(`Analyze this Hacker News story and provide a high-quality technical summary.
 Return ONLY a JSON object with two keys:
@@ -32,7 +50,7 @@ Return ONLY a JSON object with two keys:
 Title: %s
 Text: %s`, title, text)
 
-	return c.generateWithRetry(ctx, apiURL, prompt)
+	return c.generateWithRetry(ctx, apiURL, model, prompt)
 }
 
 // ChatMessage represents a message in the chat history.
@@ -53,8 +71,11 @@ type OllamaChatResponse struct {
 }
 
 // GenerateChatResponse generates a response to a user message, given context and history.
-func (c *OllamaClient) GenerateChatResponse(ctx context.Context, apiURL string, contextText string, history []ChatMessage, newMessage string) (string, error) {
-	log.Printf("OllamaClient: Starting chat. History length: %d", len(history))
+func (c *OllamaClient) GenerateChatResponse(ctx context.Context, apiURL string, model string, contextText string, history []ChatMessage, newMessage string) (string, error) {
+	if model == "" {
+		model = "qwen2.5-coder:latest"
+	}
+	log.Printf("OllamaClient: Starting chat using model %q. History length: %d", model, len(history))
 
 	messages := []MessagePart{
 		{
@@ -84,7 +105,7 @@ func (c *OllamaClient) GenerateChatResponse(ctx context.Context, apiURL string, 
 	})
 
 	reqBody := OllamaChatRequest{
-		Model:    "qwen2.5-coder:latest",
+		Model:    model,
 		Messages: messages,
 		Stream:   false,
 	}
@@ -109,9 +130,9 @@ type OllamaGenerateResponse struct {
 }
 
 // generateWithRetry executes a JSON generation call with retries.
-func (c *OllamaClient) generateWithRetry(ctx context.Context, apiURL string, prompt string) (string, error) {
+func (c *OllamaClient) generateWithRetry(ctx context.Context, apiURL string, model string, prompt string) (string, error) {
 	reqBody := OllamaGenerateRequest{
-		Model:  "llama3:latest",
+		Model:  model,
 		Prompt: prompt,
 		Stream: false,
 		Format: "json",
@@ -194,4 +215,39 @@ func (c *OllamaClient) doOllamaRequest(ctx context.Context, endpoint string, req
 	}
 
 	return genResp.Response, nil
+}
+
+// ListModels returns a list of available models on the Ollama server.
+func (c *OllamaClient) ListModels(ctx context.Context, apiURL string) ([]string, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL+"/api/tags", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var data struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+
+	models := make([]string, 0, len(data.Models))
+	for _, m := range data.Models {
+		models = append(models, m.Name)
+	}
+	return models, nil
 }

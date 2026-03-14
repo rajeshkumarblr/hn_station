@@ -70,25 +70,45 @@ func (s *SQLiteStore) migrate() error {
 		about      TEXT,
 		updated_at DATETIME NOT NULL DEFAULT (datetime('now'))
 	);
+
+	CREATE TABLE IF NOT EXISTS settings (
+		key   TEXT PRIMARY KEY,
+		value TEXT NOT NULL
+	);
 	`
 	_, err := s.db.Exec(schema)
 	if err != nil {
 		return err
 	}
 
-	// Add interaction columns if they don't exist (handle migration from earlier versions)
+	// Add interaction columns if they don't exist
 	cols := []string{
 		"ALTER TABLE stories ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN is_saved BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0",
 	}
 	for _, sql := range cols {
-		// We ignore the error because SQLite doesn't have "IF NOT EXISTS" for ADD COLUMN,
-		// and it will error if the column already exists.
 		_, _ = s.db.Exec(sql)
 	}
 
 	return nil
+}
+
+func (s *SQLiteStore) GetSetting(ctx context.Context, key string) (string, error) {
+	var value string
+	err := s.db.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = ?", key).Scan(&value)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return value, err
+}
+
+func (s *SQLiteStore) SetSetting(ctx context.Context, key, value string) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO settings (key, value) VALUES (?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value
+	`, key, value)
+	return err
 }
 
 // ─── helpers ───

@@ -3,7 +3,7 @@
   "appId": "com.hnstation.app",
   "productName": "HN Station",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Hacker News Desktop Reader",
   "author": {
     "name": "HN Station",
@@ -90,6 +90,9 @@
       ],
       "icon": "public/hn_256.png",
       "category": "public.app-category.news"
+    },
+    "directories": {
+      "output": "release"
     }
   },
   "dependencies": {

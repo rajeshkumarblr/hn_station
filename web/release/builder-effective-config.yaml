@@ -1,0 +1,53 @@
+directories:
+  output: release
+  buildResources: build
+appId: com.hnstation.app
+productName: HN Station
+copyright: Copyright © 2025
+icon: public/hn_256.png
+asar: true
+extraResources:
+  - from: resources/hn-local
+    to: hn-local
+    filter:
+      - '**/*'
+  - from: resources/hn-local.exe
+    to: hn-local.exe
+    filter:
+      - '**/*'
+files:
+  - filter:
+      - dist/**/*
+      - dist-electron/**/*
+      - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: public/hn.ico
+  executableName: HN Station
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: HN Station
+  menuCategory: HN Station
+  runAfterFinish: true
+linux:
+  target:
+    - AppImage
+  icon: public/hn_256.png
+  category: News
+  executableName: hn-station
+  desktop:
+    entry:
+      Comment: Hacker News Desktop Reader
+      Categories: News;Network;
+mac:
+  target:
+    - dmg
+  icon: public/hn_256.png
+  category: public.app-category.news
+electronVersion: 40.8.0

@@ -118,9 +118,11 @@ func main() {
 }
 
 type SummaryJob struct {
-	ID    int
-	URL   string
-	Title string
+	ID       int
+	URL      string
+	Title    string
+	Model    string
+	Provider string
 }
 
 func startWorker(id int, ctx context.Context, store *storage.Store, aiClient *ai.OllamaClient, ollamaURL string, jobs <-chan SummaryJob, limiter *time.Ticker) {
@@ -163,15 +165,94 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 		textContent = textContent[:8000] + "..."
 	}
 
-	// Use unified GenerateSummary which takes title and text
-	responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Title, textContent)
-	if err != nil {
-		log.Printf("Failed to generate summary (story %d): %v", job.ID, err)
+	// ─── Summarization Logic with Fallback ───
+	var summary string
+	var topics []string
+	var summarizeErr error
+
+	// 1. Try Local Ollama if provider is "local" or "both"
+	if job.Provider == "local" || job.Provider == "both" {
+		responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Model, job.Title, textContent)
+		if err == nil {
+			// Success with local
+			summary, _ = parseOllamaResponse(responseStr) // topics extraction? ingest workers don't use the parsed version currently
+			// Actually the worker flow expects JSON parsing like it did before.
+			// Let's stick to the worker's own parsing for now but use the fallback mechanism.
+		} else {
+			summarizeErr = err
+			log.Printf("Worker: Ollama failed for story %d: %v", job.ID, err)
+		}
+	}
+
+	// 2. Fallback to Gemini if:
+	// - Local failed OR provider is "gemini"
+	// - AND provider is "gemini" or "both"
+	// - AND we have a system gemini key (ingest works with system keys)
+	if summary == "" && (job.Provider == "gemini" || job.Provider == "both") {
+		geminiKey := os.Getenv("GEMINI_API_KEY")
+		if geminiKey != "" {
+			log.Printf("Worker: Attempting fallback/primary Gemini summarization for story %d", job.ID)
+			geminiClient := ai.NewGeminiClient() // One-off client for now
+			resp, err := geminiClient.GenerateSummary(workCtx, geminiKey, textContent)
+			if err == nil {
+				summary = resp
+			} else {
+				summarizeErr = err
+				log.Printf("Worker: Gemini failed for story %d: %v", job.ID, err)
+			}
+		}
+	}
+
+	if summary == "" {
+		log.Printf("Worker: All summarization attempts failed for story %d. Last error: %v", job.ID, summarizeErr)
 		return
 	}
 
-	// Try to parse the JSON (assuming Ollama phi3 outputs it directly)
+	// ─── Post-processing for Ollama format (Bullet points) ───
+	// If it was Gemini, it already returns text. If it was Ollama, it might be raw JSON.
+	// We need to parse it if it looks like JSON.
+	finalSummary := summary
+	if strings.Contains(summary, "{") && strings.Contains(summary, "}") {
+		// Re-use parseOllamaResponse logic
+		s, t := parseOllamaResponse(summary)
+		finalSummary = s
+		topics = t
+	}
+
+	if finalSummary == "" {
+		return
+	}
+
+	// Ensure bullet points
+	lines := strings.Split(finalSummary, "\n")
+	var bulletPoints []string
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			continue
+		}
+		if !strings.HasPrefix(l, "-") && !strings.HasPrefix(l, "•") {
+			l = "- " + l
+		}
+		bulletPoints = append(bulletPoints, l)
+	}
+	finalSummary = strings.Join(bulletPoints, "\n")
+
+	if err := store.UpdateStorySummaryAndTopics(workCtx, job.ID, finalSummary, topics); err != nil {
+		log.Printf("Failed to save summary/topics (story %d): %v", job.ID, err)
+	} else {
+		log.Printf("Successfully saved summary and %d topics for story %d", len(topics), job.ID)
+	}
+}
+
+// Re-implement parseOllamaResponse here or shared? Ingest is a separate binary.
+// I'll copy it for now.
+func parseOllamaResponse(responseStr string) (string, []string) {
 	cleanJSON := strings.TrimSpace(responseStr)
+	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
+	cleanJSON = strings.TrimPrefix(cleanJSON, "```")
+	cleanJSON = strings.TrimSuffix(cleanJSON, "```")
+	cleanJSON = strings.TrimSpace(cleanJSON)
 
 	// Robust JSON extraction: Find first { and last }
 	firstBrace := strings.Index(cleanJSON, "{")
@@ -180,60 +261,52 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 		cleanJSON = cleanJSON[firstBrace : lastBrace+1]
 	}
 
-	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
-	cleanJSON = strings.TrimPrefix(cleanJSON, "```")
-	cleanJSON = strings.TrimSuffix(cleanJSON, "```")
-	cleanJSON = strings.TrimSpace(cleanJSON)
-
 	var intermediate struct {
 		Summary interface{} `json:"summary"`
 		Topics  []string    `json:"topics"`
 	}
 
-	var result struct {
-		Summary string
-		Topics  []string
-	}
+	var summary string
+	var topics []string
 
 	if err := json.Unmarshal([]byte(cleanJSON), &intermediate); err != nil {
-		log.Printf("Failed to parse JSON for story %d. Error: %v. Raw response: %s", job.ID, err, responseStr)
-		result.Summary = responseStr // Fallback
-		result.Topics = []string{}
+		summary = responseStr // Fallback
 	} else {
-		// Flatten summary (could be string, []string, or [][]string)
-		summaryParts := flattenStringArray(intermediate.Summary)
-		if len(summaryParts) > 0 {
-			var bulletPoints []string
-			for _, s := range summaryParts {
-				s = strings.TrimSpace(s)
-				if s == "" {
-					continue
+		switch v := intermediate.Summary.(type) {
+		case string:
+			summary = v
+		case []interface{}:
+			var parts []string
+			for _, part := range v {
+				if s, ok := part.(string); ok {
+					parts = append(parts, s)
 				}
-				if !strings.HasPrefix(s, "-") && !strings.HasPrefix(s, "•") {
-					s = "- " + s
-				}
-				bulletPoints = append(bulletPoints, s)
 			}
-			result.Summary = strings.Join(bulletPoints, "\n")
-		} else if s, ok := intermediate.Summary.(string); ok {
-			result.Summary = s
-		} else {
-			result.Summary = fmt.Sprintf("%v", intermediate.Summary)
+			summary = strings.Join(parts, "\n")
+		default:
+			summary = fmt.Sprintf("%v", v)
 		}
-
-		// Flatten topics
-		result.Topics = flattenStringArray(intermediate.Topics)
+		topics = intermediate.Topics
 	}
-
-	if err := store.UpdateStorySummaryAndTopics(workCtx, job.ID, result.Summary, result.Topics); err != nil {
-		log.Printf("Failed to save summary/topics (story %d): %v", job.ID, err)
-	} else {
-		log.Printf("Successfully saved summary and %d topics for story %d", len(result.Topics), job.ID)
-	}
+	return summary, topics
 }
 
 func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.OllamaClient, summaryQueue chan<- SummaryJob) {
 	log.Println("Fetching top stories from HN front page...")
+
+	// Check if AI Summaries are enabled
+	aiEnabled := false
+	if val, err := store.GetSetting(ctx, "ai_summaries_enabled"); err == nil && val == "true" {
+		aiEnabled = true
+	} else if err != nil {
+		log.Printf("Failed to fetch settings: %v", err)
+	}
+
+	ollamaModel, _ := store.GetSetting(ctx, "ollama_model")
+	aiProvider, _ := store.GetSetting(ctx, "ai_provider")
+	if aiProvider == "" {
+		aiProvider = "local"
+	}
 
 	// Fetch Top Stories (Ranked) - only top 20
 	topIDs, err := client.GetTopStories(ctx)
@@ -282,7 +355,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 					rank := rankMap[id]
 					// Always summarize for top 20 in clean re-ingest
 					rankPtr := &rank
-					if err := processStory(ctx, client, store, id, rankPtr, summaryQueue); err != nil {
+					if err := processStory(ctx, client, store, id, rankPtr, summaryQueue, aiEnabled, ollamaModel, aiProvider); err != nil {
 						log.Printf("Worker %d: Failed to process story %d: %v", workerID, id, err)
 					}
 				}
@@ -312,7 +385,7 @@ func cleanupOldStories(ctx context.Context, store *storage.Store) {
 	}
 }
 
-func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int, rank *int, summaryQueue chan<- SummaryJob) error {
+func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int, rank *int, summaryQueue chan<- SummaryJob, aiEnabled bool, ollamaModel string, aiProvider string) error {
 	item, err := client.GetItem(ctx, id)
 	if err != nil {
 		return err
@@ -344,7 +417,7 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 	// 2. Score > 10 (Filtering noise)
 	// 3. No existing summary (Checked by worker? Or here? Better here to save queue space)
 
-	if item.URL != "" && item.Score > 10 {
+	if aiEnabled && item.URL != "" && item.Score > 10 {
 		// Queue for summarization if:
 		// 1. No summary exists yet, OR
 		// 2. Summary exists but topics are missing (re-process to get tags)
@@ -353,7 +426,7 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 		needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0
 		if needsSummary || needsTopics {
 			select {
-			case summaryQueue <- SummaryJob{ID: id, URL: item.URL, Title: item.Title}:
+			case summaryQueue <- SummaryJob{ID: id, URL: item.URL, Title: item.Title, Model: ollamaModel, Provider: aiProvider}:
 				if needsTopics {
 					log.Printf("Re-queuing story %d for topic tagging", id)
 				}

@@ -39,7 +39,7 @@ export async function resolveApiBase(): Promise<string> {
             await new Promise(resolve => setTimeout(resolve, 200));
         }
         console.error('[api] Failed to resolve local backend after 30s');
-        _cachedBase = ''; // Fallback to empty (will try to fetch and fail, better than hang)
+        _cachedBase = 'https://hnstation.dev'; // Fallback to production API
         finish(_cachedBase);
         return _cachedBase;
     }
