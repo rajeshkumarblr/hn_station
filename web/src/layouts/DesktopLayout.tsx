@@ -98,7 +98,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             {/* Center: Branding */}
                             <div className="flex flex-col items-center">
                                 <span className="text-sm font-black tracking-tighter text-[#ff6600] uppercase">HN Station</span>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.3' : 'v1.1.1'}</span>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.4' : 'v1.1.1'}</span>
                             </div>
 
                             {/* Right: Actions Portal */}

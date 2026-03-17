@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, Terminal, Link, Check, FileText, MessageSquare } from 'lucide-react';
+import { Star, Terminal, Link, Check, FileText, MessageSquare, Columns } from 'lucide-react';
 
 export interface Story {
     id: number;
@@ -177,18 +177,14 @@ export function StoryCard({
                     </button>
                 )}
 
-                {/* Context Menu Button */}
-                {onOpenInTab && (
+                {/* Direct Split View icon */}
+                {story.url && onOpenInTab && (
                     <button
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setContextMenuPos({ x: e.clientX - 180, y: e.clientY });
-                        }}
-                        className="p-1 rounded-md text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0"
-                        title="Open Options"
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); }}
+                        className="p-1 rounded-md text-purple-500/60 dark:text-purple-400/60 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-300/20 dark:hover:bg-purple-900/40 transition-all duration-150 flex items-center justify-center shrink-0 border border-purple-200/50 dark:border-purple-700/30"
+                        title="Open Split View"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
+                        <Columns size={14} strokeWidth={2.5} />
                     </button>
                 )}
 

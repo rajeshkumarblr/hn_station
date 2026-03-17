@@ -249,8 +249,17 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                                             <ExternalLink size={20} />
                                         </div>
                                         <div>
-                                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Reading Mode: Full Article</h4>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">Click to open the source article in a new tab.</p>
+                                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                                                Reading Mode:
+                                                <button
+                                                    onClick={() => setActiveTab('article')}
+                                                    className="text-blue-600 dark:text-blue-400 hover:underline decoration-blue-500/30 decoration-2 underline-offset-4"
+                                                    title="Switch to Full Article view"
+                                                >
+                                                    Full Article
+                                                </button>
+                                            </h4>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">Click title to view article here, or use the button to open in new tab.</p>
                                         </div>
                                     </div>
                                     <a

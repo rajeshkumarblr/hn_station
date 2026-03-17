@@ -267,7 +267,7 @@ export function useAppState() {
             const existingTab = prev.find(t => t.storyId === id);
             if (existingTab) {
                 // If we forced a mode change, update it, otherwise just switch
-                if (overrideMode && existingTab.mode !== overrideMode && !isWebMode) {
+                if (overrideMode && existingTab.mode !== overrideMode) {
                     return prev.map(t => t.id === existingTab.id ? { ...t, mode: overrideMode } : t);
                 }
                 setTimeout(() => setActiveTabId(existingTab.id), 0);
