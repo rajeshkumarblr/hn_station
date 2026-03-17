@@ -156,9 +156,7 @@ export function useAppState() {
     const stories = storyBuffer; // Backend already paginates this buffer
 
     useEffect(() => {
-        console.log('[state] Subscribing to API base...');
         return subscribeApiBase((url: string) => {
-            console.log('[state] API base resolved to:', url);
             setApiBase(url);
         });
     }, []);
@@ -169,16 +167,11 @@ export function useAppState() {
         // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
         const isElectron = !!(window as any).electronAPI;
         if (isElectron && (!apiBase || apiBase.includes('hnstation.dev'))) {
-            console.log('[state] Electron detected, waiting for non-fallback apiBase to fetch user data.');
             return;
         }
-        if (!apiBase) {
-            console.log('[state] apiBase not resolved yet, skipping user data fetch.');
-            return;
-        }
-        console.log('[state] Fetching user data from:', apiBase);
+        const url = `${apiBase}/api/me`;
 
-        fetch(`${apiBase}/api/me`, { credentials: 'include' })
+        fetch(url, { credentials: 'include' })
             .then(res => res.ok ? res.json() : null)
             .then(data => setUser(data))
             .catch(() => setUser(null));
@@ -374,9 +367,9 @@ export function useAppState() {
     }, [stories, highlightedStoryId]);
 
     const buildUrl = useCallback((currentOffset: number, limit: number = PAGE_SIZE) => {
-        if (!apiBase) return '';
-        if (mode === 'saved') return `${apiBase}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
-        let url = `${apiBase}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
+        const baseUrl = apiBase ?? '';
+        if (mode === 'saved') return `${baseUrl}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
+        let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
         if (showHidden) url += `&show_hidden=true`;
 
         const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
@@ -468,8 +461,8 @@ export function useAppState() {
     }, [stories]);
 
     useEffect(() => {
-        if (!selectedStoryId) return;
-        const baseUrl = apiBase || '';
+        if (selectedStoryId === null) return;
+        const baseUrl = apiBase ?? '';
         fetch(`${baseUrl}/api/stories/${selectedStoryId}`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {

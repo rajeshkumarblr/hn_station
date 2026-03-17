@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/rajeshkumarblr/hn_station/internal/ai"
 	"github.com/rajeshkumarblr/hn_station/internal/content"
@@ -54,14 +53,12 @@ func main() {
 		cancel()
 	}()
 
-	// Connect to database
-	dbpool, err := pgxpool.New(ctx, dbURL)
+	// Initialize storage
+	store, err := storage.NewStore(ctx, dbURL)
 	if err != nil {
-		log.Fatalf("Unable to create connection pool: %v\n", err)
+		log.Fatalf("Failed to initialize storage: %v\n", err)
 	}
-	defer dbpool.Close()
 
-	store := storage.New(dbpool)
 	client := hn.NewClient()
 	aiClient := ai.NewOllamaClient()
 
@@ -130,7 +127,7 @@ type SummaryJob struct {
 	Provider string
 }
 
-func startWorker(id int, ctx context.Context, store *storage.Store, aiClient *ai.OllamaClient, ollamaURL string, jobs <-chan SummaryJob, limiter *time.Ticker) {
+func startWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, jobs <-chan SummaryJob, limiter *time.Ticker) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -146,7 +143,7 @@ func startWorker(id int, ctx context.Context, store *storage.Store, aiClient *ai
 	}
 }
 
-func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.OllamaClient, ollamaURL string, job SummaryJob) {
+func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, job SummaryJob) {
 	log.Printf("Processing summary for story %d: %s", job.ID, job.Title)
 
 	// Use a new context with timeout for the actual work
@@ -180,9 +177,7 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 		responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Model, job.Title, textContent)
 		if err == nil {
 			// Success with local
-			summary, _ = parseOllamaResponse(responseStr) // topics extraction? ingest workers don't use the parsed version currently
-			// Actually the worker flow expects JSON parsing like it did before.
-			// Let's stick to the worker's own parsing for now but use the fallback mechanism.
+			summary, _ = parseOllamaResponse(responseStr)
 		} else {
 			summarizeErr = err
 			log.Printf("Worker: Ollama failed for story %d: %v", job.ID, err)
@@ -214,8 +209,6 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 	}
 
 	// ─── Post-processing for Ollama format (Bullet points) ───
-	// If it was Gemini, it already returns text. If it was Ollama, it might be raw JSON.
-	// We need to parse it if it looks like JSON.
 	finalSummary := summary
 	if strings.Contains(summary, "{") && strings.Contains(summary, "}") {
 		// Re-use parseOllamaResponse logic
@@ -250,8 +243,6 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 	}
 }
 
-// Re-implement parseOllamaResponse here or shared? Ingest is a separate binary.
-// I'll copy it for now.
 func parseOllamaResponse(responseStr string) (string, []string) {
 	cleanJSON := strings.TrimSpace(responseStr)
 	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
@@ -296,7 +287,8 @@ func parseOllamaResponse(responseStr string) (string, []string) {
 	return summary, topics
 }
 
-func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, aiClient *ai.OllamaClient, summaryQueue chan<- SummaryJob, disableAI bool) {
+func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, aiClient *ai.OllamaClient, summaryQueue chan<- SummaryJob, disableAI bool) {
+	log.Println("DEBUG: runIngestion started")
 	log.Println("Fetching top stories from HN front page...")
 
 	// Check if AI Summaries are enabled
@@ -382,17 +374,10 @@ func runIngestion(ctx context.Context, client *hn.Client, store *storage.Store, 
 		log.Printf("Failed to prune stories: %v", err)
 	}
 
-	log.Println("Ingestion run completed.")
+	log.Println("Ingestion run completed successfully.")
 }
 
-// cleanupOldStories is kept for compatibility but no longer used in main flow.
-func cleanupOldStories(ctx context.Context, store *storage.Store) {
-	if err := store.PruneStories(ctx, 7); err != nil {
-		log.Printf("Failed to prune old stories: %v", err)
-	}
-}
-
-func processStory(ctx context.Context, client *hn.Client, store *storage.Store, id int, rank *int, summaryQueue chan<- SummaryJob, aiEnabled bool, ollamaModel string, aiProvider string) error {
+func processStory(ctx context.Context, client *hn.Client, store storage.DB, id int, rank *int, summaryQueue chan<- SummaryJob, aiEnabled bool, ollamaModel string, aiProvider string) error {
 	item, err := client.GetItem(ctx, id)
 	if err != nil {
 		return err
@@ -415,19 +400,12 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 	}
 
 	if err := store.UpsertStory(ctx, story); err != nil {
-		return err
+		return fmt.Errorf("upsert error: %w", err)
 	}
+	log.Printf("Successfully upserted story %d: %s", id, story.Title)
 
 	// 1.5 Enqueue for Auto-Summarization
-	// CRITERIA:
-	// 1. Must have URL
-	// 2. Score > 10 (Filtering noise)
-	// 3. No existing summary (Checked by worker? Or here? Better here to save queue space)
-
 	if aiEnabled && item.URL != "" && item.Score > 10 {
-		// Queue for summarization if:
-		// 1. No summary exists yet, OR
-		// 2. Summary exists but topics are missing (re-process to get tags)
 		existing, err := store.GetStory(ctx, id)
 		needsSummary := err != nil || existing.Summary == nil || *existing.Summary == ""
 		needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0
@@ -456,27 +434,8 @@ func processStory(ctx context.Context, client *hn.Client, store *storage.Store, 
 	return nil
 }
 
-func processComments(ctx context.Context, client *hn.Client, store *storage.Store, kids []int, storyID int64, parentID *int64) {
-	// ... (unchanged) ...
-	// Need to copy the original body of processComments here or it will be lost if I don't include it in ReplacementContent
-	// Since I'm replacing from line 63 onwards, I need to include EVERYTHING after that.
-
-	// WAIT: replace_file_content replaces a chunk.
-	// I need to be careful. The original code has `processComments` at the end.
-	// I should only replace `main`, `runIngestion` and `processStory`.
-	// Leaving `processComments` and `processUser` alone if possible,
-	// BUT `processComments` is called by `processStory` and calls itself.
-	// The previous `processStory` implementation was ending around line 265.
-
-	// Let me rewrite the whole file content from main downwards to be safe,
-	// OR just target the block from `main` to `processStory` end.
-	// `processComments` starts at line 267.
-
-	// I will replace from line 63 (inside main) to line 265 (end of processStory).
-	// And I need to update `main` signature too, so I should start from line 62.
-
+func processComments(ctx context.Context, client *hn.Client, store storage.DB, kids []int, storyID int64, parentID *int64) {
 	for _, kidID := range kids {
-		// Fetch comment item
 		item, err := client.GetItem(ctx, kidID)
 		if err != nil {
 			log.Printf("Failed to fetch comment %d: %v", kidID, err)
@@ -487,7 +446,6 @@ func processComments(ctx context.Context, client *hn.Client, store *storage.Stor
 			continue
 		}
 
-		// Upsert Comment
 		comment := storage.Comment{
 			ID:       int64(item.ID),
 			StoryID:  storyID,
@@ -501,12 +459,10 @@ func processComments(ctx context.Context, client *hn.Client, store *storage.Stor
 			log.Printf("Failed to upsert comment %d: %v", item.ID, err)
 		}
 
-		// Upsert Comment Author
 		if item.By != "" {
 			go processUser(ctx, client, store, item.By)
 		}
 
-		// Recursively process replies
 		if len(item.Kids) > 0 {
 			pID := int64(item.ID)
 			processComments(ctx, client, store, item.Kids, storyID, &pID)
@@ -514,7 +470,7 @@ func processComments(ctx context.Context, client *hn.Client, store *storage.Stor
 	}
 }
 
-func processUser(ctx context.Context, client *hn.Client, store *storage.Store, username string) {
+func processUser(ctx context.Context, client *hn.Client, store storage.DB, username string) {
 	userItem, err := client.GetUser(ctx, username)
 	if err != nil {
 		log.Printf("Failed to fetch user %s: %v", username, err)
@@ -522,7 +478,7 @@ func processUser(ctx context.Context, client *hn.Client, store *storage.Store, u
 	}
 
 	user := storage.User{
-		ID:        userItem.ID, // User struct ID is a string (username)
+		ID:        userItem.ID,
 		Created:   userItem.Created,
 		Karma:     userItem.Karma,
 		About:     userItem.About,
@@ -534,7 +490,6 @@ func processUser(ctx context.Context, client *hn.Client, store *storage.Store, u
 	}
 }
 
-// flattenStringArray handles various hallucinated JSON formats from LLMs (e.g., nested arrays like [["string"]])
 func flattenStringArray(input interface{}) []string {
 	if input == nil {
 		return nil
@@ -554,7 +509,6 @@ func flattenStringArray(input interface{}) []string {
 			case string:
 				result = append(result, tv)
 			case []interface{}:
-				// Handle nested array: [["string"]] -> take first element
 				if len(tv) > 0 {
 					if s, ok := tv[0].(string); ok {
 						result = append(result, s)

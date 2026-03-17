@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: ingest
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: ingest
@@ -24,6 +24,8 @@ spec:
                   key: database_url
             - name: OLLAMA_URL
               value: "http://ollama:11434"
+            - name: DISABLE_AI
+              value: "true"
           volumeMounts:
           - name: secrets-store-inline
             mountPath: "/mnt/secrets-store"

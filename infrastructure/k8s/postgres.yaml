@@ -34,7 +34,7 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_DB
-              value: my_hn
+              value: hn_station
             - name: POSTGRES_USER
               value: hn_user
             - name: POSTGRES_PASSWORD

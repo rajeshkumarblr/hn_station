@@ -52,7 +52,7 @@ func (s *Server) middlewares() {
 	s.router.Use(middleware.Recoverer)
 	s.router.Use(middleware.Timeout(10 * time.Minute))
 
-	allowedOrigins := []string{"http://localhost:5173", "http://localhost:5174", "https://hnstation.dev"}
+	allowedOrigins := []string{"http://localhost:5173", "http://localhost:5174", "https://hnstation.dev", "http://hnstation.dev"}
 	if s.localMode {
 		allowedOrigins = append(allowedOrigins, "http://127.0.0.1")
 	}

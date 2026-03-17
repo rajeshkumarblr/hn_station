@@ -19,7 +19,12 @@ docker push $ACR_SERVER/frontend:latest
 echo "4. Deploying to AKS..."
 
 # Apply Secrets (Ensure you've edited infrastructure/k8s/secrets.yaml if needed)
-kubectl apply -f infrastructure/k8s/secrets.yaml
+if [ -f "infrastructure/k8s/secrets.yaml" ]; then
+    echo "Applying Secrets..."
+    kubectl apply -f infrastructure/k8s/secrets.yaml
+else
+    echo "Skipping secrets.yaml (file not found)..."
+fi
 
 # Apply Database (StatefulSet)
 echo "Deploying Postgres..."

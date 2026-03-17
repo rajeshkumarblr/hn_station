@@ -4,61 +4,21 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	pgvector "github.com/pgvector/pgvector-go"
 )
 
-type Story struct {
-	ID          int64            `json:"id"`
-	Title       string           `json:"title"`
-	URL         string           `json:"url"`
-	Score       int              `json:"score"`
-	By          string           `json:"by"`
-	Descendants int              `json:"descendants"`
-	PostedAt    time.Time        `json:"time"`
-	CreatedAt   time.Time        `json:"created_at"`
-	HNRank      *int             `json:"hn_rank,omitempty"`
-	IsRead      *bool            `json:"is_read,omitempty"`
-	IsSaved     *bool            `json:"is_saved,omitempty"`
-	IsHidden    *bool            `json:"is_hidden,omitempty"`
-	Summary     *string          `json:"summary,omitempty"`
-	Topics      []string         `json:"topics,omitempty"`
-	Embedding   *pgvector.Vector `json:"-"`
-	Similarity  *float64         `json:"similarity,omitempty"`
-}
-
-type AuthUser struct {
-	ID           string     `json:"id"`
-	GoogleID     string     `json:"google_id"`
-	Email        string     `json:"email"`
-	Name         string     `json:"name"`
-	AvatarURL    string     `json:"avatar_url"`
-	IsAdmin      bool       `json:"is_admin"`
-	TotalViews   int        `json:"total_views"`
-	LastSeen     *time.Time `json:"last_seen"` // Pointer to handle nulls
-	GeminiAPIKey string     `json:"-"`         // Never expose to frontend
-	CreatedAt    time.Time  `json:"created_at"`
-}
-
-type AppStats struct {
-	TotalUsers        int `json:"total_users"`
-	TotalInteractions int `json:"total_interactions"`
-	TotalStories      int `json:"total_stories"`
-	TotalComments     int `json:"total_comments"`
-}
-
-type Store struct {
+type PostgresStore struct {
 	db *pgxpool.Pool
 }
 
-func New(db *pgxpool.Pool) *Store {
-	return &Store{db: db}
+func New(db *pgxpool.Pool) *PostgresStore {
+	return &PostgresStore{db: db}
 }
 
-func (s *Store) UpsertStory(ctx context.Context, story Story) error {
+func (s *PostgresStore) UpsertStory(ctx context.Context, story Story) error {
 	query := `
 		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, hn_rank, embedding, topics, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, '{}'::text[]), NOW())
@@ -77,7 +37,7 @@ func (s *Store) UpsertStory(ctx context.Context, story Story) error {
 	return err
 }
 
-func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, int, error) {
+func (s *PostgresStore) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, int, error) {
 	// 1. Build common WHERE clause
 	whereClause := " WHERE 1=1"
 	var args []interface{}
@@ -119,7 +79,7 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	}
 
 	// 3. Get Stories
-	selectCols := `s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.topics`
+	selectCols := `s.id, s.title, COALESCE(s.url, ''), s.score, COALESCE(s.by, ''), s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, COALESCE(s.topics, '{}'::text[])`
 	fromClause := `FROM stories s`
 	if hasUser {
 		selectCols += `, ui.is_read, ui.is_saved, ui.is_hidden`
@@ -163,8 +123,8 @@ func (s *Store) GetStories(ctx context.Context, limit, offset int, sortStrategy 
 	return stories, total, nil
 }
 
-func (s *Store) GetStory(ctx context.Context, id int) (*Story, error) {
-	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics FROM stories WHERE id = $1`
+func (s *PostgresStore) GetStory(ctx context.Context, id int) (*Story, error) {
+	query := `SELECT id, title, COALESCE(url, ''), score, COALESCE(by, ''), descendants, posted_at, created_at, hn_rank, summary, COALESCE(topics, '{}'::text[]) FROM stories WHERE id = $1`
 	var story Story
 	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics)
 	if err != nil {
@@ -174,7 +134,7 @@ func (s *Store) GetStory(ctx context.Context, id int) (*Story, error) {
 }
 
 // GetStoriesStatus returns a map of IDs to their summary status for a list of story IDs.
-func (s *Store) GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, error) {
+func (s *PostgresStore) GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, error) {
 	if len(ids) == 0 {
 		return make(map[int]bool), nil
 	}
@@ -198,7 +158,7 @@ func (s *Store) GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, 
 	return status, nil
 }
 
-func (s *Store) GetComments(ctx context.Context, storyID int) ([]Comment, error) {
+func (s *PostgresStore) GetComments(ctx context.Context, storyID int) ([]Comment, error) {
 	query := `SELECT id, story_id, parent_id, text, by, posted_at FROM comments WHERE story_id = $1 ORDER BY posted_at ASC`
 	rows, err := s.db.Query(ctx, query, storyID)
 	if err != nil {
@@ -217,24 +177,9 @@ func (s *Store) GetComments(ctx context.Context, storyID int) ([]Comment, error)
 	return comments, nil
 }
 
-type Comment struct {
-	ID       int64     `json:"id"`
-	StoryID  int64     `json:"story_id"`
-	ParentID *int64    `json:"parent_id"`
-	Text     string    `json:"text"`
-	By       string    `json:"by"`
-	PostedAt time.Time `json:"time"`
-}
+// Comment and User types moved to db.go
 
-type User struct {
-	ID        string `json:"id"`
-	Created   int    `json:"created"`
-	Karma     int    `json:"karma"`
-	About     string `json:"about"`
-	Submitted []int  `json:"submitted"`
-}
-
-func (s *Store) UpsertComment(ctx context.Context, comment Comment) error {
+func (s *PostgresStore) UpsertComment(ctx context.Context, comment Comment) error {
 	query := `
 		INSERT INTO comments (id, story_id, parent_id, text, by, posted_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW())
@@ -246,7 +191,7 @@ func (s *Store) UpsertComment(ctx context.Context, comment Comment) error {
 	return err
 }
 
-func (s *Store) UpsertUser(ctx context.Context, user User) error {
+func (s *PostgresStore) UpsertUser(ctx context.Context, user User) error {
 	query := `
 		INSERT INTO users (id, created, karma, about, submitted, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW())
@@ -260,7 +205,7 @@ func (s *Store) UpsertUser(ctx context.Context, user User) error {
 	return err
 }
 
-func (s *Store) ClearRanksNotIn(ctx context.Context, ids []int) error {
+func (s *PostgresStore) ClearRanksNotIn(ctx context.Context, ids []int) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -269,7 +214,7 @@ func (s *Store) ClearRanksNotIn(ctx context.Context, ids []int) error {
 	return err
 }
 
-func (s *Store) UpdateRanks(ctx context.Context, rankMap map[int]int) error {
+func (s *PostgresStore) UpdateRanks(ctx context.Context, rankMap map[int]int) error {
 	batch := &pgx.Batch{}
 	for id, rank := range rankMap {
 		// Only update existing stories. If a story doesn't exist, it will be inserted with the correct rank by the worker.
@@ -288,13 +233,13 @@ func (s *Store) UpdateRanks(ctx context.Context, rankMap map[int]int) error {
 	return nil
 }
 
-func (s *Store) UpdateStorySummary(ctx context.Context, id int, summary string) error {
+func (s *PostgresStore) UpdateStorySummary(ctx context.Context, id int, summary string) error {
 	query := `UPDATE stories SET summary = $1 WHERE id = $2`
 	_, err := s.db.Exec(ctx, query, summary, id)
 	return err
 }
 
-func (s *Store) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error {
+func (s *PostgresStore) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error {
 	query := `UPDATE stories SET summary = $1, topics = $2 WHERE id = $3`
 	_, err := s.db.Exec(ctx, query, summary, topics, id)
 	return err
@@ -302,7 +247,7 @@ func (s *Store) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary
 
 // UpsertAuthUser creates or updates a user based on their Google ID.
 // Returns the user (with ID) after upsert.
-func (s *Store) UpsertAuthUser(ctx context.Context, googleID, email, name, avatarURL string) (*AuthUser, error) {
+func (s *PostgresStore) UpsertAuthUser(ctx context.Context, googleID, email, name, avatarURL string) (*AuthUser, error) {
 	query := `
 		INSERT INTO auth_users (google_id, email, name, avatar_url)
 		VALUES ($1, $2, $3, $4)
@@ -323,7 +268,7 @@ func (s *Store) UpsertAuthUser(ctx context.Context, googleID, email, name, avata
 }
 
 // GetAuthUser fetches a user by their UUID.
-func (s *Store) GetAuthUser(ctx context.Context, userID string) (*AuthUser, error) {
+func (s *PostgresStore) GetAuthUser(ctx context.Context, userID string) (*AuthUser, error) {
 	query := `SELECT id, google_id, email, name, avatar_url, is_admin, COALESCE(gemini_api_key, ''), created_at FROM auth_users WHERE id = $1`
 	var user AuthUser
 	err := s.db.QueryRow(ctx, query, userID).Scan(
@@ -335,14 +280,14 @@ func (s *Store) GetAuthUser(ctx context.Context, userID string) (*AuthUser, erro
 	return &user, nil
 }
 
-func (s *Store) UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error {
+func (s *PostgresStore) UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error {
 	query := `UPDATE auth_users SET gemini_api_key = $1 WHERE id = $2`
 	_, err := s.db.Exec(ctx, query, apiKey, userID)
 	return err
 }
 
 // UpsertInteraction creates or updates a user-story interaction.
-func (s *Store) UpsertInteraction(ctx context.Context, userID string, storyID int, isRead *bool, isSaved *bool, isHidden *bool) error {
+func (s *PostgresStore) UpsertInteraction(ctx context.Context, userID string, storyID int, isRead *bool, isSaved *bool, isHidden *bool) error {
 	query := `
 		INSERT INTO user_interactions (user_id, story_id, is_read, is_saved, is_hidden, updated_at)
 		VALUES ($1, $2, COALESCE($3, FALSE), COALESCE($4, FALSE), COALESCE($5, FALSE), NOW())
@@ -357,7 +302,7 @@ func (s *Store) UpsertInteraction(ctx context.Context, userID string, storyID in
 }
 
 // GetSavedStories returns stories saved by a user, newest first.
-func (s *Store) GetSavedStories(ctx context.Context, userID string, limit, offset int) ([]Story, int, error) {
+func (s *PostgresStore) GetSavedStories(ctx context.Context, userID string, limit, offset int) ([]Story, int, error) {
 	countQuery := `SELECT COUNT(*) FROM user_interactions WHERE user_id = $1 AND is_saved = TRUE`
 	var total int
 	if err := s.db.QueryRow(ctx, countQuery, userID).Scan(&total); err != nil {
@@ -390,7 +335,7 @@ func (s *Store) GetSavedStories(ctx context.Context, userID string, limit, offse
 }
 
 // SearchStories performs a semantic similarity search using a query embedding vector.
-func (s *Store) SearchStories(ctx context.Context, embedding pgvector.Vector, limit int) ([]Story, error) {
+func (s *PostgresStore) SearchStories(ctx context.Context, embedding pgvector.Vector, limit int) ([]Story, error) {
 	query := `
 		SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank,
 		       1 - (embedding <=> $1) as similarity
@@ -418,22 +363,15 @@ func (s *Store) SearchStories(ctx context.Context, embedding pgvector.Vector, li
 	return stories, nil
 }
 
-type ChatMessage struct {
-	ID        int       `json:"id"`
-	UserID    string    `json:"user_id"`
-	StoryID   int       `json:"story_id"`
-	Role      string    `json:"role"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
-}
+// ChatMessage type moved to db.go
 
-func (s *Store) SaveChatMessage(ctx context.Context, userID string, storyID int, role, content string) error {
+func (s *PostgresStore) SaveChatMessage(ctx context.Context, userID string, storyID int, role, content string) error {
 	query := `INSERT INTO chat_messages (user_id, story_id, role, content) VALUES ($1::uuid, $2, $3, $4)`
 	_, err := s.db.Exec(ctx, query, userID, storyID, role, content)
 	return err
 }
 
-func (s *Store) GetChatHistory(ctx context.Context, userID string, storyID int) ([]ChatMessage, error) {
+func (s *PostgresStore) GetChatHistory(ctx context.Context, userID string, storyID int) ([]ChatMessage, error) {
 	query := `SELECT id, user_id, story_id, role, content, created_at FROM chat_messages WHERE user_id = $1::uuid AND story_id = $2 ORDER BY created_at ASC`
 	rows, err := s.db.Query(ctx, query, userID, storyID)
 	if err != nil {
@@ -452,7 +390,7 @@ func (s *Store) GetChatHistory(ctx context.Context, userID string, storyID int) 
 	return messages, nil
 }
 
-func (s *Store) GetAppStats(ctx context.Context) (*AppStats, error) {
+func (s *PostgresStore) GetAppStats(ctx context.Context) (*AppStats, error) {
 	stats := &AppStats{}
 
 	// Total Users
@@ -482,7 +420,7 @@ func (s *Store) GetAppStats(ctx context.Context) (*AppStats, error) {
 	return stats, nil
 }
 
-func (s *Store) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
+func (s *PostgresStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
 	query := `
 		SELECT 
 			u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, COALESCE(u.gemini_api_key, ''), u.created_at,
@@ -516,7 +454,7 @@ func (s *Store) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
 }
 
 // GetAnyAdminAPIKey returns the Gemini API key of the first found admin user who has one set.
-func (s *Store) GetAnyAdminAPIKey(ctx context.Context) (string, error) {
+func (s *PostgresStore) GetAnyAdminAPIKey(ctx context.Context) (string, error) {
 	query := `SELECT gemini_api_key FROM auth_users WHERE is_admin = TRUE AND gemini_api_key IS NOT NULL AND gemini_api_key != '' LIMIT 1`
 	var key string
 	err := s.db.QueryRow(ctx, query).Scan(&key)
@@ -527,7 +465,7 @@ func (s *Store) GetAnyAdminAPIKey(ctx context.Context) (string, error) {
 }
 
 // PruneStories removes stories that are older than daysToKeep and are not bookmarked.
-func (s *Store) PruneStories(ctx context.Context, daysToKeep int) error {
+func (s *PostgresStore) PruneStories(ctx context.Context, daysToKeep int) error {
 	query := `
 		DELETE FROM stories 
 		WHERE created_at < NOW() - make_interval(days => $1)
@@ -542,7 +480,7 @@ func (s *Store) PruneStories(ctx context.Context, daysToKeep int) error {
 	return nil
 }
 
-func (s *Store) GetSetting(ctx context.Context, key string) (string, error) {
+func (s *PostgresStore) GetSetting(ctx context.Context, key string) (string, error) {
 	var value string
 	err := s.db.QueryRow(ctx, "SELECT value FROM settings WHERE key = $1", key).Scan(&value)
 	if err == pgx.ErrNoRows {
@@ -551,7 +489,7 @@ func (s *Store) GetSetting(ctx context.Context, key string) (string, error) {
 	return value, err
 }
 
-func (s *Store) SetSetting(ctx context.Context, key, value string) error {
+func (s *PostgresStore) SetSetting(ctx context.Context, key, value string) error {
 	_, err := s.db.Exec(ctx, `
 		INSERT INTO settings (key, value) VALUES ($1, $2)
 		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value

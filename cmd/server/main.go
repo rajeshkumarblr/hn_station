@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/rajeshkumarblr/hn_station/internal/ai"
 	"github.com/rajeshkumarblr/hn_station/internal/api"
@@ -36,12 +35,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Connect to database
-	dbpool, err := pgxpool.New(ctx, dbURL)
+	// Initialize storage
+	store, err := storage.NewStore(ctx, dbURL)
 	if err != nil {
-		log.Fatalf("Unable to create connection pool: %v\n", err)
+		log.Fatalf("Failed to initialize storage: %v\n", err)
 	}
-	defer dbpool.Close()
 
 	// Initialize auth
 	authCfg := auth.NewConfig()
@@ -52,7 +50,6 @@ func main() {
 	geminiClient := ai.NewGeminiClient()
 	log.Println("AI clients initialized")
 
-	store := storage.New(dbpool)
 	server := api.NewServer(store, authCfg, aiClient, geminiClient, false /* cloud mode */)
 
 	srv := &http.Server{

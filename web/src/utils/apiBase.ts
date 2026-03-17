@@ -23,14 +23,10 @@ export function subscribeApiBase(callback: (url: string) => void): () => void {
     // Immediate call
     callback(getApiBase());
 
-    // In the future, if we allow dynamic switching, we can implement a real listener
+    // No dynamic switching for now
     return () => { };
 }
 
-/**
- * Standard initialization for API base. 
- * In this implementation, it's just a placeholder as getApiBase is deterministic.
- */
 export function initApiBase(): void {
-    getApiBase();
+    // Deterministic, no init needed
 }
