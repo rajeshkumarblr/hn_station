@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { createPortal } from 'react-dom';
-import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X } from 'lucide-react';
+import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X, ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
@@ -41,14 +41,14 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
 
     const containerRef = useRef<HTMLDivElement>(null);
     const isWebMode = isWebPreview();
-    const [activeTab, setActiveTab] = useState<'discussion' | 'article' | 'split'>(isWebMode ? 'discussion' : (activeTabProp || 'article'));
+    const [activeTab, setActiveTab] = useState<'discussion' | 'article' | 'split'>(activeTabProp || 'article');
 
     // Sync activeTab with prop
     useEffect(() => {
         if (activeTabProp) {
-            setActiveTab(isWebMode ? 'discussion' : activeTabProp);
+            setActiveTab(activeTabProp);
         }
-    }, [activeTabProp, isWebMode]);
+    }, [activeTabProp]);
 
 
     const [isCopied, setIsCopied] = useState(false);
@@ -156,6 +156,11 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
             {/* Action Bar Portal (Targets Right of Branding) */}
             {isActive && createPortal(
                 <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-right-1 duration-200">
+                    <button onClick={onFocusList} className="flex items-center gap-1.5 px-2 py-1 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-md transition-colors mr-2" title="Back to Feed">
+                        <ArrowLeft size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-tight">Back</span>
+                    </button>
+
                     <a href={storyUrl} target="_blank" rel="noreferrer" className="p-1 text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors" title="Open in new tab"><ExternalLink size={14} /></a>
                     <button onClick={handleCopyLink} className={`p-1 rounded-md transition-all ${isCopied ? 'text-green-500' : 'text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800'}`} title={isCopied ? 'Copied!' : 'Copy Link'}>{isCopied ? <Check size={14} /> : <Link size={14} />}</button>
 
@@ -207,17 +212,26 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
             {/* Content Container: Article/Discussion + optional right Summary Sidebar */}
             <div className="flex-1 flex flex-row min-h-0 overflow-hidden relative">
                 {/* Main content area */}
-                <div className={`flex-1 custom-scrollbar relative min-h-0 ${(!isWebMode && activeTab === 'split') ? 'flex flex-row overflow-hidden' : 'flex flex-col overflow-y-auto'}`}>
+                <div className={`flex-1 custom-scrollbar relative min-h-0 ${(activeTab === 'split') ? 'flex flex-row overflow-hidden' : 'flex flex-col overflow-y-auto'}`}>
 
-                    {/* Article Tab Content — Always Web View in Electron. Disabled in Web Preview. */}
-                    {!isWebMode && (activeTab === 'article' || activeTab === 'split') && (
+                    {/* Article Tab Content — Web View in Electron, Iframe on Web. */}
+                    {(activeTab === 'article' || activeTab === 'split') && (
                         <div className={`flex flex-col min-h-0 ${activeTab === 'split' ? 'flex-1 overflow-y-auto border-r border-slate-200 dark:border-white/5' : 'flex-1'}`}>
                             <div className="flex-1 w-full h-full bg-white overflow-hidden relative">
-                                <webview
-                                    src={storyUrl}
-                                    className="w-full h-full border-0 absolute inset-0 bg-white"
-                                    title="Article Web View"
-                                />
+                                {isWebMode ? (
+                                    <iframe
+                                        src={storyUrl}
+                                        className="w-full h-full border-0 absolute inset-0 bg-white"
+                                        title="Article Web View"
+                                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                                    />
+                                ) : (
+                                    <webview
+                                        src={storyUrl}
+                                        className="w-full h-full border-0 absolute inset-0 bg-white"
+                                        title="Article Web View"
+                                    />
+                                )}
                             </div>
                         </div>
                     )}

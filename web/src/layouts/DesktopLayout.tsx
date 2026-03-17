@@ -98,11 +98,11 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             {/* Center: Branding */}
                             <div className="flex flex-col items-center">
                                 <span className="text-sm font-black tracking-tighter text-[#ff6600] uppercase">HN Station</span>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web Preview' : 'v1.1.1'}</span>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.3' : 'v1.1.1'}</span>
                             </div>
 
                             {/* Right: Actions Portal */}
-                            <div id="reader-actions-portal" className="flex items-center min-w-[150px] justify-start"></div>
+                            <div id="reader-actions-portal" className="flex items-center min-w-[200px] justify-start bg-slate-200/20 dark:bg-slate-700/20 rounded-lg px-2 min-h-[32px]"></div>
                         </div>
                     </div>
 
@@ -208,8 +208,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 </div>
             </header>
 
-            {/* Global Tab Bar Container (Neutral Theme - Flush) - HIDDEN in Web mode */}
-            {tabs.length > 0 && !isWebMode && (
+            {/* Global Tab Bar Container (Neutral Theme - Flush) */}
+            {tabs.length > 0 && (
                 <div className="flex bg-slate-100 dark:bg-slate-800 overflow-x-auto border-b border-slate-200 dark:border-slate-700 shrink-0 gap-0">
                     <button
                         onClick={() => { setCurrentView('feed'); }}

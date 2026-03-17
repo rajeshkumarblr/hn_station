@@ -260,7 +260,7 @@ export function useAppState() {
 
         if (!story) return;
 
-        const actualMode = isWebMode ? 'discussion' : (overrideMode || (story.url ? 'split' : 'discussion'));
+        const actualMode = overrideMode || (story.url ? 'split' : 'discussion');
 
         setTabs(prev => {
             // Check if tab already exists
@@ -282,8 +282,8 @@ export function useAppState() {
             setTimeout(() => setActiveTabId(newTabId), 0);
             setTimeout(() => setCurrentView('reader'), 0);
 
-            // On web preview or mobile devices, we prefer replacing the single tab to save memory/UI space
-            if (typeof window !== 'undefined' && (isWebMode || window.innerWidth < 768)) {
+            // On mobile devices, we prefer replacing the single tab to save memory/UI space
+            if (typeof window !== 'undefined' && window.innerWidth < 768) {
                 return [newTab];
             }
 

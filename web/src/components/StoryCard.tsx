@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, Terminal, Link, Check } from 'lucide-react';
+import { Star, Terminal, Link, Check, FileText, MessageSquare } from 'lucide-react';
 
 export interface Story {
     id: number;
@@ -154,7 +154,29 @@ export function StoryCard({
             onContextMenu={handleContextMenu}
         >
             {/* Action Buttons Container - Top Right */}
-            <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
+            <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
+                {/* Direct Article icon */}
+                {story.url && onOpenInTab && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'article'); }}
+                        className="p-1 rounded-md text-blue-500/60 dark:text-blue-400/60 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-300/20 dark:hover:bg-blue-900/40 transition-all duration-150 flex items-center justify-center shrink-0 border border-blue-200/50 dark:border-blue-700/30"
+                        title="Open Article"
+                    >
+                        <FileText size={14} strokeWidth={2.5} />
+                    </button>
+                )}
+
+                {/* Direct Discussion icon */}
+                {onOpenInTab && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'discussion'); }}
+                        className="p-1 rounded-md text-indigo-500/60 dark:text-indigo-400/60 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-300/20 dark:hover:bg-indigo-900/40 transition-all duration-150 flex items-center justify-center shrink-0 border border-indigo-200/50 dark:border-indigo-700/30"
+                        title="Open Discussion"
+                    >
+                        <MessageSquare size={14} strokeWidth={2.5} />
+                    </button>
+                )}
+
                 {/* Context Menu Button */}
                 {onOpenInTab && (
                     <button
@@ -163,7 +185,7 @@ export function StoryCard({
                             e.stopPropagation();
                             setContextMenuPos({ x: e.clientX - 180, y: e.clientY });
                         }}
-                        className="p-1 rounded-md text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                        className="p-1 rounded-md text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0"
                         title="Open Options"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
