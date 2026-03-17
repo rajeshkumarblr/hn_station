@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, X, Download, ShieldCheck, Zap } from 'lucide-react';
+import { Search, Sparkles, X, Download, ShieldCheck, Zap, Monitor, Info } from 'lucide-react';
 import { isWebPreview } from '../utils/env';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
@@ -35,6 +35,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     highlightedStory,
 }) => {
     const [inputValue, setInputValue] = useState('');
+    const [isFeaturesModalOpen, setIsFeaturesModalOpen] = useState(false);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
@@ -65,56 +66,9 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         <div className="w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
 
             {/* ── AI Summary (Top) / Web CTA ────────────────────────────────────────────── */}
-            {isWebMode ? (
-                <div className="h-[55%] flex-shrink-0 flex flex-col p-6 bg-gradient-to-b from-blue-50/30 to-white dark:from-blue-900/10 dark:to-[#111d2e]/0 border-b border-slate-100 dark:border-slate-800/50 relative overflow-hidden group">
-                    <div className="absolute -right-4 -top-4 opacity-[0.03] rotate-12 transition-transform group-hover:rotate-45 duration-700">
-                        <Sparkles size={120} />
-                    </div>
-
-                    <div className="relative z-10 flex flex-col h-full">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-600 dark:text-blue-400">
-                                <Zap size={14} />
-                            </div>
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">Desktop Exclusive</h3>
-                        </div>
-
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-2 leading-tight">
-                            Get AI Deep Summaries & Topic Analysis
-                        </h4>
-
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-                            Upgrade to the Desktop App for powerful Local AI features. Run private LLMs like Llama3 to summarize articles and discussions instantly.
-                        </p>
-
-                        <div className="space-y-2.5 mb-8">
-                            <div className="flex items-center gap-2 text-[10px] font-medium text-slate-600 dark:text-slate-400">
-                                <ShieldCheck size={12} className="text-emerald-500" />
-                                <span>100% Private & Offline-first</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] font-medium text-slate-600 dark:text-slate-400">
-                                <Sparkles size={12} className="text-amber-500" />
-                                <span>Local LLM Integration (Ollama)</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] font-medium text-slate-600 dark:text-slate-400">
-                                <Zap size={12} className="text-blue-500" />
-                                <span>Multi-Tab Workspace & Split View</span>
-                            </div>
-                        </div>
-
-                        <div className="mt-auto">
-                            <a
-                                href="/api/download/latest"
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all font-bold text-xs"
-                            >
-                                <Download size={14} />
-                                Download for Windows
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            ) : (aiEnabled || hasSummary) ? (
-                <div className="h-[55%] flex-shrink-0 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
+            {/* ── AI Summary (Top) ──────────────────────────────────────────────────────── */}
+            {(aiEnabled || hasSummary) ? (
+                <div className="h-[45%] flex-shrink-0 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
                         <Sparkles size={12} className="text-orange-400" />
                         <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Article Summary by AI</h3>
@@ -126,7 +80,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                 <ReactMarkdown
                                     components={{
                                         li: ({ node, ...props }) => {
-                                            // Attempt to get index from parent if possible, otherwise deterministic hash
                                             const text = String(props.children || '');
                                             let hash = 0;
                                             for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
@@ -149,10 +102,10 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                     </div>
                 </div>
             ) : (
-                <div className="h-48 flex-shrink-0 flex flex-col items-center justify-center text-center p-6 border-b border-slate-100 dark:border-slate-800/50 opacity-40 grayscale scale-95 transition-all">
+                <div className="h-32 flex-shrink-0 flex flex-col items-center justify-center text-center p-6 border-b border-slate-100 dark:border-slate-800/50 opacity-40 grayscale scale-95 transition-all">
                     <Sparkles size={24} className="text-slate-300 dark:text-slate-600 mb-2" />
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Features Disabled</h3>
-                    <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-tighter">Enable in Settings</p>
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Features</h3>
+                    <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-tighter">Powered by Desktop App</p>
                 </div>
             )}
 
@@ -222,14 +175,114 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             </div>
 
             {/* Reading Queue Status */}
-            <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-                <div className="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
-                    <span>Reading Queue</span>
-                    <span className="font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full text-xs">
+            <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                    <span>Queue</span>
+                    <span className="font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full text-[10px]">
                         {getQueuedCount()}
                     </span>
                 </div>
+
+                {isWebMode && (
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsFeaturesModalOpen(true)}
+                            className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors"
+                            title="Desktop Features"
+                        >
+                            <Info size={16} />
+                        </button>
+                        <a
+                            href="/api/download/latest"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold transition-all shadow-sm"
+                        >
+                            <Download size={12} />
+                            Download
+                        </a>
+                    </div>
+                )}
             </div>
+
+            {isWebMode && (
+                <div className="px-4 pb-4 bg-slate-50/50 dark:bg-slate-900/30">
+                    <button
+                        onClick={() => setIsFeaturesModalOpen(true)}
+                        className="text-[10px] text-slate-400 hover:text-blue-500 transition-colors flex items-center gap-1"
+                    >
+                        <span>Download For Desktop</span>
+                        <span className="opacity-60">•</span>
+                        <span className="underline decoration-slate-300 dark:decoration-slate-700">link to features</span>
+                    </button>
+                </div>
+            )}
+
+            {/* Features Modal */}
+            {isFeaturesModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#0f172a] rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                <Monitor size={18} className="text-blue-500" />
+                                Desktop Features
+                            </h2>
+                            <button
+                                onClick={() => setIsFeaturesModalOpen(false)}
+                                className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            <div className="space-y-4">
+                                <div className="flex gap-4">
+                                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl h-fit">
+                                        <ShieldCheck className="text-emerald-600 dark:text-emerald-400" size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">100% Private & Offline-first</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                            Your data never leaves your machine. Local AI ensures absolute privacy.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl h-fit">
+                                        <Sparkles className="text-amber-600 dark:text-amber-400" size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Local LLM Integration</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                            Directly connects with Ollama to run Llama3, Mistral, and more locally.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl h-fit">
+                                        <Zap className="text-blue-600 dark:text-blue-400" size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Multi-tab Workspace</h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                            Powerful split-view and tab management for deep research.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <a
+                                href="/api/download/latest"
+                                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all font-bold text-sm"
+                            >
+                                <Download size={18} />
+                                Download for Windows
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );
