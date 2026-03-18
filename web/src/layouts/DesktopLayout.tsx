@@ -233,11 +233,23 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             >
                                 <button
                                     onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
-                                    className="flex-1 flex items-center gap-2 px-3 py-1 overflow-hidden min-w-0 h-full"
-                                    title={t.story.title}
+                                    className="flex-1 flex items-center gap-2 px-3 py-1 overflow-hidden min-w-0 h-full text-left"
+                                    title={`Click to switch tab, or click title to open original: ${t.story.title}`}
                                 >
                                     <img src={faviconUrl} alt="" className="w-3.5 h-3.5 rounded-sm flex-shrink-0" />
-                                    <span className={`truncate text-[11px] font-bold select-none text-left ${isActive ? 'opacity-100' : 'opacity-80'}`}>{t.story.title}</span>
+                                    <a
+                                        href={t.story.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => {
+                                            // Let the link open in a new tab, but ALSO switch the app's internal tab
+                                            app.handleStorySelect?.(t.storyId);
+                                            setCurrentView('reader');
+                                        }}
+                                        className={`truncate text-[11px] font-bold select-none hover:underline decoration-blue-500/50 underline-offset-2 ${isActive ? 'opacity-100 text-blue-600 dark:text-blue-400' : 'opacity-80 text-slate-500 dark:text-slate-400'}`}
+                                    >
+                                        {t.story.title}
+                                    </a>
                                 </button>
                                 <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className={`p-1 mr-2 rounded-md transition-all flex-shrink-0 cursor-pointer ${isActive ? 'text-slate-400 hover:text-white hover:bg-red-500' : 'text-slate-500 dark:text-slate-400 hover:text-white hover:bg-red-500 opacity-0 group-hover:opacity-100'}`}>
                                     <X size={10} />

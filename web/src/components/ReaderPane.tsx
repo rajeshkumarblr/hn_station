@@ -243,33 +243,35 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                             className={`relative cursor-text select-text pointer-events-auto px-6 pb-6 pt-3 ${(activeTab === 'split' && !isWebMode) ? 'flex-1 overflow-y-auto' : 'flex-1 w-full max-w-5xl mx-auto'}`}
                         >
                             {isWebMode && story.url && (
-                                <div className="mb-8 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                                            <ExternalLink size={20} />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                                                Reading Mode:
-                                                <button
-                                                    onClick={() => setActiveTab('article')}
-                                                    className="text-blue-600 dark:text-blue-400 hover:underline decoration-blue-500/30 decoration-2 underline-offset-4"
-                                                    title="Switch to Full Article view"
-                                                >
-                                                    Full Article
-                                                </button>
-                                            </h4>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">Click title to view article here, or use the button to open in new tab.</p>
+                                <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
+                                    <div className="flex flex-col gap-1.5">
+                                        <a
+                                            href={storyUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-xl font-bold text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors leading-tight flex items-center gap-2 group w-fit"
+                                        >
+                                            {story.title}
+                                            <ExternalLink size={16} className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400" />
+                                        </a>
+                                        <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                            <button
+                                                onClick={() => setActiveTab('article')}
+                                                className="hover:text-blue-500 transition-colors flex items-center gap-1"
+                                            >
+                                                View Article
+                                            </button>
+                                            <span className="opacity-20 text-slate-500">•</span>
+                                            <button
+                                                onClick={() => setActiveTab('split')}
+                                                className="hover:text-purple-500 transition-colors"
+                                            >
+                                                Split View
+                                            </button>
+                                            <span className="opacity-20 text-slate-500">•</span>
+                                            <span className="opacity-60 text-[9px] lowercase font-medium tracking-normal text-slate-500">{new URL(storyUrl).hostname}</span>
                                         </div>
                                     </div>
-                                    <a
-                                        href={storyUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all transform hover:-translate-y-0.5"
-                                    >
-                                        Read Article
-                                    </a>
                                 </div>
                             )}
                             {commentsLoading ? (
