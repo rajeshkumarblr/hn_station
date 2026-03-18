@@ -42,8 +42,9 @@ Write-Host "Deploying Ingress and TLS..."
 kubectl apply -f infrastructure/k8s/production-issuer.yaml
 kubectl apply -f infrastructure/k8s/ingress.yaml
 
-Write-Host "Restarting Backend and Ingestion to apply new image..." -ForegroundColor Cyan
+Write-Host "Restarting Backend, Frontend, and Ingestion to apply new images..." -ForegroundColor Cyan
 kubectl rollout restart deployment/backend
+kubectl rollout restart deployment/frontend
 kubectl rollout restart deployment/ingest
 
 Write-Host "--------------------------------------------------" -ForegroundColor Green

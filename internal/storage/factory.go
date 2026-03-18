@@ -23,7 +23,11 @@ func NewStore(ctx context.Context, connStr string) (DB, error) {
 		if err := dbpool.Ping(ctx); err != nil {
 			return nil, fmt.Errorf("unable to ping postgres: %w", err)
 		}
-		return New(dbpool), nil
+		s := New(dbpool)
+		if err := s.Migrate(ctx); err != nil {
+			log.Printf("Warning: Postgres migration failed: %v", err)
+		}
+		return s, nil
 	}
 
 	log.Printf("Initializing SQLite storage at: %s", connStr)

@@ -18,6 +18,19 @@ func New(db *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{db: db}
 }
 
+func (s *PostgresStore) Migrate(ctx context.Context) error {
+	query := `
+		DO $$
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='iframe_blocked') THEN
+				ALTER TABLE stories ADD COLUMN iframe_blocked BOOLEAN DEFAULT NULL;
+			END IF;
+		END $$;
+	`
+	_, err := s.db.Exec(ctx, query)
+	return err
+}
+
 func (s *PostgresStore) UpsertStory(ctx context.Context, story Story) error {
 	query := `
 		INSERT INTO stories (id, title, url, score, by, descendants, posted_at, hn_rank, embedding, topics, created_at)
