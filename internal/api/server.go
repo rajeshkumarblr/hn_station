@@ -895,7 +895,7 @@ func (s *Server) handleCheckIframe(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	req, err := http.NewRequestWithContext(r.Context(), "HEAD", story.URL, nil)
+	req, err := http.NewRequestWithContext(r.Context(), "GET", story.URL, nil)
 	if err != nil {
 		http.Error(w, "Failed to create check request", http.StatusInternalServerError)
 		return

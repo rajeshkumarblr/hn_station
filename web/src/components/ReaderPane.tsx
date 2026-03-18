@@ -278,7 +278,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                     {(isWebMode || activeTab === 'discussion' || activeTab === 'split') && (
                         <div
                             ref={containerRef}
-                            className={`relative cursor-text select-text pointer-events-auto px-6 pb-6 pt-3 ${(activeTab === 'split' && !isWebMode) ? 'flex-1 overflow-y-auto' : 'flex-1 w-full max-w-7xl mx-auto'}`}
+                            className={`relative cursor-text select-text pointer-events-auto pl-4 pr-10 pb-10 pt-4 ${(activeTab === 'split' && !isWebMode) ? 'flex-1 overflow-y-auto' : 'flex-1 w-full max-w-none'}`}
                         >
                             {isWebMode && story.url && (
                                 <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
