@@ -49,7 +49,8 @@ func (s *SQLiteStore) migrate() error {
 		topics      TEXT    NOT NULL DEFAULT '[]', -- JSON array of strings
 		is_read     BOOLEAN NOT NULL DEFAULT 0,
 		is_saved    BOOLEAN NOT NULL DEFAULT 0,
-		is_hidden   BOOLEAN NOT NULL DEFAULT 0
+		is_hidden   BOOLEAN NOT NULL DEFAULT 0,
+		iframe_blocked BOOLEAN NOT NULL DEFAULT 0
 	);
 
 	CREATE TABLE IF NOT EXISTS comments (
@@ -86,6 +87,7 @@ func (s *SQLiteStore) migrate() error {
 		"ALTER TABLE stories ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN is_saved BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0",
+		"ALTER TABLE stories ADD COLUMN iframe_blocked BOOLEAN NOT NULL DEFAULT 0",
 	}
 	for _, sql := range cols {
 		_, _ = s.db.Exec(sql)
@@ -141,7 +143,7 @@ func scanStory(row interface{ Scan(...any) error }) (Story, error) {
 		&story.ID, &story.Title, &story.URL, &story.Score,
 		&story.By, &story.Descendants, &postedAt, &createdAt,
 		&hnRank, &summary, &topicsJSON,
-		&story.IsRead, &story.IsSaved, &story.IsHidden,
+		&story.IsRead, &story.IsSaved, &story.IsHidden, &story.IframeBlocked,
 	); err != nil {
 		return story, err
 	}
@@ -193,7 +195,7 @@ func (s *SQLiteStore) UpsertStory(ctx context.Context, story Story) error {
 
 func (s *SQLiteStore) GetStory(ctx context.Context, id int) (*Story, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden
+		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked
 		 FROM stories WHERE id = ?`, id)
 	story, err := scanStory(row)
 	if err != nil {
@@ -243,7 +245,7 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 	}
 
 	// Get stories
-	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden
+	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked
 	          FROM stories ` + whereClause + ` ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
 	finalArgs := append(args, limit, offset)
 
@@ -301,6 +303,11 @@ func (s *SQLiteStore) UpdateStorySummary(ctx context.Context, id int, summary st
 func (s *SQLiteStore) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE stories SET summary = ?, topics = ? WHERE id = ?`,
 		summary, topicsToJSON(topics), id)
+	return err
+}
+
+func (s *SQLiteStore) UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE stories SET iframe_blocked = ? WHERE id = ?`, blocked, id)
 	return err
 }
 
@@ -462,7 +469,7 @@ func (s *SQLiteStore) GetSavedStories(ctx context.Context, _ string, limit, offs
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden
+		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked
 		 FROM stories WHERE is_saved = 1 ORDER BY posted_at DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
 		return nil, 0, err

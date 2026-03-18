@@ -77,6 +77,7 @@ func (s *Server) routes() {
 	s.router.Post("/api/stories/{id}/interact", s.handleInteract)
 	s.router.Get("/api/content/readme", s.handleGetReadme)
 	s.router.Get("/api/stories/{id}/content", s.handleGetArticleContent)
+	s.router.Get("/api/stories/{id}/check-iframe", s.handleCheckIframe)
 	s.router.Get("/api/me", s.handleGetMe)
 	s.router.Post("/api/settings", s.handleUpdateSettings)
 	s.router.Get("/api/download/latest", s.handleDownloadLatest)
@@ -855,4 +856,80 @@ func (s *Server) handleListOllamaModels(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string][]string{"models": models})
+}
+
+func (s *Server) handleCheckIframe(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	story, err := s.store.GetStory(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Story not found", http.StatusNotFound)
+		return
+	}
+
+	if story.URL == "" {
+		json.NewEncoder(w).Encode(map[string]bool{"iframe_blocked": true})
+		return
+	}
+
+	// If we already know, return it
+	if story.IframeBlocked != nil {
+		json.NewEncoder(w).Encode(map[string]bool{"iframe_blocked": *story.IframeBlocked})
+		return
+	}
+
+	// Perform HEAD request to check headers
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		// Don't follow redirects too far, or at all for HEAD
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 3 {
+				return http.ErrUseLastResponse
+			}
+			return nil
+		},
+	}
+
+	req, err := http.NewRequestWithContext(r.Context(), "HEAD", story.URL, nil)
+	if err != nil {
+		http.Error(w, "Failed to create check request", http.StatusInternalServerError)
+		return
+	}
+	// Add a common User-Agent to avoid some basic bot blocks
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Iframe check failed for %s: %v", story.URL, err)
+		// If we can't reach it, assume it might be blocked or just return unknown
+		// For UX, it's safer to assume blocked if we can't even HEAD it?
+		// Actually let's just return false and let the iframe fail if it must.
+		json.NewEncoder(w).Encode(map[string]bool{"iframe_blocked": false})
+		return
+	}
+	defer resp.Body.Close()
+
+	blocked := false
+	xfo := strings.ToUpper(resp.Header.Get("X-Frame-Options"))
+	if xfo == "DENY" || xfo == "SAMEORIGIN" {
+		blocked = true
+	}
+
+	csp := strings.ToLower(resp.Header.Get("Content-Security-Policy"))
+	if strings.Contains(csp, "frame-ancestors 'none'") || strings.Contains(csp, "frame-ancestors 'self'") {
+		blocked = true
+	}
+
+	// Update DB
+	if err := s.store.UpdateStoryIframeStatus(r.Context(), id, blocked); err != nil {
+		log.Printf("Failed to update iframe status in DB: %v", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"iframe_blocked": blocked})
 }

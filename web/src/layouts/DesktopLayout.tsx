@@ -241,7 +241,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         href={t.story.url}
                                         target="_blank"
                                         rel="noreferrer"
-                                        onClick={(e) => {
+                                        onClick={() => {
                                             // Let the link open in a new tab, but ALSO switch the app's internal tab
                                             app.handleStorySelect?.(t.storyId);
                                             setCurrentView('reader');

@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import type { Story } from '../types';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { createPortal } from 'react-dom';
@@ -7,18 +8,6 @@ import ReactMarkdown from 'react-markdown';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 
-interface Story {
-    id: number;
-    title: string;
-    url: string;
-    score: number;
-    by: string;
-    descendants: number;
-    time: string;
-    is_saved?: boolean;
-    summary?: string;
-    topics?: string[];
-}
 
 interface ReaderPaneProps {
     story: Story;
@@ -42,6 +31,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
     const containerRef = useRef<HTMLDivElement>(null);
     const isWebMode = isWebPreview();
     const [activeTab, setActiveTab] = useState<'discussion' | 'article' | 'split'>(activeTabProp || 'article');
+    const [iframeBlocked, setIframeBlocked] = useState<boolean>(story.iframe_blocked || false);
 
     // Sync activeTab with prop
     useEffect(() => {
@@ -67,14 +57,39 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
         fetch(`${baseUrl}/api/stories/${story.id}`, { signal: controller.signal })
             .then(res => res.ok ? res.json() : null)
             .then(data => {
-                if (data) setComments(data.comments || []);
+                if (data) {
+                    setComments(data.comments || []);
+                    if (data.story && data.story.iframe_blocked !== undefined) {
+                        setIframeBlocked(data.story.iframe_blocked);
+                    }
+                }
                 setCommentsLoading(false);
             })
             .catch(err => {
                 if (err.name !== 'AbortError') setCommentsLoading(false);
             });
+
+        // Also explicitly check iframe if not known
+        if (isWebMode && story.url && story.iframe_blocked === undefined) {
+            fetch(`${baseUrl}/api/stories/${story.id}/check-iframe`)
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.iframe_blocked !== undefined) {
+                        setIframeBlocked(data.iframe_blocked);
+                    }
+                })
+                .catch(err => console.error('Iframe check failed:', err));
+        }
+
         return () => controller.abort();
-    }, [story.id]);
+    }, [story.id, isWebMode, story.url, story.iframe_blocked]);
+
+    // Handle iframe blocked transition
+    useEffect(() => {
+        if (isWebMode && iframeBlocked && (activeTab === 'article' || activeTab === 'split')) {
+            setActiveTab('discussion');
+        }
+    }, [iframeBlocked, isWebMode, activeTab]);
 
     const [summarizing, setSummarizing] = useState(false);
 
@@ -219,12 +234,33 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                         <div className={`flex flex-col min-h-0 ${activeTab === 'split' ? 'flex-1 overflow-y-auto border-r border-slate-200 dark:border-white/5' : 'flex-1'}`}>
                             <div className="flex-1 w-full h-full bg-white overflow-hidden relative">
                                 {isWebMode ? (
-                                    <iframe
-                                        src={storyUrl}
-                                        className="w-full h-full border-0 absolute inset-0 bg-white"
-                                        title="Article Web View"
-                                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                                    />
+                                    iframeBlocked ? (
+                                        <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-900/50">
+                                            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                                                <ExternalLink size={32} className="text-red-500" />
+                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Iframe Preview Blocked</h3>
+                                            <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm text-sm">
+                                                This website prohibits being nested in other apps for security reasons.
+                                            </p>
+                                            <a
+                                                href={storyUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all shadow-md hover:shadow-lg active:scale-95 flex items-center gap-2"
+                                            >
+                                                Open in New Tab
+                                                <ExternalLink size={16} />
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <iframe
+                                            src={storyUrl}
+                                            className="w-full h-full border-0 absolute inset-0 bg-white"
+                                            title="Article Web View"
+                                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                                        />
+                                    )
                                 ) : (
                                     <webview
                                         src={storyUrl}
@@ -240,7 +276,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                     {(isWebMode || activeTab === 'discussion' || activeTab === 'split') && (
                         <div
                             ref={containerRef}
-                            className={`relative cursor-text select-text pointer-events-auto px-6 pb-6 pt-3 ${(activeTab === 'split' && !isWebMode) ? 'flex-1 overflow-y-auto' : 'flex-1 w-full max-w-5xl mx-auto'}`}
+                            className={`relative cursor-text select-text pointer-events-auto px-6 pb-6 pt-3 ${(activeTab === 'split' && !isWebMode) ? 'flex-1 overflow-y-auto' : 'flex-1 w-full max-w-7xl mx-auto'}`}
                         >
                             {isWebMode && story.url && (
                                 <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
@@ -256,15 +292,23 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                                         </a>
                                         <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                             <button
-                                                onClick={() => setActiveTab('article')}
-                                                className="hover:text-blue-500 transition-colors flex items-center gap-1"
+                                                onClick={() => {
+                                                    if (iframeBlocked) {
+                                                        window.open(storyUrl, '_blank');
+                                                    } else {
+                                                        setActiveTab('article');
+                                                    }
+                                                }}
+                                                className={`transition-colors flex items-center gap-1 ${iframeBlocked ? 'text-amber-500 hover:text-amber-600' : 'hover:text-blue-500'}`}
                                             >
-                                                View Article
+                                                {iframeBlocked ? 'Open in New Tab' : 'View Article'}
+                                                {iframeBlocked && <ExternalLink size={10} />}
                                             </button>
                                             <span className="opacity-20 text-slate-500">•</span>
                                             <button
-                                                onClick={() => setActiveTab('split')}
-                                                className="hover:text-purple-500 transition-colors"
+                                                onClick={() => !iframeBlocked && setActiveTab('split')}
+                                                disabled={iframeBlocked}
+                                                className={`transition-colors ${iframeBlocked ? 'opacity-30 cursor-not-allowed line-through' : 'hover:text-purple-500'}`}
                                             >
                                                 Split View
                                             </button>
@@ -334,7 +378,7 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
                             <div className="px-4 pt-4 pb-2">
                                 <p className="text-[9px] uppercase tracking-widest font-bold text-amber-500/80 dark:text-amber-500/60 mb-2">Tags</p>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {story.topics.map(topic => (
+                                    {story.topics.map((topic: string) => (
                                         <span
                                             key={topic}
                                             className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30"

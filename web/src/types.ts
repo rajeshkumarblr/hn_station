@@ -13,6 +13,7 @@ export interface Story {
     is_hidden?: boolean;
     summary?: string;
     topics?: string[];
+    iframe_blocked?: boolean;
 }
 
 export interface ReaderTab {

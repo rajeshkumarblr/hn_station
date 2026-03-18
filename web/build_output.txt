@@ -1,0 +1,5 @@
+
+> hn-station@1.1.0 build
+> tsc -b && vite build
+
+src/layouts/DesktopLayout.tsx(244,51): error TS6133: 'e' is declared but its value is never read.

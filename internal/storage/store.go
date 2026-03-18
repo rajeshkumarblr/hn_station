@@ -79,7 +79,7 @@ func (s *PostgresStore) GetStories(ctx context.Context, limit, offset int, sortS
 	}
 
 	// 3. Get Stories
-	selectCols := `s.id, s.title, COALESCE(s.url, ''), s.score, COALESCE(s.by, ''), s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, COALESCE(s.topics, '{}'::text[])`
+	selectCols := `s.id, s.title, COALESCE(s.url, ''), s.score, COALESCE(s.by, ''), s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, COALESCE(s.topics, '{}'::text[]), s.iframe_blocked`
 	fromClause := `FROM stories s`
 	if hasUser {
 		selectCols += `, ui.is_read, ui.is_saved, ui.is_hidden`
@@ -110,11 +110,11 @@ func (s *PostgresStore) GetStories(ctx context.Context, limit, offset int, sortS
 	for rows.Next() {
 		var story Story
 		if hasUser {
-			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IsRead, &story.IsSaved, &story.IsHidden); err != nil {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IframeBlocked, &story.IsRead, &story.IsSaved, &story.IsHidden); err != nil {
 				return nil, 0, err
 			}
 		} else {
-			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics); err != nil {
+			if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IframeBlocked); err != nil {
 				return nil, 0, err
 			}
 		}
@@ -124,9 +124,9 @@ func (s *PostgresStore) GetStories(ctx context.Context, limit, offset int, sortS
 }
 
 func (s *PostgresStore) GetStory(ctx context.Context, id int) (*Story, error) {
-	query := `SELECT id, title, COALESCE(url, ''), score, COALESCE(by, ''), descendants, posted_at, created_at, hn_rank, summary, COALESCE(topics, '{}'::text[]) FROM stories WHERE id = $1`
+	query := `SELECT id, title, COALESCE(url, ''), score, COALESCE(by, ''), descendants, posted_at, created_at, hn_rank, summary, COALESCE(topics, '{}'::text[]), iframe_blocked FROM stories WHERE id = $1`
 	var story Story
-	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics)
+	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IframeBlocked)
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +245,12 @@ func (s *PostgresStore) UpdateStorySummaryAndTopics(ctx context.Context, id int,
 	return err
 }
 
+func (s *PostgresStore) UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error {
+	query := `UPDATE stories SET iframe_blocked = $1 WHERE id = $2`
+	_, err := s.db.Exec(ctx, query, blocked, id)
+	return err
+}
+
 // UpsertAuthUser creates or updates a user based on their Google ID.
 // Returns the user (with ID) after upsert.
 func (s *PostgresStore) UpsertAuthUser(ctx context.Context, googleID, email, name, avatarURL string) (*AuthUser, error) {
@@ -310,7 +316,7 @@ func (s *PostgresStore) GetSavedStories(ctx context.Context, userID string, limi
 	}
 
 	query := `
-		SELECT s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.topics, ui.is_read, ui.is_saved
+		SELECT s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.topics, s.iframe_blocked, ui.is_read, ui.is_saved
 		FROM stories s
 		INNER JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1
 		WHERE ui.is_saved = TRUE
@@ -326,7 +332,7 @@ func (s *PostgresStore) GetSavedStories(ctx context.Context, userID string, limi
 	var stories []Story
 	for rows.Next() {
 		var story Story
-		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IsRead, &story.IsSaved); err != nil {
+		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IframeBlocked, &story.IsRead, &story.IsSaved); err != nil {
 			return nil, 0, err
 		}
 		stories = append(stories, story)

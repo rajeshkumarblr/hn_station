@@ -17,6 +17,7 @@ type DB interface {
 	GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, error)
 	UpdateStorySummary(ctx context.Context, id int, summary string) error
 	UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error
+	UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error
 	ClearRanksNotIn(ctx context.Context, ids []int) error
 	UpdateRanks(ctx context.Context, rankMap map[int]int) error
 	PruneStories(ctx context.Context, daysToKeep int) error
@@ -52,22 +53,23 @@ type DB interface {
 // ─── Common Types ───
 
 type Story struct {
-	ID          int64            `json:"id"`
-	Title       string           `json:"title"`
-	URL         string           `json:"url"`
-	Score       int              `json:"score"`
-	By          string           `json:"by"`
-	Descendants int              `json:"descendants"`
-	PostedAt    time.Time        `json:"time"`
-	CreatedAt   time.Time        `json:"created_at"`
-	HNRank      *int             `json:"hn_rank,omitempty"`
-	IsRead      *bool            `json:"is_read,omitempty"`
-	IsSaved     *bool            `json:"is_saved,omitempty"`
-	IsHidden    *bool            `json:"is_hidden,omitempty"`
-	Summary     *string          `json:"summary,omitempty"`
-	Topics      []string         `json:"topics,omitempty"`
-	Embedding   *pgvector.Vector `json:"-"`
-	Similarity  *float64         `json:"similarity,omitempty"`
+	ID            int64            `json:"id"`
+	Title         string           `json:"title"`
+	URL           string           `json:"url"`
+	Score         int              `json:"score"`
+	By            string           `json:"by"`
+	Descendants   int              `json:"descendants"`
+	PostedAt      time.Time        `json:"time"`
+	CreatedAt     time.Time        `json:"created_at"`
+	HNRank        *int             `json:"hn_rank,omitempty"`
+	IsRead        *bool            `json:"is_read,omitempty"`
+	IsSaved       *bool            `json:"is_saved,omitempty"`
+	IsHidden      *bool            `json:"is_hidden,omitempty"`
+	Summary       *string          `json:"summary,omitempty"`
+	Topics        []string         `json:"topics,omitempty"`
+	IframeBlocked *bool            `json:"iframe_blocked,omitempty"`
+	Embedding     *pgvector.Vector `json:"-"`
+	Similarity    *float64         `json:"similarity,omitempty"`
 }
 
 type Comment struct {
