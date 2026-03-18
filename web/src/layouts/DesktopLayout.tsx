@@ -406,6 +406,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         onTakeFocus={() => { }}
                                         onToggleSave={user ? handleToggleSave : undefined}
                                         onHide={(id) => { handleHideStory(id); setCurrentView('feed'); }}
+                                        onSetGlobalWarning={app.setGlobalWarning}
                                     />
                                 </div>
                             );
@@ -424,7 +425,14 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 <div className="flex items-center gap-2 overflow-hidden">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter shrink-0">Context:</span>
                     <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 truncate">
-                        {currentView === 'reader' && selectedStory ? selectedStory.title : (highlightedStory ? highlightedStory.title : 'HN Station Feed')}
+                        {app.globalWarning ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 animate-pulse">
+                                <span className="p-0.5 bg-amber-100 dark:bg-amber-900/40 rounded">⚠️</span>
+                                {app.globalWarning}
+                            </span>
+                        ) : (
+                            currentView === 'reader' && selectedStory ? selectedStory.title : (highlightedStory ? highlightedStory.title : 'HN Station Feed')
+                        )}
                     </span>
                 </div>
                 <div className="flex-1"></div>

@@ -128,6 +128,7 @@ export function useAppState() {
     const [readingQueue, setReadingQueue] = useState<number[]>([]);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [user, setUser] = useState<User | null>(null);
+    const [globalWarning, setGlobalWarning] = useState<string | null>(null);
 
     const handleRefresh = () => setRefreshKey(prev => prev + 1);
     const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
@@ -475,20 +476,25 @@ export function useAppState() {
             .catch(() => { });
     }, [selectedStoryId]);
 
+    // Clear global warning when story changes
+    useEffect(() => {
+        setGlobalWarning(null);
+    }, [selectedStoryId]);
+
     const state = {
         // State
         storyBuffer, loading, error, mode, activeTopics, disabledTopics, totalStories,
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
         tabs, activeTabId, showHidden,
         isSettingsOpen, currentView, readingQueue, isAdminModalOpen, user,
-        hiddenStories, offset,
+        hiddenStories, offset, globalWarning,
         // Derived
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         isWebMode,
         // Setters
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setReadingQueue, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
-        setDisabledTopics,
+        setDisabledTopics, setGlobalWarning,
         // Handlers
         handleRefresh, toggleTheme, closeTab, setReaderTab, handleHideStory,
         handleToggleQueue, handleStorySelect, handleToggleSave,

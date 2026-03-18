@@ -21,9 +21,10 @@ interface ReaderPaneProps {
     onTabChange?: (tab: 'discussion' | 'article' | 'split') => void;
     onHide?: (id: number) => void;
     isActive?: boolean;
+    onSetGlobalWarning?: (msg: string | null) => void;
 }
 
-export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onHide, isActive }: ReaderPaneProps) {
+export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onHide, isActive, onSetGlobalWarning }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
@@ -88,8 +89,9 @@ export function ReaderPane({ story, onFocusList, onSummarize, onTakeFocus, initi
     useEffect(() => {
         if (isWebMode && iframeBlocked && (activeTab === 'article' || activeTab === 'split')) {
             setActiveTab('discussion');
+            onSetGlobalWarning?.("Article refuses to be displayed in an i-frame");
         }
-    }, [iframeBlocked, isWebMode, activeTab]);
+    }, [iframeBlocked, isWebMode, activeTab, onSetGlobalWarning]);
 
     const [summarizing, setSummarizing] = useState(false);
 
