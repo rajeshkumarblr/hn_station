@@ -145,6 +145,23 @@ export function useAppState() {
     }, [activeTabId]);
 
     const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId) || null, [tabs, activeTabId]);
+
+    const handleBack = useCallback(() => {
+        if (activeTab?.parentTabId) {
+            const parentExists = tabs.some(t => t.id === activeTab.parentTabId);
+            if (parentExists) {
+                setActiveTabId(activeTab.parentTabId);
+                setCurrentView('reader');
+                return;
+            }
+        }
+        setCurrentView('feed');
+    }, [activeTab, tabs]);
+
+    const handleHome = useCallback(() => {
+        setCurrentView('feed');
+    }, []);
+
     const selectedStoryId = activeTab?.storyId || null;
     const selectedStory = activeTab?.story || null;
     const readerTab = activeTab?.mode || 'article';
@@ -287,7 +304,7 @@ export function useAppState() {
 
             // Create new tab
             const newTabId = crypto.randomUUID();
-            const newTab = { id: newTabId, storyId: id, story, mode: actualMode };
+            const newTab: ReaderTab = { id: newTabId, storyId: id, story, mode: actualMode, parentTabId: activeTabId || undefined };
 
             setTimeout(() => setActiveTabId(newTabId), 0);
             setTimeout(() => setCurrentView('reader'), 0);
@@ -506,7 +523,7 @@ export function useAppState() {
         setDisabledTopics, setGlobalWarning,
         // Handlers
         handleRefresh, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, handleHideStory,
-        handleToggleQueue, handleStorySelect, handleToggleSave,
+        handleToggleQueue, handleStorySelect, handleToggleSave, handleBack, handleHome,
         handleStoryInteractWithQueue, handleQueueAllFiltered
     };
 

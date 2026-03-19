@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import type { Story } from '../types';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
-import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, FileText, Columns2 } from 'lucide-react';
+import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, FileText, Columns2, Home } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
@@ -10,7 +10,8 @@ import { useKeyboardNav } from '../hooks/useKeyboardNav';
 
 interface ReaderPaneProps {
     story: Story;
-    onFocusList?: () => void;
+    onBack?: () => void;
+    onHome?: () => void;
     onTakeFocus?: () => void;
     initialActiveCommentId?: string | null;
     onSaveProgress?: (commentId: string) => void;
@@ -23,7 +24,7 @@ interface ReaderPaneProps {
     onSetIframeBlocked?: (storyId: number, blocked: boolean) => void;
 }
 
-export function ReaderPane({ story, onFocusList, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onHide, onSetGlobalWarning, onSetIframeBlocked }: ReaderPaneProps) {
+export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onHide, onSetGlobalWarning, onSetIframeBlocked }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
@@ -121,7 +122,7 @@ export function ReaderPane({ story, onFocusList, onTakeFocus, initialActiveComme
         commentsLoading,
         handleCollapse,
         () => { },
-        onFocusList,
+        onHome,
         initialActiveCommentId
     );
 
@@ -139,14 +140,14 @@ export function ReaderPane({ story, onFocusList, onTakeFocus, initialActiveComme
                 if (activeTab === 'discussion') {
                     setActiveTab('article');
                 } else {
-                    onFocusList?.();
+                    onBack?.();
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [activeTab, onFocusList, storyUrl]);
+    }, [activeTab, onBack, storyUrl]);
 
     // Sync progress
     useEffect(() => {
@@ -165,10 +166,30 @@ export function ReaderPane({ story, onFocusList, onTakeFocus, initialActiveComme
 
             {/* NEW: Left Vertical Sidebar Toolbar */}
             <div className="w-12 flex flex-col items-center py-4 bg-slate-50 dark:bg-slate-900/30 border-r border-slate-200 dark:border-white/5 shrink-0 gap-4">
-                {/* 1. Back Button */}
-                <button onClick={onFocusList} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="Back to Feed">
-                    <ArrowLeft size={18} />
-                </button>
+                {/* 1. Navigation & Quick Utilities */}
+                <div className="flex flex-col gap-2">
+                    <button onClick={onBack} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="Back to previous tab/feed">
+                        <ArrowLeft size={18} />
+                    </button>
+                    <button onClick={onHome} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="Go to Feed">
+                        <Home size={18} />
+                    </button>
+                    <button 
+                        onClick={() => loadContent(story.id)}
+                        disabled={commentsLoading}
+                        className={`p-2 rounded-lg transition-all text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${commentsLoading ? 'animate-spin' : ''}`}
+                        title="Refresh Content"
+                    >
+                        <RefreshCw size={18} />
+                    </button>
+                    <button
+                        onClick={() => onHide?.(story.id)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all rounded-lg"
+                        title="Close Reader"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
 
                 <div className="h-px w-6 bg-slate-200 dark:bg-slate-800"></div>
 
@@ -227,26 +248,6 @@ export function ReaderPane({ story, onFocusList, onTakeFocus, initialActiveComme
                             <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
                         </button>
                     )}
-                </div>
-
-                <div className="mt-auto flex flex-col gap-2">
-                    {/* 4. Utilities */}
-                    <button 
-                        onClick={() => loadContent(story.id)}
-                        disabled={commentsLoading}
-                        className={`p-2 rounded-lg transition-all text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${commentsLoading ? 'animate-spin' : ''}`}
-                        title="Refresh Content"
-                    >
-                        <RefreshCw size={18} />
-                    </button>
-
-                    <button
-                        onClick={() => onHide?.(story.id)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all rounded-lg"
-                        title="Close Reader"
-                    >
-                        <X size={18} />
-                    </button>
                 </div>
             </div>
 

@@ -13,7 +13,8 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
         setMode, setActiveTopics,
         setCurrentView, toggleTheme, handleHideStory,
         handleToggleQueue, handleToggleSave,
-        handleStoryInteractWithQueue, readIds, currentView
+        handleStoryInteractWithQueue, readIds, currentView,
+        handleBack, handleHome,
     } = app;
 
     return (
@@ -24,7 +25,7 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                 {currentView === 'reader' && selectedStory ? (
                     <div className="flex items-center gap-3 w-full">
                         <button
-                            onClick={() => setCurrentView('feed')}
+                            onClick={handleBack}
                             className="p-2 -ml-2 rounded-full hover:bg-slate-800 text-slate-300"
                         >
                             <ArrowLeft size={20} />
@@ -89,10 +90,11 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                             story={selectedStory}
                             activeTab={readerTab as any}
                             onTabChange={app.setReaderTab as any}
-                            onFocusList={() => setCurrentView('feed')}
+                            onBack={handleBack}
+                            onHome={handleHome}
                             onTakeFocus={() => { }}
                             onToggleSave={user ? handleToggleSave : undefined}
-                            onHide={(id) => { handleHideStory(id); setCurrentView('feed'); }}
+                            onHide={(id) => { handleHideStory(id); handleHome(); }}
                         />
                     </div>
                 ) : (

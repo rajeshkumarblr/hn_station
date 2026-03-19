@@ -97,7 +97,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             {/* Center: Branding */}
                             <div className="flex flex-col items-center">
                                 <span className="text-sm font-black tracking-tighter text-[#ff6600] uppercase">HN Station</span>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.7' : 'v1.1.1'}</span>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.7.1' : 'v1.1.1'}</span>
                             </div>
 
                             {/* Right: Actions Portal */}
@@ -135,9 +135,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                         {/* Right Section: App Controls */}
                         <div className="flex items-center justify-end gap-1.5 shrink-0 pointer-events-auto bg-slate-100 dark:bg-slate-800 pl-6">
-                            <button onClick={() => { handleRefresh(); setOffset?.(0); }} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400">
-                                <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-                            </button>
                             <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" title="Settings">
                                 <Settings size={16} />
                             </button>
@@ -391,10 +388,11 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         onTabChange={(m) => {
                                             app.handleStorySelect?.(tab.storyId, m);
                                         }}
-                                        onFocusList={() => setCurrentView('feed')}
+                                        onBack={app.handleBack}
+                                        onHome={app.handleHome}
                                         onTakeFocus={() => { }}
                                         onToggleSave={user ? handleToggleSave : undefined}
-                                        onHide={(id) => { handleHideStory(id); setCurrentView('feed'); }}
+                                        onHide={(id) => { handleHideStory(id); app.handleHome(); }}
                                         onSetGlobalWarning={app.setGlobalWarning}
                                         onSetIframeBlocked={app.setStoryIframeBlocked}
                                     />

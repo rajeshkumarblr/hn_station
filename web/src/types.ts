@@ -21,6 +21,7 @@ export interface ReaderTab {
     storyId: number;
     story: Story;
     mode: 'article' | 'discussion' | 'split';
+    parentTabId?: string;
 }
 
 export const MODES = [

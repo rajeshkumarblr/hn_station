@@ -43,7 +43,9 @@ To avoid window management issues common in WSL/Linux virtualization:
 - **Global Search**: Search the entire database by topic with server-side filtering.
 - **Multi-Tag Search**: Comprehensive topic management with the ability to filter by multiple tags simultaneously (v1.1.1).
 - **Vertical Sidebar Workspace**: A consolidated navigation hub on the left, replacing cluttered top toolbars for a cleaner, more organized reading experience (v1.7).
+- **History-Based Back Navigation**: Intelligently returns to the previous tab from which the current tab was opened, with a fallback to the main feed (v1.7.1).
 - **Consolidated Story Actions**: One-click access to Article, Discussion, Split-view, Copy Link, and Refresh features within the Reader Workspace (v1.7).
+- **Optimized Sidebar Layout**: Reordered utilities (Refresh/Close) to the top for faster access and added a dedicated **Home** button for one-click feed navigation (v1.7.1).
 - **Keyboard-First**: Vim-like navigation (`j`/`k`), `PageUp`/`PageDown` for pagination, `Enter` to read.
 - **Robust WebView Reader**: Seamless article reading using integrated Electron webviews.
 - **Precise 10-Item Layout**: Optimized feed view that fits exactly 10 stories per page for perfect alignment.
