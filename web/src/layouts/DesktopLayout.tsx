@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { RefreshCw, Home, Settings, Shield, LogIn, LogOut, X } from 'lucide-react';
+import { RefreshCw, Home, Settings, Shield, LogIn, LogOut, X, Download } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
@@ -10,7 +10,6 @@ import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
 import { MODES } from '../types';
 import { isWebPreview } from '../utils/env';
-import { Download } from 'lucide-react';
 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
@@ -98,11 +97,11 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             {/* Center: Branding */}
                             <div className="flex flex-col items-center">
                                 <span className="text-sm font-black tracking-tighter text-[#ff6600] uppercase">HN Station</span>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.4' : 'v1.1.1'}</span>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.7' : 'v1.1.1'}</span>
                             </div>
 
                             {/* Right: Actions Portal */}
-                            <div id="reader-actions-portal" className="flex items-center min-w-[200px] justify-start bg-slate-200/20 dark:bg-slate-700/20 rounded-lg px-2 min-h-[32px]"></div>
+                            <div className="flex items-center min-w-[200px] justify-start bg-slate-200/20 dark:bg-slate-700/20 rounded-lg px-2 min-h-[32px]"></div>
                         </div>
                     </div>
 
@@ -227,31 +226,21 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         return (
                             <div
                                 key={t.id}
-                                className={`flex flex-shrink-0 items-center rounded-t-lg border relative group transition-all w-[180px] h-[44px] -mb-[1px] ${isActive
+                                className={`flex flex-shrink-0 flex-col items-start rounded-t-lg border relative group transition-all w-[180px] h-[44px] -mb-[1px] ${isActive
                                     ? 'bg-white dark:bg-[#111d2e] text-blue-600 dark:text-blue-400 border-amber-200 border-b-white dark:border-b-[#111d2e] shadow-[0_-2px_10px_rgba(0,0,0,0.15)] z-10'
                                     : 'bg-transparent border-amber-200/20 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 self-end border-b-0'}`}
                             >
                                 <button
                                     onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
-                                    className="flex-1 flex items-center gap-2 px-3 py-1 overflow-hidden min-w-0 h-full text-left"
-                                    title={`Click to switch tab, or click title to open original: ${t.story.title}`}
+                                    className="w-full h-full flex items-center gap-2 px-3 overflow-hidden min-w-0 text-left"
+                                    title={`Click to switch tab: ${t.story.title}`}
                                 >
-                                    <img src={faviconUrl} alt="" className="w-3.5 h-3.5 rounded-sm flex-shrink-0" />
-                                    <a
-                                        href={t.story.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        onClick={() => {
-                                            // Let the link open in a new tab, but ALSO switch the app's internal tab
-                                            app.handleStorySelect?.(t.storyId);
-                                            setCurrentView('reader');
-                                        }}
-                                        className={`truncate text-[11px] font-bold select-none hover:underline decoration-blue-500/50 underline-offset-2 ${isActive ? 'opacity-100 text-blue-600 dark:text-blue-400' : 'opacity-80 text-slate-500 dark:text-slate-400'}`}
-                                    >
+                                    <img src={faviconUrl} alt="" className="w-3 h-3 rounded-sm flex-shrink-0" />
+                                    <span className={`truncate text-[10px] font-bold select-none ${isActive ? 'opacity-100 text-blue-600 dark:text-blue-400' : 'opacity-80 text-slate-500 dark:text-slate-400'}`}>
                                         {t.story.title}
-                                    </a>
+                                    </span>
                                 </button>
-                                <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className={`p-1 mr-2 rounded-md transition-all flex-shrink-0 cursor-pointer ${isActive ? 'text-slate-400 hover:text-white hover:bg-red-500' : 'text-slate-500 dark:text-slate-400 hover:text-white hover:bg-red-500 opacity-0 group-hover:opacity-100'}`}>
+                                <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className={`absolute top-1.5 right-1.5 p-1 rounded-md transition-all flex-shrink-0 cursor-pointer ${isActive ? 'text-slate-400 hover:text-white hover:bg-red-500' : 'text-slate-500 dark:text-slate-400 hover:text-white hover:bg-red-500 opacity-0 group-hover:opacity-100'}`}>
                                     <X size={10} />
                                 </div>
                             </div>
@@ -407,6 +396,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         onToggleSave={user ? handleToggleSave : undefined}
                                         onHide={(id) => { handleHideStory(id); setCurrentView('feed'); }}
                                         onSetGlobalWarning={app.setGlobalWarning}
+                                        onSetIframeBlocked={app.setStoryIframeBlocked}
                                     />
                                 </div>
                             );

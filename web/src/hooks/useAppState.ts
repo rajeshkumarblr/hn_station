@@ -149,10 +149,19 @@ export function useAppState() {
     const selectedStory = activeTab?.story || null;
     const readerTab = activeTab?.mode || 'article';
 
+    const updateTabMode = useCallback((tabId: string, m: 'article' | 'discussion' | 'split') => {
+        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, mode: m } : t));
+    }, []);
+
     const setReaderTab = useCallback((m: 'article' | 'discussion' | 'split') => {
         if (!activeTabId) return;
-        setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, mode: m } : t));
-    }, [activeTabId]);
+        updateTabMode(activeTabId, m);
+    }, [activeTabId, updateTabMode]);
+
+    const setStoryIframeBlocked = useCallback((storyId: number, blocked: boolean) => {
+        setStoryBuffer(prev => prev.map(s => s.id === storyId ? { ...s, iframe_blocked: blocked } : s));
+        setTabs(prev => prev.map(t => t.storyId === storyId ? { ...t, story: { ...t.story, iframe_blocked: blocked } } : t));
+    }, []);
 
     const stories = storyBuffer; // Backend already paginates this buffer
 
@@ -496,7 +505,7 @@ export function useAppState() {
         setCurrentView, setReadingQueue, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         setDisabledTopics, setGlobalWarning,
         // Handlers
-        handleRefresh, toggleTheme, closeTab, setReaderTab, handleHideStory,
+        handleRefresh, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, handleHideStory,
         handleToggleQueue, handleStorySelect, handleToggleSave,
         handleStoryInteractWithQueue, handleQueueAllFiltered
     };

@@ -42,8 +42,9 @@ To avoid window management issues common in WSL/Linux virtualization:
 - **Zero-Login Local Mode**: Persistence via embedded SQLite; no account needed.
 - **Global Search**: Search the entire database by topic with server-side filtering.
 - **Multi-Tag Search**: Comprehensive topic management with the ability to filter by multiple tags simultaneously (v1.1.1).
-- **Simplified "Zen" UI**: Minimalist top navigation and optimized reader workspace for focus (v1.1.1).
-- **Keyboard-First**: Vim-like navigation (`j`/`k`), `PageUp`/`PageDown` for pagination, `Enter` to read, `z` for Zen mode.
+- **Vertical Sidebar Workspace**: A consolidated navigation hub on the left, replacing cluttered top toolbars for a cleaner, more organized reading experience (v1.7).
+- **Consolidated Story Actions**: One-click access to Article, Discussion, Split-view, Copy Link, and Refresh features within the Reader Workspace (v1.7).
+- **Keyboard-First**: Vim-like navigation (`j`/`k`), `PageUp`/`PageDown` for pagination, `Enter` to read.
 - **Robust WebView Reader**: Seamless article reading using integrated Electron webviews.
 - **Precise 10-Item Layout**: Optimized feed view that fits exactly 10 stories per page for perfect alignment.
 
