@@ -30,6 +30,7 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const paneRef = useRef<HTMLDivElement>(null);
     const isWebMode = isWebPreview();
     const [activeTab, setActiveTab] = useState<'discussion' | 'article' | 'split'>(activeTabProp || 'article');
     const [iframeBlocked, setIframeBlocked] = useState<boolean>(story.iframe_blocked || false);
@@ -45,6 +46,40 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
     const [isCopied, setIsCopied] = useState(false);
     const [showSummary, setShowSummary] = useState(false);
     const [userManuallyToggledSummary, setUserManuallyToggledSummary] = useState(false);
+    const [splitWidth, setSplitWidth] = useState(50); // percentage
+    const [isResizing, setIsResizing] = useState(false);
+
+    const startResizing = (e: React.MouseEvent) => {
+        setIsResizing(true);
+        e.preventDefault();
+    };
+
+    const stopResizing = () => {
+        setIsResizing(false);
+    };
+
+    const resize = (e: MouseEvent) => {
+        if (!isResizing || !paneRef.current) return;
+        const paneRect = paneRef.current.getBoundingClientRect();
+        const newWidth = ((e.clientX - paneRect.left) / paneRect.width) * 100;
+        if (newWidth > 15 && newWidth < 85) {
+            setSplitWidth(newWidth);
+        }
+    };
+
+    useEffect(() => {
+        if (isResizing) {
+            window.addEventListener('mousemove', resize);
+            window.addEventListener('mouseup', stopResizing);
+        } else {
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
+        }
+        return () => {
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
+        };
+    }, [isResizing]);
 
     // Self-managed comments state
     const [comments, setComments] = useState<any[]>([]);
@@ -256,11 +291,17 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
                 {/* Content Container: Article/Discussion + optional right Summary Sidebar */}
                 <div className="flex-1 flex flex-row min-h-0 overflow-hidden relative">
                     {/* Main content area */}
-                    <div className={`flex-1 custom-scrollbar relative min-h-0 ${(activeTab === 'split') ? 'flex flex-row overflow-hidden' : 'flex flex-col overflow-y-auto'}`}>
+                    <div ref={paneRef} className={`flex-1 custom-scrollbar relative min-h-0 ${(activeTab === 'split') ? 'flex flex-row overflow-hidden' : 'flex flex-col overflow-y-auto'}`}>
 
                         {/* Article Tab Content */}
                         {(activeTab === 'article' || activeTab === 'split') && (
-                            <div className={`flex flex-col min-h-0 ${activeTab === 'split' ? 'flex-1 overflow-y-auto border-r border-slate-200 dark:border-white/5' : 'flex-1'}`}>
+                            <div 
+                                className={`flex flex-col min-h-0 relative ${activeTab === 'split' ? 'overflow-y-auto' : 'flex-1'}`}
+                                style={{
+                                    width: activeTab === 'split' ? `${splitWidth}%` : 'auto',
+                                    flex: activeTab === 'split' ? 'none' : '1'
+                                }}
+                            >
                                 <div className="flex-1 w-full h-full bg-white overflow-hidden relative">
                                     {isWebMode ? (
                                         iframeBlocked ? (
@@ -297,6 +338,21 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
                                         />
                                     )}
                                 </div>
+
+                                {/* Transparent overlay while resizing to prevent iframe from capturing events */}
+                                {isResizing && (
+                                    <div className="absolute inset-0 z-50 cursor-col-resize bg-transparent" />
+                                )}
+                            </div>
+                        )}
+
+                        {/* Draggable Divider */}
+                        {activeTab === 'split' && (
+                            <div
+                                onMouseDown={startResizing}
+                                className={`w-1.5 h-full cursor-col-resize group relative z-30 transition-colors hover:bg-blue-500/50 ${isResizing ? 'bg-blue-500/50' : 'bg-slate-200 dark:bg-slate-800/50'}`}
+                            >
+                                <div className={`absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 bg-blue-500 transition-opacity ${isResizing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
                             </div>
                         )}
 

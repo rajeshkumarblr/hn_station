@@ -1,0 +1,699 @@
+1. Logging into ACR...
+Login Succeeded
+2. Building and Pushing Backend...
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.backend
+#1 transferring dockerfile: 550B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.24-alpine
+#2 ...
+
+#3 [auth] library/alpine:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#4 [auth] library/golang:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/alpine:3.19
+#5 DONE 1.6s
+
+#2 [internal] load metadata for docker.io/library/golang:1.24-alpine
+#2 DONE 1.6s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 2B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [builder 1/7] FROM docker.io/library/golang:1.24-alpine@sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191
+#8 resolve docker.io/library/golang:1.24-alpine@sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191 0.0s done
+#8 DONE 0.1s
+
+#9 [builder 2/7] WORKDIR /app
+#9 CACHED
+
+#10 [stage-1 1/6] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+#10 resolve docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1 0.0s done
+#10 DONE 0.0s
+
+#11 [stage-1 2/6] WORKDIR /app
+#11 CACHED
+
+#7 [internal] load build context
+#7 transferring context: 2.23MB 1.8s done
+#7 DONE 1.9s
+
+#12 [stage-1 3/6] RUN apk add --no-cache ca-certificates
+#12 0.530 fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/APKINDEX.tar.gz
+#12 0.902 fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/community/x86_64/APKINDEX.tar.gz
+#12 1.463 (1/1) Installing ca-certificates (20250911-r0)
+#12 1.523 Executing busybox-1.36.1-r20.trigger
+#12 1.544 Executing ca-certificates-20250911-r0.trigger
+#12 1.632 OK: 8 MiB in 16 packages
+#12 DONE 1.8s
+
+#13 [builder 3/7] COPY go.mod go.sum ./
+#13 DONE 0.1s
+
+#14 [builder 4/7] RUN go mod download
+#14 DONE 23.5s
+
+#15 [builder 5/7] COPY . .
+#15 DONE 16.7s
+
+#16 [builder 6/7] RUN go build -o /app/bin/server ./cmd/server/main.go
+#16 DONE 22.5s
+
+#17 [builder 7/7] RUN go build -o /app/bin/ingest ./cmd/ingest/main.go
+#17 DONE 2.4s
+
+#18 [stage-1 4/6] COPY --from=builder /app/bin/server /app/server
+#18 DONE 0.2s
+
+#19 [stage-1 5/6] COPY --from=builder /app/bin/ingest /app/ingest
+#19 DONE 0.2s
+
+#20 [stage-1 6/6] COPY --from=builder /app/migrations /app/migrations
+#20 DONE 0.1s
+
+#21 exporting to image
+#21 exporting layers
+#21 exporting layers 2.1s done
+#21 exporting manifest sha256:3a8eb0a4182587f42861c05ba64835d7be29e1abf9b7bf224324542d7fff8e76 0.0s done
+#21 exporting config sha256:e774aaf1ab5ebf541ba420bc8bb3b8d6b2d342a1269282fb8fec88643cadca3c 0.0s done
+#21 exporting attestation manifest sha256:7f4159caa103e4e08cad31500b48c4cd30090f38a5d42d0875a251bf5c6ce052
+#21 exporting attestation manifest sha256:7f4159caa103e4e08cad31500b48c4cd30090f38a5d42d0875a251bf5c6ce052 0.1s done
+#21 exporting manifest list sha256:a95e809f582bd4c7d08339177a7529e093fdcd844128518058c1c88b548d5d9b 0.0s done
+#21 naming to myhnregistry270.azurecr.io/backend:latest
+#21 naming to myhnregistry270.azurecr.io/backend:latest done
+#21 unpacking to myhnregistry270.azurecr.io/backend:latest
+#21 unpacking to myhnregistry270.azurecr.io/backend:latest 1.2s done
+#21 DONE 3.6s
+The push refers to repository [myhnregistry270.azurecr.io/backend]
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+0b278a78d740: Waiting
+a0114f206aab: Waiting
+17a39c0ba978: Waiting
+dba7c8e5a4e1: Waiting
+3d0169bfda92: Waiting
+d676d5dc65be: Waiting
+25875aaabc65: Waiting
+0b278a78d740: Waiting
+17a39c0ba978: Layer already exists
+25875aaabc65: Layer already exists
+0b278a78d740: Waiting
+0b278a78d740: Waiting
+dba7c8e5a4e1: Pushed
+3d0169bfda92: Pushed
+0b278a78d740: Pushed
+a0114f206aab: Pushed
+d676d5dc65be: Pushed
+latest: digest: sha256:a95e809f582bd4c7d08339177a7529e093fdcd844128518058c1c88b548d5d9b size: 856
+3. Building and Pushing Frontend...
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 365B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 ...
+
+#3 [auth] library/node:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#4 [auth] library/nginx:pull token for registry-1.docker.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/nginx:alpine
+#5 ...
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 1.7s
+
+#5 [internal] load metadata for docker.io/library/nginx:alpine
+#5 DONE 1.7s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 2B done
+#6 DONE 0.0s
+
+#7 [builder 1/6] FROM docker.io/library/node:20-alpine@sha256:b88333c42c23fbd91596ebd7fd10de239cedab9617de04142dde7315e3bc0afa
+#7 resolve docker.io/library/node:20-alpine@sha256:b88333c42c23fbd91596ebd7fd10de239cedab9617de04142dde7315e3bc0afa 0.1s done
+#7 DONE 0.1s
+
+#8 [internal] load build context
+#8 ...
+
+#9 [builder 2/6] WORKDIR /app
+#9 CACHED
+
+#10 [stage-1 1/3] FROM docker.io/library/nginx:alpine@sha256:f46cb72c7df02710e693e863a983ac42f6a9579058a59a35f1ae36c9958e4ce0
+#10 resolve docker.io/library/nginx:alpine@sha256:f46cb72c7df02710e693e863a983ac42f6a9579058a59a35f1ae36c9958e4ce0 0.1s done
+#10 CACHED
+
+#8 [internal] load build context
+#8 transferring context: 2.04MB 1.7s done
+#8 DONE 1.8s
+
+#11 [builder 3/6] COPY package.json package-lock.json ./
+#11 DONE 0.4s
+
+#12 [builder 4/6] RUN npm ci
+#12 2.332 npm warn EBADENGINE Unsupported engine {
+#12 2.332 npm warn EBADENGINE   package: '@electron/rebuild@4.0.3',
+#12 2.332 npm warn EBADENGINE   required: { node: '>=22.12.0' },
+#12 2.332 npm warn EBADENGINE   current: { node: 'v20.20.1', npm: '10.8.2' }
+#12 2.332 npm warn EBADENGINE }
+#12 2.337 npm warn EBADENGINE Unsupported engine {
+#12 2.337 npm warn EBADENGINE   package: 'node-abi@4.28.0',
+#12 2.337 npm warn EBADENGINE   required: { node: '>=22.12.0' },
+#12 2.337 npm warn EBADENGINE   current: { node: 'v20.20.1', npm: '10.8.2' }
+#12 2.337 npm warn EBADENGINE }
+#12 5.478 npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+#12 7.168 npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+#12 7.374 npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+#12 8.326 npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+#12 9.564 npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+#12 9.662 npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+#12 10.65 npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+#12 12.08 npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+#12 12.37 npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+#12 39.08 
+#12 39.08 added 660 packages, and audited 661 packages in 38s
+#12 39.08 
+#12 39.08 185 packages are looking for funding
+#12 39.08   run `npm fund` for details
+#12 39.09 
+#12 39.09 2 moderate severity vulnerabilities
+#12 39.09 
+#12 39.09 To address all issues (including breaking changes), run:
+#12 39.09   npm audit fix --force
+#12 39.09 
+#12 39.09 Run `npm audit` for details.
+#12 39.09 npm notice
+#12 39.09 npm notice New major version of npm available! 10.8.2 -> 11.12.0
+#12 39.09 npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.12.0
+#12 39.09 npm notice To update run: npm install -g npm@11.12.0
+#12 39.09 npm notice
+#12 DONE 39.6s
+
+#13 [builder 5/6] COPY . .
+#13 DONE 15.7s
+
+#14 [builder 6/6] RUN npm run build
+#14 0.699 
+#14 0.699 > hn-station@1.1.0 build
+#14 0.699 > tsc -b && vite build
+#14 0.699 
+#14 6.679 vite v5.4.21 building for production...
+#14 6.762 transforming...
+#14 12.03 ✓ 1898 modules transformed.
+#14 12.47 rendering chunks...
+#14 12.50 computing gzip size...
+#14 12.53 dist/index.html                   0.72 kB │ gzip:   0.41 kB
+#14 12.53 dist/assets/index-BFZ0DW35.css   76.83 kB │ gzip:  12.19 kB
+#14 12.53 dist/assets/index-DYE-Jbfh.js   401.83 kB │ gzip: 121.88 kB
+#14 12.53 ✓ built in 5.81s
+#14 DONE 12.6s
+
+#15 [stage-1 2/3] COPY --from=builder /app/dist /usr/share/nginx/html
+#15 DONE 0.0s
+
+#16 [stage-1 3/3] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#16 DONE 0.0s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 0.4s done
+#17 exporting manifest sha256:e4c2c496018a5af44cc4b03952ca076268a568cfaf382c63221b0c1c31f9dd77 0.0s done
+#17 exporting config sha256:0573814a453843c265f5a4ad14c6cf7b3e3a6127259b77e72dad6654d1ca48a7 0.0s done
+#17 exporting attestation manifest sha256:cd97340a7ee4e83501e447b15e37bfb09e8fb0ed9be9187df77887ec3b7e9c29 0.1s done
+#17 exporting manifest list sha256:fcd33e3fd1c161be11de82416f7daeeb2f8255a21721f8c943a78143bbb380d9
+#17 exporting manifest list sha256:fcd33e3fd1c161be11de82416f7daeeb2f8255a21721f8c943a78143bbb380d9 0.0s done
+#17 naming to myhnregistry270.azurecr.io/frontend:latest done
+#17 unpacking to myhnregistry270.azurecr.io/frontend:latest 0.1s done
+#17 DONE 0.7s
+The push refers to repository [myhnregistry270.azurecr.io/frontend]
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+1549d7aec962: Waiting
+c32126d2b96c: Waiting
+1549d7aec962: Layer already exists
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Waiting
+c24026275c33: Waiting
+c32126d2b96c: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+589002ba0eae: Layer already exists
+c24026275c33: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+c32126d2b96c: Waiting
+2114bd631682: Waiting
+e19aff8f2cce: Waiting
+d2a46166eee6: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Waiting
+593488f95c35: Waiting
+c24026275c33: Waiting
+bc363694fcde: Waiting
+1f25242adbdb: Layer already exists
+593488f95c35: Layer already exists
+c24026275c33: Layer already exists
+c32126d2b96c: Layer already exists
+2114bd631682: Waiting
+e19aff8f2cce: Layer already exists
+d2a46166eee6: Layer already exists
+799b8888d492: Waiting
+bc363694fcde: Waiting
+799b8888d492: Waiting
+bc363694fcde: Waiting
+2114bd631682: Pushed
+bc363694fcde: Pushed
+799b8888d492: Pushed
+latest: digest: sha256:fcd33e3fd1c161be11de82416f7daeeb2f8255a21721f8c943a78143bbb380d9 size: 856
+4. Deploying to AKS...
+Skipping secrets.yaml (file not found)...
+Deploying Postgres...
+service/postgres unchanged
+statefulset.apps/postgres configured
+Deploying Backend, Frontend, and Ingestion...
+service/backend unchanged
+deployment.apps/backend unchanged
+service/frontend unchanged
+deployment.apps/frontend unchanged
+deployment.apps/ingest unchanged
+Deploying Ingress and TLS...
+clusterissuer.cert-manager.io/letsencrypt-prod unchanged
+ingress.networking.k8s.io/hn-ingress unchanged
+--------------------------------------------------
+Deployment triggered!
+Check status with: kubectl get pods
+Watch for External IP: kubectl get svc frontend -w
