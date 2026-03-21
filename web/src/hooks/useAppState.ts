@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PAGE_SIZE, MAX_READ_IDS } from '../types';
 import type { Story, ReaderTab, ModeKey } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
-import { isWebPreview } from '../utils/env';
+import { isWebPreview, isElectron } from '../utils/env';
 function loadReadIds(): Set<number> {
     try {
         const saved = localStorage.getItem('hn_read_stories');
@@ -57,10 +57,19 @@ function loadPersistedCurrentView(): 'feed' | 'reader' | 'admin' {
     return 'feed';
 }
 
+export interface BackendStats {
+    total_users: number;
+    total_interactions: number;
+    total_stories: number;
+    total_comments: number;
+}
+
 interface User {
     id: string;
     email: string;
     name: string;
+    topics: string[];
+    iframe_blocked: boolean | null;
     avatar_url: string;
     is_admin: boolean;
     ai_summaries_enabled: boolean;
@@ -90,6 +99,7 @@ export function useAppState() {
     const [bufferOffset, setBufferOffset] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [backendStats, setBackendStats] = useState<BackendStats | null>(null);
     const [apiBase, setApiBase] = useState(getApiBase());
 
     const [mode, setMode] = useState<ModeKey>('default');
@@ -191,8 +201,7 @@ export function useAppState() {
 
     useEffect(() => {
         // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
-        const isElectron = !!(window as any).electronAPI;
-        if (isElectron && (!apiBase || apiBase.includes('hnstation.dev'))) {
+        if (isElectron() && (!apiBase || apiBase.includes('hnstation.dev'))) {
             return;
         }
         const url = `${apiBase}/api/me`;
@@ -409,8 +418,16 @@ export function useAppState() {
         setError(null);
         const url = buildUrl(offset);
         if (!url) return;
-        fetch(url)
-            .then(res => { if (!res.ok) throw new Error('Failed to fetch stories'); return res.json(); })
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+        fetch(url, { signal: controller.signal })
+            .then(res => {
+                clearTimeout(timeout);
+                if (!res.ok) throw new Error('Could not connect to backend. Please check if the local server is running.');
+                return res.json();
+            })
             .then(data => {
                 const incoming: Story[] = data.stories || [];
                 setStoryBuffer(incoming);
@@ -431,10 +448,32 @@ export function useAppState() {
                 }
             })
             .catch(err => {
-                setError(err.message);
+                clearTimeout(timeout);
+                console.error('[useAppState] fetch error:', err);
+                const msg = err.name === 'AbortError' ? 'Backend connection timed out. Retrying...' : err.message;
+                setError(msg);
                 setLoading(false);
             });
     }, [mode, refreshKey, showHidden, offset, apiBase, activeTopics, disabledTopics]);
+
+    useEffect(() => {
+        const fetchStats = () => {
+            const baseUrl = getApiBase();
+            // Don't fetch if apiBase is not yet initialized in Electron
+            if (!baseUrl && isElectron()) return;
+            
+            fetch(`${baseUrl}/api/stats`)
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data) setBackendStats(data);
+                })
+                .catch(err => console.error('[useAppState] stats fetch error:', err));
+        };
+
+        fetchStats();
+        const interval = setInterval(fetchStats, 10000); // Every 10s
+        return () => clearInterval(interval);
+    }, [apiBase]);
 
     useEffect(() => {
         // Only trigger the "refill" logic if we are on the first page (offset 0).
@@ -480,7 +519,7 @@ export function useAppState() {
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
         tabs, activeTabId, showHidden,
         isSettingsOpen, currentView, isAdminModalOpen, user,
-        hiddenStories, offset, globalWarning,
+        hiddenStories, offset, globalWarning, backendStats,
         // Derived
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         isWebMode,

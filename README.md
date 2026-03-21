@@ -14,56 +14,51 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 
 ## 🖥️ Electron Desktop App (Local Mode)
 
-A powerful, zero-login desktop experience. It bundles its own Go backend and uses a local SQLite database for offline-first persistence.
+A powerful, zero-login desktop experience. It uses a **Background Windows Service** for continuous story ingestion, ensuring your feed is always fresh even when the app is closed.
+
+### ✨ Desktop Features (v1.8)
+- **Background Ingestion Service**: Stories are fetched continuously in the background via a native Windows service.
+- **Shared Persistent Storage**: Your database stays safe at `C:\ProgramData\HNStation\hn.db` even during app upgrades.
+- **Independent Web/Desktop Core**: Build-time optimized versions for maximum performance and security.
+- **Robust Port-Mapping**: Uses a safe, non-conflicting port (`58090`) to avoid common system blocks.
 
 ### 🏁 Prerequisites
-- **Go 1.21+**
-- **Node.js 18+**
-- **Ollama** (Optional, for AI summaries)
+- **Windows 10/11** (Recommended)
+- **Ollama** (Optional, for local AI summaries)
 
-### 💻 Windows Native Setup (Recommended)
-To avoid window management issues common in WSL/Linux virtualization:
-1. **Clone**: `git clone https://github.com/rajeshkumarblr/hn_station.git`
-2. **Install**: `cd web && npm install`
-3. **Launch**: `cd .. && .\hn-station.ps1` (PowerShell)
-
-### 🐧 Linux/WSL Setup
-1. **Build**: `go build -o web/resources/hn-local ./cmd/local`
-2. **Install**: `cd web && npm install`
-3. **Launch**: `./hn-station.sh`
+### 💻 Windows Native Setup (Internal Release)
+The desktop app is now distributed as a single **Unified Installer**:
+1. Run `HN Station Setup 1.1.0.exe` (installed per-machine).
+2. The installer automatically registers the **HN Station Ingestion Service**.
+3. Launch **HN Station** from your Start menu or Desktop.
 
 ---
 
-## ✨ Features
+## ✨ System Features
 
 - **Split-Pane Workspace**: Browse the feed and read articles side-by-side.
-- **Automated AI Summaries**: Concise article takeaways powered by Local Ollama or Gemini Pro with intelligent fallback (v1.1.1).
-- **Tabbed Settings Modal**: Centralized management for AI providers, UI themes, and keyboard shortcuts in a modern tabbed interface (v1.1.1).
-- **Zero-Login Local Mode**: Persistence via embedded SQLite; no account needed.
-- **Global Search**: Search the entire database by topic with server-side filtering.
-- **Multi-Tag Search**: Comprehensive topic management with the ability to filter by multiple tags simultaneously (v1.1.1).
-- **Vertical Sidebar Workspace**: A consolidated navigation hub on the left, replacing cluttered top toolbars for a cleaner, more organized reading experience (v1.7).
-- **History-Based Back Navigation**: Intelligently returns to the previous tab from which the current tab was opened, with a fallback to the main feed (v1.7.1).
-- **Resizable Split View**: Draggable border between article and discussion panes for a fully flexible workspace (v1.7.2).
-- **Feed Actions Refinement**: Replaced the legacy reading queue with a direct Bookmarking system for a simpler, tab-first experience (v1.7.3).
-- **Consolidated Story Actions**: One-click access to Article, Discussion, Split-view, Copy Link, and Refresh features within the Reader Workspace (v1.7).
-- **Optimized Sidebar Layout**: Reordered utilities (Refresh/Close) to the top for faster access and added a dedicated **Home** button for one-click feed navigation (v1.7.1).
-- **Keyboard-First**: Vim-like navigation (`j`/`k`), `PageUp`/`PageDown` for pagination, `Enter` to read.
-- **Robust WebView Reader**: Seamless article reading using integrated Electron webviews.
-- **Precise 10-Item Layout**: Optimized feed view that fits exactly 10 stories per page for perfect alignment.
+- **Automated AI Summaries**: Concise article takeaways powered by Local Ollama or Gemini Pro.
+- **Tabbed Settings Modal**: Centralized management for AI providers and UI themes.
+- **Multi-Tag Search**: Comprehensive topic management with parallel filtering.
+- **History-Based Navigation**: Intelligent "Back" logic for a cleaner workflow.
+- **Keyboard-First**: Vim-like navigation (`j`/`k`), `Enter` to read.
 
 ---
 
-## 🚀 Web Setup (Docker)
+## 🚀 Web Setup (Docker/AKS)
 
 ```bash
 git clone https://github.com/rajeshkumarblr/hn_station && cd hn_station
 cp .env.example .env   # add OAuth & Secret
 docker-compose up --build
 ```
-Open **http://localhost:3000**.
+Open **http://localhost:3000** or check **[hnstation.dev](https://hnstation.dev)**.
 
 ---
 
 ## 🏗️ Architecture
-The system consists of a Go ingestion worker, a Go REST API, and a React frontend. See **[architecture.md](architecture.md)** for technical details.
+The system follows a decoupled architecture:
+1. **Ingestion Service**: A background Go worker for continuous HN data fetching (SQLite).
+2. **Local API**: A lightweight Go server serving the Electron frontend.
+3. **Web Backend**: A containerized Go API for the live web preview (Postgres).
+4. **React Frontend**: Shared UI with platform-agnostic adapters for Web vs. Electron.

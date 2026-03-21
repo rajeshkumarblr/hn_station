@@ -217,7 +217,12 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     </button>
                     {tabs.map(t => {
                         const isActive = currentView === 'reader' && activeTabId === t.id;
-                        const domain = t.story.url ? new URL(t.story.url).hostname : 'news.ycombinator.com';
+                        let domain = 'news.ycombinator.com';
+                        try {
+                            if (t.story.url) domain = new URL(t.story.url).hostname;
+                        } catch (e) {
+                            console.error('Invalid URL in tab:', t.story.url);
+                        }
                         const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
 
                         return (
@@ -256,15 +261,66 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
                                         <div className="flex-1 flex flex-col h-full gap-0 overflow-y-auto custom-scrollbar">
-                                            {stories.length > 0 && (() => {
+                                            {(() => {
                                                 const unfiltered = stories.filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden));
                                                 const filtered = unfiltered.slice(0, PAGE_SIZE);
 
                                                 if (filtered.length === 0) {
+                                                    const stats = app.backendStats;
+                                                    const hasData = stats && (stats.total_stories > 0);
+                                                    
                                                     return (
-                                                        <div className="p-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-                                                            <div className="text-slate-400 dark:text-slate-500 font-medium mb-1">No matching stories found</div>
-                                                            <button onClick={() => setActiveTopics([])} className="text-blue-500 text-xs font-bold hover:underline">Clear search filters</button>
+                                                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                                                            <div className="max-w-md bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+                                                                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-500">
+                                                                    <RefreshCw size={32} className={loading ? "animate-spin" : ""} />
+                                                                </div>
+                                                                <h3 className="text-xl font-bold mb-2">
+                                                                    {app.error ? "Connection Issue" : (hasData ? "No Matching Stories" : "Initializing Feed...")}
+                                                                </h3>
+                                                                <p className="text-slate-500 dark:text-slate-400 mb-6 text-sm leading-relaxed">
+                                                                    {app.error 
+                                                                        ? app.error 
+                                                                        : activeTopics.length > 0 
+                                                                            ? "No stories match your current filters. Try clearing them to see all content."
+                                                                            : !hasData 
+                                                                                ? "The local database is currently empty. The ingestion service is fetching stories from Hacker News right now."
+                                                                                : "Your database is ready, but no stories are currently visible with your current view settings."}
+                                                                </p>
+
+                                                                {stats && (
+                                                                    <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 text-left">
+                                                                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-2">Database Stats</div>
+                                                                        <div className="grid grid-cols-2 gap-4 text-xs">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-slate-500 dark:text-slate-500 font-medium">Stories</span>
+                                                                                <span className="font-bold text-blue-500">{stats.total_stories.toLocaleString()}</span>
+                                                                            </div>
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-slate-500 dark:text-slate-500 font-medium">Comments</span>
+                                                                                <span className="font-bold text-emerald-500">{stats.total_comments.toLocaleString()}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                <div className="flex flex-col gap-3">
+                                                                    {activeTopics.length > 0 && (
+                                                                        <button 
+                                                                            onClick={() => setActiveTopics([])}
+                                                                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-500/20"
+                                                                        >
+                                                                            Clear All Filters
+                                                                        </button>
+                                                                    )}
+                                                                    <button 
+                                                                        onClick={handleRefresh}
+                                                                        className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-xl text-xs font-bold transition-all"
+                                                                    >
+                                                                        Refresh & Retry
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     );
                                                 }

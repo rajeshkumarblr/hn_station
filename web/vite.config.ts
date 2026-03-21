@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   const isElectron = process.env.VITE_ELECTRON === 'true' || mode === 'electron';
 
   return {
+    base: './',
     plugins: [
       react(),
       isElectron && electron([

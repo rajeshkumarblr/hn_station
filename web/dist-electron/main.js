@@ -1,99 +1,114 @@
-import { app as r, ipcMain as g, globalShortcut as k, BrowserWindow as y, nativeImage as _, session as v, shell as L } from "electron";
-import n from "node:path";
+import { app as c, ipcMain as g, globalShortcut as T, BrowserWindow as k, nativeImage as x, session as A, shell as _ } from "electron";
+import s from "node:path";
 import { fileURLToPath as O } from "node:url";
-import { spawn as A } from "node:child_process";
-import m from "node:fs";
-const S = n.dirname(O(import.meta.url));
-process.env.APP_ROOT = n.join(S, "..");
-const b = process.env.VITE_DEV_SERVER_URL, B = n.join(process.env.APP_ROOT, "dist-electron"), I = n.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = b ? n.join(process.env.APP_ROOT, "public") : I;
-const u = n.join(r.getPath("userData"), "app.log");
-function o(i) {
+import { spawn as L } from "node:child_process";
+import p from "node:fs";
+import C from "node:http";
+import j from "node:os";
+const y = s.dirname(O(import.meta.url));
+process.env.APP_ROOT = s.join(y, "..");
+const w = process.env.VITE_DEV_SERVER_URL, z = s.join(process.env.APP_ROOT, "dist-electron"), I = s.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = w ? s.join(process.env.APP_ROOT, "public") : I;
+const u = s.join(c.getPath("userData"), "app.log");
+function o(n) {
   try {
-    const a = `[${(/* @__PURE__ */ new Date()).toISOString()}] ${i}
+    const i = `[${(/* @__PURE__ */ new Date()).toISOString()}] ${n}
 `;
-    m.appendFileSync(u, a), console.log(i);
+    p.appendFileSync(u, i), console.log(n);
   } catch (t) {
     console.error("Failed to write to log file:", t);
   }
 }
 try {
-  m.existsSync(u) && m.truncateSync(u);
-} catch (i) {
-  console.error("Failed to truncate log file:", i);
+  p.existsSync(u) && p.truncateSync(u);
+} catch (n) {
+  console.error("Failed to truncate log file:", n);
 }
 o(`[main] Log initialized: ${u}`);
-o(`[main] Version: ${r.getVersion()}`);
+o(`[main] Version: ${c.getVersion()}`);
 o(`[main] App Root: ${process.env.APP_ROOT}`);
-process.platform === "win32" && r.setAppUserModelId("com.hnstation.app");
-let e = null, c = null, f = null;
-r.setName("HN Station");
-r.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-function C() {
-  const i = process.platform === "win32" ? "hn-local.exe" : "hn-local", t = n.join(process.resourcesPath ?? "", i);
-  if (o(`[backend] Checking packaged path: ${t}`), m.existsSync(t)) return t;
-  const a = n.join(process.env.APP_ROOT ?? n.join(S, ".."), "resources", i);
-  return o(`[backend] Checking dev path: ${a}`), m.existsSync(a) ? a : null;
+process.platform === "win32" && c.setAppUserModelId("com.hnstation.app");
+let e = null, l = null, m = null;
+c.setName("HN Station");
+const F = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+c.userAgentFallback = `${F} Electron/${process.versions.electron}`;
+function M() {
+  const n = process.platform === "win32" ? "hn-local.exe" : "hn-local", t = s.join(process.resourcesPath ?? "", n);
+  if (o(`[backend] Checking packaged path: ${t}`), p.existsSync(t)) return t;
+  const i = s.join(process.env.APP_ROOT ?? s.join(y, ".."), "resources", n);
+  return o(`[backend] Checking dev path: ${i}`), p.existsSync(i) ? i : null;
 }
-function j() {
-  return new Promise((i, t) => {
-    var w, P;
-    const a = C();
-    if (!a) {
-      const s = new Error("hn-local binary not found");
-      o(`[backend] ERROR: ${s.message}`), t(s);
+function N() {
+  return new Promise((n, t) => {
+    var S, P;
+    const i = M();
+    if (!i) {
+      const a = new Error("hn-local binary not found");
+      o(`[backend] ERROR: ${a.message}`), t(a);
       return;
     }
-    const l = n.join(r.getPath("userData"), "hn.db");
-    o(`[backend] Starting ${a} --db ${l}`), c = A(a, ["--port", "0", "--db", l], {
+    const r = process.platform === "win32" ? s.join(process.env.PROGRAMDATA || "C:\\ProgramData", "HNStation", "hn.db") : s.join(j.homedir(), ".hn-station", "hn.db");
+    o(`[backend] Starting ${i} --db ${r}`), l = L(i, ["--port", "0", "--db", r], {
       stdio: ["ignore", "pipe", "pipe"],
-      cwd: n.dirname(a)
+      cwd: s.dirname(i)
     });
-    let p = !1, h = "";
-    (w = c.stdout) == null || w.on("data", (s) => {
-      h += s.toString();
+    let f = !1, h = "";
+    (S = l.stdout) == null || S.on("data", (a) => {
+      h += a.toString();
       const d = h.split(`
 `);
       h = d.pop() ?? "";
       for (const R of d) {
-        const T = R.trim();
-        T && o(`[backend][stdout] ${T}`);
+        const b = R.trim();
+        b && o(`[backend][stdout] ${b}`);
         const $ = R.match(/^LISTENING:(\d+)/);
-        $ && !p && (p = !0, f = parseInt($[1], 10), o(`[backend] API on port ${f}`), i(f));
+        $ && !f && (f = !0, m = parseInt($[1], 10), o(`[backend] API on port ${m}`), n(m));
       }
-    }), (P = c.stderr) == null || P.on("data", (s) => {
-      const d = s.toString().trim();
+    }), (P = l.stderr) == null || P.on("data", (a) => {
+      const d = a.toString().trim();
       d && o(`[backend][stderr] ${d}`);
-    }), c.on("error", (s) => {
-      o(`[backend] Spawn error: ${s.message}`), p || t(s);
-    }), c.on("exit", (s, d) => {
-      o(`[backend] exited code=${s} signal=${d}`), c = null, f = null;
+    }), l.on("error", (a) => {
+      o(`[backend] Spawn error: ${a.message}`), f || t(a);
+    }), l.on("exit", (a, d) => {
+      o(`[backend] exited code=${a} signal=${d}`), l = null, m = null;
     }), setTimeout(() => {
-      if (!p) {
-        const s = new Error("Timed out waiting for hn-local to start");
-        o(`[backend] ERROR: ${s.message}`), t(s);
+      if (!f) {
+        const a = new Error("Timed out waiting for hn-local to start");
+        o(`[backend] ERROR: ${a.message}`), t(a);
       }
     }, 6e4);
   });
 }
-function E() {
-  c && (o("[backend] Stopping..."), c.kill("SIGTERM"), c = null);
+function V(n) {
+  return new Promise((t) => {
+    const i = C.get(`http://127.0.0.1:${n}/healthc`, (r) => {
+      t(r.statusCode === 200), r.resume();
+    });
+    i.on("error", (r) => {
+      o(`[main] Port ${n} check error: ${r.message}`), t(!1);
+    }), i.setTimeout(1e3, () => {
+      i.destroy(), t(!1);
+    });
+  });
+}
+function v() {
+  l && (o("[backend] Stopping..."), l.kill("SIGTERM"), l = null);
 }
 g.handle(
   "get-local-api-url",
-  () => f ? `http://localhost:${f}` : null
+  () => m ? `http://127.0.0.1:${m}` : null
 );
-function x() {
-  e = new y({
+function E() {
+  e = new k({
     width: 1440,
     height: 900,
     show: !1,
     frame: !1,
     backgroundColor: "#0f172a",
-    icon: n.join(process.env.VITE_PUBLIC, "hn.ico"),
+    icon: s.join(process.env.VITE_PUBLIC, "hn.ico"),
     webPreferences: {
       webviewTag: !0,
-      preload: n.join(S, "preload.js"),
+      preload: s.join(z, "preload.js"),
       webSecurity: !1
     }
   }), g.on("window-minimize", () => e == null ? void 0 : e.minimize()), g.on("window-close", () => e == null ? void 0 : e.close()), g.on("window-maximize", () => {
@@ -103,49 +118,49 @@ function x() {
       e && !e.isMaximized() && e.maximize();
     }, 300));
   }), e.setMenu(null);
-  const i = n.join(process.env.VITE_PUBLIC, "hn.ico");
-  if (o(`[main] Loading icon from: ${i}`), m.existsSync(i)) {
-    const t = _.createFromPath(i);
+  const n = s.join(process.env.VITE_PUBLIC, "hn.ico");
+  if (o(`[main] Loading icon from: ${n}`), p.existsSync(n)) {
+    const t = x.createFromPath(n);
     t.isEmpty() || e.setIcon(t);
   }
   e.setTitle("HN Station"), e.webContents.on("page-title-updated", (t) => {
     t.preventDefault(), e == null || e.setTitle("HN Station");
-  }), v.defaultSession.webRequest.onHeadersReceived((t, a) => {
-    const l = { ...t.responseHeaders };
-    delete l["x-frame-options"], delete l["X-Frame-Options"], delete l["content-security-policy"], delete l["Content-Security-Policy"], a({ cancel: !1, responseHeaders: l });
-  }), b ? e.loadURL(b) : e.loadFile(n.join(I, "index.html")), e.webContents.on("console-message", (t, a, l, p, h) => {
-    o(`[Renderer][${a}] ${l} (${h}:${p})`);
+  }), A.defaultSession.webRequest.onHeadersReceived((t, i) => {
+    const r = { ...t.responseHeaders };
+    delete r["x-frame-options"], delete r["X-Frame-Options"], delete r["content-security-policy"], delete r["Content-Security-Policy"], i({ cancel: !1, responseHeaders: r });
+  }), w ? e.loadURL(w) : e.loadFile(s.join(I, "index.html")), e.webContents.on("console-message", (t, i, r, f, h) => {
+    o(`[Renderer][${i}] ${r} (${h}:${f})`);
   });
   try {
-    k.register("CommandOrControl+Shift+L", () => {
-      o("[main] Shortcut Ctrl+Shift+L triggered"), m.existsSync(u) && L.openPath(n.dirname(u));
+    T.register("CommandOrControl+Shift+L", () => {
+      o("[main] Shortcut Ctrl+Shift+L triggered"), p.existsSync(u) && _.openPath(s.dirname(u));
     });
   } catch (t) {
     o(`[main] Failed to register shortcut: ${t}`);
   }
 }
-r.whenReady().then(async () => {
+c.whenReady().then(async () => {
   try {
-    await j(), o("[main] Local backend ready");
-  } catch (i) {
-    o(`[main] CRITICAL: Failed to start local backend: ${i.message}`);
+    await V(8050) ? (o("[main] Windows Service detected on port 8050. Skipping local spawn."), m = 8050) : (await N(), o("[main] Local backend ready"));
+  } catch (n) {
+    o(`[main] CRITICAL: Failed to start/detect backend: ${n.message}`);
   }
-  x();
-});
-r.on("will-quit", () => {
-  k.unregisterAll();
-});
-r.on("before-quit", () => {
   E();
 });
-r.on("window-all-closed", () => {
-  process.platform !== "darwin" && (E(), r.quit(), e = null);
+c.on("will-quit", () => {
+  T.unregisterAll();
 });
-r.on("activate", () => {
-  y.getAllWindows().length === 0 && x();
+c.on("before-quit", () => {
+  v();
+});
+c.on("window-all-closed", () => {
+  process.platform !== "darwin" && (v(), c.quit(), e = null);
+});
+c.on("activate", () => {
+  k.getAllWindows().length === 0 && E();
 });
 export {
-  B as MAIN_DIST,
+  z as MAIN_DIST,
   I as RENDERER_DIST,
-  b as VITE_DEV_SERVER_URL
+  w as VITE_DEV_SERVER_URL
 };

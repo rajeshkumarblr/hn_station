@@ -1,0 +1,15 @@
+node_modules
+dist
+release
+.git
+.gitignore
+.vscode
+*.exe
+web/release
+web/dist
+web/dist-electron
+web/node_modules
+web/resources/hn-local.exe
+internal/bin
+bin
+tmp

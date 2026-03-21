@@ -16,7 +16,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:electron": "tsc -b && vite build && electron-builder",
-    "build:win": "tsc -b && vite build && electron-builder --win",
+    "build:all": "cd .. && go build -o web/resources/hn-local.exe ./cmd/local && cd web && npm run build && cross-env VITE_ELECTRON=true npm run build:win",
+    "build:win": "cross-env VITE_ELECTRON=true tsc && cross-env VITE_ELECTRON=true vite build && electron-builder --win",
     "build:dir": "tsc -b && vite build && electron-builder --win --dir",
     "build:linux": "tsc -b && vite build && electron-builder --linux",
     "lint": "eslint .",
@@ -29,13 +30,6 @@
     "icon": "public/hn_256.png",
     "asar": true,
     "extraResources": [
-      {
-        "from": "resources/hn-local",
-        "to": "hn-local",
-        "filter": [
-          "**/*"
-        ]
-      },
       {
         "from": "resources/hn-local.exe",
         "to": "hn-local.exe",
@@ -68,7 +62,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "HN Station",
       "menuCategory": "HN Station",
-      "runAfterFinish": true
+      "perMachine": true,
+      "include": "build/installer.nsh"
     },
     "linux": {
       "target": [
@@ -115,6 +110,7 @@
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.19",
+    "cross-env": "^10.1.0",
     "electron": "^40.8.0",
     "electron-builder": "^26.8.1",
     "eslint": "^8.57.0",

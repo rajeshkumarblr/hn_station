@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,8 +57,9 @@ let localApiPort: number | null = null;
 // Set the app name
 app.setName('HN Station');
 
-// Fake standard Chrome user agent
-app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+// Fake standard Chrome user agent but keep Electron for detection
+const originalUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+app.userAgentFallback = `${originalUA} Electron/${process.versions.electron}`;
 
 // ── Local backend (hn-local binary) ──────────────────────────────────────────
 function getLocalBinaryPath(): string | null {
@@ -85,7 +88,9 @@ function startLocalBackend(): Promise<number> {
             return;
         }
 
-        const dbPath = path.join(app.getPath('userData'), 'hn.db');
+        const dbPath = process.platform === 'win32'
+            ? path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'HNStation', 'hn.db')
+            : path.join(os.homedir(), '.hn-station', 'hn.db');
         logToFile(`[backend] Starting ${binaryPath} --db ${dbPath}`);
 
         localBackend = spawn(binaryPath, ['--port', '0', '--db', dbPath], {
@@ -139,6 +144,23 @@ function startLocalBackend(): Promise<number> {
     });
 }
 
+function isPortOpen(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+        const req = http.get(`http://127.0.0.1:${port}/healthc`, (res) => {
+            resolve(res.statusCode === 200);
+            res.resume();
+        });
+        req.on('error', (err) => {
+            logToFile(`[main] Port ${port} check error: ${err.message}`);
+            resolve(false);
+        });
+        req.setTimeout(1000, () => {
+            req.destroy();
+            resolve(false);
+        });
+    });
+}
+
 function stopLocalBackend() {
     if (localBackend) {
         logToFile('[backend] Stopping...');
@@ -149,7 +171,7 @@ function stopLocalBackend() {
 
 // ── IPC ───────────────────────────────────────────────────────────────────────
 ipcMain.handle('get-local-api-url', () =>
-    localApiPort ? `http://localhost:${localApiPort}` : null
+    localApiPort ? `http://127.0.0.1:${localApiPort}` : null
 );
 
 // ── Window ────────────────────────────────────────────────────────────────────
@@ -163,7 +185,7 @@ function createWindow() {
         icon: path.join(process.env.VITE_PUBLIC!, 'hn.ico'),
         webPreferences: {
             webviewTag: true,
-            preload: path.join(__dirname, 'preload.js'),
+            preload: path.join(MAIN_DIST, 'preload.js'),
             webSecurity: false,
         },
     });
@@ -241,10 +263,19 @@ function createWindow() {
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
     try {
-        await startLocalBackend();
-        logToFile('[main] Local backend ready');
+        const serviceRunning = await isPortOpen(8050);
+        if (serviceRunning) {
+            logToFile('[main] Windows Service detected on port 8050. Skipping local spawn.');
+            // We still need to set localApiPort for the IPC handler if needed, 
+            // but apiBase in renderer now probes 8050 independently.
+            // However, let's set it to 8050 so get-local-api-url works if called.
+            localApiPort = 8050;
+        } else {
+            await startLocalBackend();
+            logToFile('[main] Local backend ready');
+        }
     } catch (err: any) {
-        logToFile(`[main] CRITICAL: Failed to start local backend: ${err.message}`);
+        logToFile(`[main] CRITICAL: Failed to start/detect backend: ${err.message}`);
     }
     createWindow();
 });

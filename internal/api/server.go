@@ -79,6 +79,7 @@ func (s *Server) routes() {
 	s.router.Get("/api/stories/{id}/content", s.handleGetArticleContent)
 	s.router.Get("/api/stories/{id}/check-iframe", s.handleCheckIframe)
 	s.router.Get("/api/me", s.handleGetMe)
+	s.router.Get("/api/stats", s.handleGetStats)
 	s.router.Post("/api/settings", s.handleUpdateSettings)
 	s.router.Get("/api/download/latest", s.handleDownloadLatest)
 
@@ -160,6 +161,16 @@ func FileServer(r chi.Router, path string, root http.FileSystem) {
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
+}
+
+func (s *Server) handleGetStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := s.store.GetAppStats(r.Context())
+	if err != nil {
+		http.Error(w, "Failed to fetch stats", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }
 
 func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
