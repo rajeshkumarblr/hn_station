@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, Terminal, Link, Check, FileText, MessageSquare, Columns } from 'lucide-react';
+import { Terminal, Link, Check, FileText, MessageSquare, Columns, Bookmark } from 'lucide-react';
 
 export interface Story {
     id: number;
@@ -23,12 +23,10 @@ interface StoryCardProps {
     onSelect?: (id: number) => void;
     onToggleSave?: (id: number, saved: boolean) => void;
     onHide?: (id: number) => void;
-    onQueueToggle?: (id: number) => void;
     onOpenInTab?: (id: number, mode: 'article' | 'discussion' | 'split') => void;
     isSelected?: boolean;
     isHighlighted?: boolean;
     isRead?: boolean;
-    isQueued?: boolean;
     isEven?: boolean;
     topicTextClass?: string | null;
     titleColorStyle?: string | null; // inline CSS color for the title
@@ -79,8 +77,8 @@ export function getTagColor(tag: string) {
 
 
 export function StoryCard({
-    story, index, onSelect, onToggleSave, onHide, onQueueToggle, onOpenInTab,
-    isSelected, isHighlighted, isRead, isQueued, isEven,
+    story, index, onSelect, onToggleSave, onHide, onOpenInTab,
+    isSelected, isHighlighted, isRead, isEven,
     topicTextClass, titleColorStyle, activeTopics
 }: StoryCardProps) {
     let domain = '';
@@ -188,33 +186,19 @@ export function StoryCard({
                     </button>
                 )}
 
-                {/* Queue button */}
-                {onQueueToggle && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onQueueToggle(story.id); }}
-                        className={`p-1 rounded-md transition-all duration-150 ${isQueued
-                            ? 'text-blue-500 dark:text-blue-400 hover:text-blue-600 hover:scale-110 bg-blue-50 dark:bg-blue-900/30'
-                            : 'text-gray-400 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:scale-110'
-                            }`}
-                        title={isQueued ? 'Remove from Queue' : 'Add to Queue'}
-                    >
-                        {isQueued ? <Check size={14} /> : <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
-                    </button>
-                )}
-
-                {/* Save/Star button */}
-                {onToggleSave && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onToggleSave(story.id, !saved); }}
-                        className={`p-1 rounded-md transition-all duration-150 ${saved
-                            ? 'text-yellow-500 dark:text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300 hover:scale-110'
-                            : 'text-gray-400 dark:text-slate-600 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110'
-                            }`}
-                        title={saved ? 'Unsave' : 'Save'}
-                    >
-                        <Star size={14} fill={saved ? "currentColor" : "none"} />
-                    </button>
-                )}
+                {/* Save/Bookmark button */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); if (onToggleSave) onToggleSave(story.id, !saved); }}
+                    className={`p-1 rounded-md transition-all duration-150 ${saved
+                        ? 'text-yellow-500 dark:text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300 hover:scale-110'
+                        : onToggleSave 
+                            ? 'text-gray-400 dark:text-slate-600 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110'
+                            : 'text-gray-300 dark:text-slate-800 cursor-not-allowed'
+                        }`}
+                    title={!onToggleSave ? 'Login to bookmark' : saved ? 'Unbookmark' : 'Bookmark'}
+                >
+                    <Bookmark size={14} fill={saved ? "currentColor" : "none"} />
+                </button>
 
                 {/* Close button */}
                 {onHide && (

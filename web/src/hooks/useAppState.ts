@@ -125,7 +125,6 @@ export function useAppState() {
 
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [currentView, setCurrentView] = useState<'feed' | 'reader' | 'admin'>(loadPersistedCurrentView);
-    const [readingQueue, setReadingQueue] = useState<number[]>([]);
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [user, setUser] = useState<User | null>(null);
     const [globalWarning, setGlobalWarning] = useState<string | null>(null);
@@ -268,9 +267,6 @@ export function useAppState() {
         }
     }, [user, selectedStoryId, storyBuffer, hiddenStories]);
 
-    const handleToggleQueue = useCallback((id: number) => {
-        setReadingQueue(prev => prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id]);
-    }, []);
 
     const handleStorySelect = useCallback((id: number, overrideMode?: 'article' | 'discussion' | 'split') => {
         let story = storyBuffer.find(s => s.id === id);
@@ -355,35 +351,6 @@ export function useAppState() {
         });
     }, [user]);
 
-    const handleStoryInteractWithQueue = useCallback((storyId: number, matchedTopic: string | null) => {
-        let newQueue = [...readingQueue];
-        const isQueued = readingQueue.includes(storyId);
-
-        if (matchedTopic) {
-            const matchingIds = stories
-                .filter(s => getStoryTopicMatch(s.title, s.topics, [matchedTopic]) !== null)
-                .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
-                .map(s => s.id);
-            matchingIds.forEach(id => { if (!newQueue.includes(id)) newQueue.push(id); });
-            if (!newQueue.includes(storyId)) newQueue.push(storyId);
-        } else if (!isQueued) {
-            newQueue.push(storyId);
-        }
-        setReadingQueue(newQueue);
-        handleStorySelect(storyId, 'split');
-    }, [readingQueue, stories, showHidden, hiddenStories, handleStorySelect]);
-
-    const handleQueueAllFiltered = useCallback(() => {
-        if (activeTopics.length === 0) return;
-        const matchedIds = stories
-            .filter(s => showHidden || (!hiddenStories.has(s.id) && !s.is_hidden))
-            .filter(s => {
-                const matched = getStoryTopicMatch(s.title, s.topics, activeTopics);
-                return matched !== null && !readingQueue.includes(s.id);
-            })
-            .map(s => s.id);
-        if (matchedIds.length > 0) setReadingQueue(prev => [...prev, ...matchedIds]);
-    }, [activeTopics, stories, showHidden, hiddenStories, readingQueue]);
 
     useEffect(() => {
         if (selectedStoryId) setHighlightedStoryId(selectedStoryId);
@@ -512,19 +479,18 @@ export function useAppState() {
         storyBuffer, loading, error, mode, activeTopics, disabledTopics, totalStories,
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
         tabs, activeTabId, showHidden,
-        isSettingsOpen, currentView, readingQueue, isAdminModalOpen, user,
+        isSettingsOpen, currentView, isAdminModalOpen, user,
         hiddenStories, offset, globalWarning,
         // Derived
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         isWebMode,
         // Setters
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
-        setCurrentView, setReadingQueue, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
+        setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         setDisabledTopics, setGlobalWarning,
         // Handlers
         handleRefresh, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, handleHideStory,
-        handleToggleQueue, handleStorySelect, handleToggleSave, handleBack, handleHome,
-        handleStoryInteractWithQueue, handleQueueAllFiltered
+        handleStorySelect, handleToggleSave, handleBack, handleHome,
     };
 
     if (typeof window !== 'undefined') {

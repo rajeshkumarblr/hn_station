@@ -10,7 +10,6 @@ interface FilterSidebarProps {
     setActiveTopics: React.Dispatch<React.SetStateAction<string[]>>;
     disabledTopics: string[];
     setDisabledTopics: React.Dispatch<React.SetStateAction<string[]>>;
-    getQueuedCount: () => number;
     highlightedStory?: Story | null;
 }
 
@@ -31,7 +30,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     setActiveTopics,
     disabledTopics,
     setDisabledTopics,
-    getQueuedCount,
     highlightedStory,
 }) => {
     const [inputValue, setInputValue] = useState('');
@@ -174,15 +172,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                 </div>
             </div>
 
-            {/* Reading Queue Status */}
-            <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                    <span>Queue</span>
-                    <span className="font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full text-[10px]">
-                        {getQueuedCount()}
-                    </span>
-                </div>
-
+            <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-end">
                 {isWebMode && (
                     <div className="flex items-center gap-3">
                         <button

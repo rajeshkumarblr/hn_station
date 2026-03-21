@@ -15,14 +15,14 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const {
         loading, mode, activeTopics,
         tabs, activeTabId, showHidden,
-        currentView, readingQueue, isAdminModalOpen, user,
+        currentView, isAdminModalOpen, user,
         hiddenStories, offset, setOffset, totalStories, hasMore,
         selectedStoryId, selectedStory, stories,
         highlightedStoryId, isSettingsOpen,
         setMode, setActiveTopics,
         setCurrentView, setIsAdminModalOpen, setIsSettingsOpen,
         handleRefresh, closeTab, handleHideStory,
-        handleToggleQueue, handleStorySelect, handleToggleSave,
+        handleStorySelect, handleToggleSave,
         readIds, setReadIds, setHighlightedStoryId
     } = app;
     const isWebMode = isWebPreview();
@@ -97,7 +97,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             {/* Center: Branding */}
                             <div className="flex flex-col items-center">
                                 <span className="text-sm font-black tracking-tighter text-[#ff6600] uppercase">HN Station</span>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.7.2' : 'v1.1.1'}</span>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.7.3' : 'v1.1.1'}</span>
                             </div>
 
                             {/* Right: Actions Portal */}
@@ -273,7 +273,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     const isSelected = selectedStoryId === story.id;
                                                     const isHighlighted = app.highlightedStoryId === story.id;
                                                     const isRead = readIds.has(story.id) || !!story.is_read;
-                                                    const isQueued = readingQueue.includes(story.id);
                                                     const matchedTopic = activeTopics.length > 0 ? getStoryTopicMatch(story.title, story.topics, activeTopics) : null;
                                                     const tagStyle = matchedTopic ? getTagStyle(matchedTopic) : null;
                                                     return (
@@ -284,10 +283,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                             className="basis-[10%] flex-shrink-0 flex flex-col transition-all duration-150 overflow-hidden"
                                                         >
                                                             <StoryCard
-                                                                story={story} index={offset + index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isQueued={isQueued} isEven={index % 2 === 0}
+                                                                story={story} index={offset + index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isEven={index % 2 === 0}
                                                                 titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => setHighlightedStoryId(story.id)}
                                                                 onOpenInTab={(id, mode) => handleStorySelect(id, mode)}
-                                                                onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
+                                                                onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory}
                                                                 activeTopics={activeTopics}
                                                             />
                                                         </div>
@@ -364,7 +363,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 setActiveTopics={setActiveTopics}
                                 disabledTopics={app.disabledTopics}
                                 setDisabledTopics={app.setDisabledTopics}
-                                getQueuedCount={() => readingQueue.length}
                                 highlightedStory={highlightedStory}
                             />
                         </div>

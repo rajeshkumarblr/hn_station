@@ -8,12 +8,12 @@ import { MODES } from '../types';
 export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
         loading, error, mode, activeTopics, hasMore, theme,
-        readingQueue, user, hiddenStories, offset, setOffset,
+        user, hiddenStories, offset, setOffset,
         selectedStory, readerTab, stories, availableTags,
         setMode, setActiveTopics,
         setCurrentView, toggleTheme, handleHideStory,
-        handleToggleQueue, handleToggleSave,
-        handleStoryInteractWithQueue, readIds, currentView,
+        handleToggleSave,
+        readIds, currentView,
         handleBack, handleHome,
     } = app;
 
@@ -111,7 +111,6 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                                     <div
                                         key={story.id}
                                         onClick={() => {
-                                            handleStoryInteractWithQueue(story.id, matchedTopic);
                                             // On mobile, interacting always opens the reader view
                                             setCurrentView('reader');
                                         }}
@@ -119,9 +118,9 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                                         style={tagStyle ? { borderLeft: `3px solid ${tagStyle.color}` } : undefined}
                                     >
                                         <StoryCard
-                                            story={story} index={index} isSelected={false} isRead={isRead} isQueued={readingQueue.includes(story.id)} isEven={index % 2 === 0}
+                                            story={story} index={index} isSelected={false} isRead={isRead} isEven={index % 2 === 0}
                                             titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => { }} onOpenInTab={() => { }}
-                                            onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory} onQueueToggle={handleToggleQueue}
+                                            onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory}
                                         />
                                     </div>
                                 );

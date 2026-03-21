@@ -45,6 +45,7 @@ To avoid window management issues common in WSL/Linux virtualization:
 - **Vertical Sidebar Workspace**: A consolidated navigation hub on the left, replacing cluttered top toolbars for a cleaner, more organized reading experience (v1.7).
 - **History-Based Back Navigation**: Intelligently returns to the previous tab from which the current tab was opened, with a fallback to the main feed (v1.7.1).
 - **Resizable Split View**: Draggable border between article and discussion panes for a fully flexible workspace (v1.7.2).
+- **Feed Actions Refinement**: Replaced the legacy reading queue with a direct Bookmarking system for a simpler, tab-first experience (v1.7.3).
 - **Consolidated Story Actions**: One-click access to Article, Discussion, Split-view, Copy Link, and Refresh features within the Reader Workspace (v1.7).
 - **Optimized Sidebar Layout**: Reordered utilities (Refresh/Close) to the top for faster access and added a dedicated **Home** button for one-click feed navigation (v1.7.1).
 - **Keyboard-First**: Vim-like navigation (`j`/`k`), `PageUp`/`PageDown` for pagination, `Enter` to read.
