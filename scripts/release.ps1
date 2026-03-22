@@ -1,7 +1,7 @@
 # release.ps1 — Unified Release Script for HN Station (Web + Desktop)
 # Usage: .\scripts\release.ps1
 
-Write-Host "🚀 Starting Unified Release Process (v1.7.3)..." -ForegroundColor Cyan
+Write-Host "🚀 Starting Unified Release Process (v1.8.0)..." -ForegroundColor Cyan
 
 # 1. Build Local Go Backend
 Write-Host "`n1. Building Local Go Backend (hn-local.exe)..." -ForegroundColor Yellow
@@ -24,4 +24,9 @@ Set-Location ..
 
 Write-Host "`n✨ Unified Release Complete!" -ForegroundColor Green
 Write-Host "Web: Check https://hnstation.dev"
-Write-Host "Desktop: Installer ready at web/release/HN Station Setup 1.1.0.exe"
+Write-Host "Desktop: Installer ready at web/release/HN Station Setup 1.8.0.exe"
+
+# 4. Create GitHub Release
+Write-Host "`n4. Creating GitHub Release (v1.8.0)..." -ForegroundColor Yellow
+gh release create v1.8.0 "web/release/HN Station Setup 1.8.0.exe" --title "Hacker News Station v1.8.0" --notes "⚡ Background Ingestion Service, 🛠️ Connectivity Fixes (Port 58090), and 📦 Shared Persistence model."
+if ($LASTEXITCODE -ne 0) { Write-Warning "GitHub release failed (is gh authenticated?)" }
