@@ -54,9 +54,35 @@ func main() {
 	}()
 
 	// Initialize storage
-	store, err := storage.NewStore(ctx, dbURL)
+	primaryStore, err := storage.NewStore(ctx, dbURL)
 	if err != nil {
-		log.Fatalf("Failed to initialize storage: %v\n", err)
+		log.Fatalf("Failed to initialize primary storage: %v\n", err)
+	}
+
+	multiStore := storage.NewMultiStore(primaryStore)
+	var store storage.DB = multiStore
+
+	secondaryURL := os.Getenv("SECONDARY_DATABASE_URL")
+	if secondaryURL != "" {
+		urls := strings.Split(secondaryURL, ",")
+		go func() {
+			for _, url := range urls {
+				url = strings.TrimSpace(url)
+				if url == "" {
+					continue
+				}
+				log.Printf("Connecting to secondary storage in background: %s", url)
+				connCtx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+				secStore, err := storage.NewStore(connCtx, url)
+				cancel()
+				if err != nil {
+					log.Printf("Warning: Failed to initialize secondary storage (%s): %v. Skipping.", url, err)
+					continue
+				}
+				log.Printf("Secondary storage connected: %s", url)
+				multiStore.AddSecondary(secStore)
+			}
+		}()
 	}
 
 	client := hn.NewClient()

@@ -25,6 +25,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/rajeshkumarblr/hn_station/internal/ai"
 	"github.com/rajeshkumarblr/hn_station/internal/api"
 	"github.com/rajeshkumarblr/hn_station/internal/auth"
@@ -127,9 +128,41 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 			_ = os.MkdirAll(filepath.Dir(dbPath), 0755)
 		}
 	}
-	store, err := storage.NewSQLite(dbPath)
+
+	// Load environment variables for service context
+	_ = godotenv.Load() // 1. Current Working Dir
+	if exe, err := os.Executable(); err == nil {
+		_ = godotenv.Load(filepath.Join(filepath.Dir(exe), ".env")) // 2. Executable Dir
+	}
+	_ = godotenv.Load(filepath.Join(filepath.Dir(dbPath), ".env")) // 3. DB Dir (e.g. ProgramData, Highest Priority)
+
+	primaryStore, err := storage.NewSQLite(dbPath)
 	if err != nil {
 		log.Fatalf("open sqlite: %v", err)
+	}
+	
+	multiStore := storage.NewMultiStore(primaryStore)
+	var store storage.DB = multiStore
+
+	secondaryURL := os.Getenv("SECONDARY_DATABASE_URL")
+	if secondaryURL != "" {
+		urls := strings.Split(secondaryURL, ",")
+		for _, url := range urls {
+			url = strings.TrimSpace(url)
+			if url == "" {
+				continue
+			}
+			log.Printf("[info] Connecting to secondary storage: %s", url)
+			connCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			secStore, err := storage.NewStore(connCtx, url)
+			cancel()
+			if err != nil {
+				log.Printf("[warn] Failed to connect secondary storage (%s): %v — continuing without cloud sync", url, err)
+				continue
+			}
+			log.Printf("[info] Secondary storage connected successfully: %s", url)
+			multiStore.AddSecondary(secStore)
+		}
 	}
 	log.Printf("Database: %s", dbPath)
 
