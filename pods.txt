@@ -1,0 +1,7 @@
+NAME                        READY   STATUS                       RESTARTS      AGE
+backend-784c68dcb6-bk4m6    0/1     CreateContainerConfigError   0             2m23s
+backend-784c68dcb6-qmscq    0/1     CreateContainerConfigError   0             2m23s
+frontend-79c6bf444d-4sbpl   1/1     Running                      0             2m20s
+frontend-79c6bf444d-ss58f   1/1     Running                      0             2m20s
+ingest-5766df9859-pwwkh     0/1     CrashLoopBackOff             4 (53s ago)   2m22s
+postgres-0                  1/1     Running                      0             2m27s

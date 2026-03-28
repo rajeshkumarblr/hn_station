@@ -1,0 +1,15 @@
+ id | bigint | nullable=NO
+ title | text | nullable=NO
+ url | text | nullable=YES
+ score | integer | nullable=YES
+ by | text | nullable=YES
+ descendants | integer | nullable=YES
+ posted_at | timestamp with time zone | nullable=NO
+ created_at | timestamp with time zone | nullable=YES
+ hn_rank | integer | nullable=YES
+ search_vector | tsvector | nullable=YES
+ embedding | USER-DEFINED | nullable=YES
+ summary | text | nullable=YES
+ topics | ARRAY | nullable=YES
+ iframe_blocked | boolean | nullable=YES
+

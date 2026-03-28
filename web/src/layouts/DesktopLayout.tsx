@@ -21,7 +21,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         highlightedStoryId, isSettingsOpen,
         setMode, setActiveTopics,
         setCurrentView, setIsAdminModalOpen, setIsSettingsOpen,
-        handleRefresh, closeTab, handleHideStory,
+        handleRefresh, handleRefreshTab, closeTab, handleHideStory,
         handleStorySelect, handleToggleSave,
         readIds, setReadIds, setHighlightedStoryId
     } = app;
@@ -149,9 +149,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </a>
                             )}
 
-                            {/* Auth — Only show in Web version */}
-                            {!isElectron && (
-                                <>
+                            {/* Auth — Now enabled for both Web and Desktop (for cloud sync) */}
+                            <>
                                     {user ? (
                                         <div className="flex items-center gap-2 ml-1">
                                             {user.is_admin && (
@@ -167,8 +166,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             <LogIn size={14} /> Sign in
                                         </a>
                                     )}
-                                </>
-                            )}
+                            </>
 
                             {/* Window controls — Windows style, only in Electron */}
                             {isElectron && (
@@ -214,6 +212,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             : 'bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold self-end border-b-0'}`}
                     >
                         <Home size={14} /> <span className="text-[12px] font-bold tracking-tight uppercase">Feed</span>
+                        <div 
+                            onClick={(e) => { e.stopPropagation(); handleRefreshTab('feed'); }}
+                            className="ml-2 p-1 rounded-md text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all opacity-0 group-hover:opacity-100"
+                            title="Refresh Feed"
+                        >
+                            <RefreshCw size={10} className={loading && currentView === 'feed' ? "animate-spin" : ""} />
+                        </div>
                     </button>
                     {tabs.map(t => {
                         const isActive = currentView === 'reader' && activeTabId === t.id;
@@ -242,8 +247,21 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         {t.story.title}
                                     </span>
                                 </button>
-                                <div onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} className={`absolute top-1.5 right-1.5 p-1 rounded-md transition-all flex-shrink-0 cursor-pointer ${isActive ? 'text-slate-400 hover:text-white hover:bg-red-500' : 'text-slate-500 dark:text-slate-400 hover:text-white hover:bg-red-500 opacity-0 group-hover:opacity-100'}`}>
-                                    <X size={10} />
+                                <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                    <div 
+                                        onClick={(e) => { e.stopPropagation(); handleRefreshTab(t.id); }} 
+                                        className={`p-1 rounded-md transition-all cursor-pointer ${isActive ? 'text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800' : 'text-slate-500 dark:text-slate-400 hover:text-blue-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                                        title="Refresh Tab"
+                                    >
+                                        <RefreshCw size={10} />
+                                    </div>
+                                    <div 
+                                        onClick={(e) => { e.stopPropagation(); closeTab(t.id); }} 
+                                        className={`p-1 rounded-md transition-all cursor-pointer ${isActive ? 'text-slate-400 hover:text-white hover:bg-red-500' : 'text-slate-500 dark:text-slate-400 hover:text-white hover:bg-red-500'}`}
+                                        title="Close Tab"
+                                    >
+                                        <X size={10} />
+                                    </div>
                                 </div>
                             </div>
                         );

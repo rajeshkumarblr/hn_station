@@ -33,15 +33,17 @@ type Claims struct {
 func NewConfig() *Config {
 	callbackURL := os.Getenv("OAUTH_CALLBACK_URL")
 	if callbackURL == "" {
-		callbackURL = "http://localhost:8080/auth/google/callback"
+		// Default to desktop port if not set
+		callbackURL = "http://localhost:58090/auth/google/callback"
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		// Generate a random secret for dev (will change on restart)
-		b := make([]byte, 32)
-		rand.Read(b)
-		jwtSecret = hex.EncodeToString(b)
+		// Use a stable-ish secret for local dev if not provided (not for prod!)
+		jwtSecret = os.Getenv("COMPUTERNAME")
+		if jwtSecret == "" {
+			jwtSecret = "hn-station-dev-secret-stable"
+		}
 	}
 
 	return &Config{

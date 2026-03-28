@@ -1,0 +1,9 @@
+NAME                                   READY   STATUS              RESTARTS      AGE
+backend-865fb7bb5d-dwjv6               0/1     CrashLoopBackOff    2 (29s ago)   44s
+backend-865fb7bb5d-qr9cs               0/1     CrashLoopBackOff    2 (25s ago)   44s
+frontend-79c6bf444d-4sbpl              1/1     Running             0             16m
+frontend-79c6bf444d-ss58f              1/1     Running             0             16m
+ingest-64d5f84b8d-nx7pn                0/1     CrashLoopBackOff    2 (26s ago)   42s
+ollama-7454497d44-wwmmb                0/1     ContainerCreating   0             11s
+postgres-0                             1/1     Running             0             119s
+secret-sync-sidecar-5568d598c7-hvcgw   1/1     Running             0             6m33s

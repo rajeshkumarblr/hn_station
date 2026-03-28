@@ -1,0 +1,353 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    cluster-autoscaler.kubernetes.io/daemonset-pod: "true"
+    kubernetes.azure.com/azure-cns-configmap-checksum: 41877b5fa1dcba3aa0aca43ab5b0ad9013b79ac59a25f52c1173222362097836
+    prometheus.io/port: "10092"
+  creationTimestamp: "2026-03-23T02:53:12Z"
+  generateName: azure-cns-
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: Eno
+    controller-revision-hash: 54c8f7f88c
+    k8s-app: azure-cns
+    kubernetes.azure.com/managedby: aks
+    pod-template-generation: "2"
+  name: azure-cns-dlsl6
+  namespace: kube-system
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: DaemonSet
+    name: azure-cns
+    uid: 368957a5-c1cd-4e92-968e-5c4f0a3ba4f2
+  resourceVersion: "11189726"
+  uid: d960bdb1-f355-4081-9477-9b5a01bb344c
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchFields:
+          - key: metadata.name
+            operator: In
+            values:
+            - aks-nodepool2-98911737-vmss000001
+  containers:
+  - args:
+    - -c
+    - tcp://$(CNSIpAddress):$(CNSPort)
+    - -t
+    - $(CNSLogTarget)
+    - -o
+    - $(CNSLogDir)
+    env:
+    - name: KUBERNETES_SERVICE_HOST
+      value: my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io
+    - name: KUBERNETES_PORT
+      value: tcp://my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io:443
+    - name: KUBERNETES_PORT_443_TCP
+      value: tcp://my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io:443
+    - name: KUBERNETES_PORT_443_TCP_ADDR
+      value: my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io
+    - name: CNSIpAddress
+      value: 127.0.0.1
+    - name: CNSPort
+      value: "10090"
+    - name: CNSLogTarget
+      value: stdoutfile
+    - name: CNSLogDir
+      value: /var/log
+    - name: CNS_CONFIGURATION_PATH
+      value: /etc/azure-cns/cns_config.json
+    - name: NODENAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: spec.nodeName
+    - name: POD_CIDRs
+      value: 10.244.0.0/16
+    - name: SERVICE_CIDRs
+      value: 10.0.0.0/16
+    - name: INFRA_VNET_CIDRs
+      value: 10.224.0.0/12
+    image: mcr.microsoft.com/containernetworking/azure-cns:v1.7.9-0
+    imagePullPolicy: IfNotPresent
+    livenessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /healthz
+        port: metrics
+        scheme: HTTP
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    name: cns-container
+    ports:
+    - containerPort: 10090
+      hostPort: 10090
+      name: api
+      protocol: TCP
+    - containerPort: 10092
+      hostPort: 10092
+      name: metrics
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 1
+      httpGet:
+        path: /readyz
+        port: metrics
+        scheme: HTTP
+      periodSeconds: 1
+      successThreshold: 1
+      timeoutSeconds: 1
+    resources:
+      limits:
+        cpu: 40m
+        memory: 250Mi
+      requests:
+        cpu: 40m
+        memory: 250Mi
+    startupProbe:
+      failureThreshold: 30
+      httpGet:
+        path: /healthz
+        port: metrics
+        scheme: HTTP
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/log
+      name: log
+    - mountPath: /var/lib/azure-network
+      name: cns-state
+    - mountPath: /etc/azure-cns
+      name: cns-config
+    - mountPath: /opt/cni/bin
+      name: cni-bin
+    - mountPath: /var/run/azure-vnet
+      name: azure-vnet
+    - mountPath: /var/lock/azure-vnet
+      name: cni-lock
+    - mountPath: /var/run/azure-vnet.json
+      name: legacy-cni-state
+    - mountPath: /etc/cni/net.d
+      name: cni-conflist
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-grg8k
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  hostNetwork: true
+  initContainers:
+  - args:
+    - deploy
+    - --skip-verify
+    - azure-vnet
+    - -o
+    - /opt/cni/bin/azure-vnet
+    - azure-vnet-telemetry
+    - -o
+    - /opt/cni/bin/azure-vnet-telemetry
+    command:
+    - /dropgz
+    env:
+    - name: KUBERNETES_SERVICE_HOST
+      value: my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io
+    - name: KUBERNETES_PORT
+      value: tcp://my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io:443
+    - name: KUBERNETES_PORT_443_TCP
+      value: tcp://my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io:443
+    - name: KUBERNETES_PORT_443_TCP_ADDR
+      value: my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io
+    image: mcr.microsoft.com/containernetworking/azure-cni:v1.7.9-0
+    imagePullPolicy: IfNotPresent
+    name: cni-installer
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /opt/cni/bin
+      name: cni-bin
+    - mountPath: /etc/cni/net.d
+      name: cni-conflist
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-grg8k
+      readOnly: true
+  nodeName: aks-nodepool2-98911737-vmss000001
+  preemptionPolicy: PreemptLowerPriority
+  priority: 2000001000
+  priorityClassName: system-node-critical
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: azure-cns
+  serviceAccountName: azure-cns
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  - effect: NoSchedule
+    operator: Exists
+  volumes:
+  - hostPath:
+      path: /var/log/azure-cns
+      type: DirectoryOrCreate
+    name: log
+  - hostPath:
+      path: /var/lib/azure-network
+      type: DirectoryOrCreate
+    name: cns-state
+  - hostPath:
+      path: /opt/cni/bin
+      type: Directory
+    name: cni-bin
+  - hostPath:
+      path: /var/run/azure-vnet
+      type: DirectoryOrCreate
+    name: azure-vnet
+  - hostPath:
+      path: /var/lock/azure-vnet
+      type: DirectoryOrCreate
+    name: cni-lock
+  - hostPath:
+      path: /var/run/azure-vnet.json
+      type: FileOrCreate
+    name: legacy-cni-state
+  - hostPath:
+      path: /etc/cni/net.d
+      type: Directory
+    name: cni-conflist
+  - configMap:
+      defaultMode: 420
+      name: cns-config
+    name: cns-config
+  - name: kube-api-access-grg8k
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T04:37:12Z"
+    status: "True"
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T04:37:17Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T02:53:13Z"
+    message: 'containers with unready status: [cns-container]'
+    reason: ContainersNotReady
+    status: "False"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T02:53:13Z"
+    message: 'containers with unready status: [cns-container]'
+    reason: ContainersNotReady
+    status: "False"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T02:53:12Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - allocatedResources:
+      cpu: 40m
+      memory: 250Mi
+    containerID: containerd://caf2cebd1293c2c2a1d83feda969b2b222012ee2bcb55f2816f60cdf5cdfe8e1
+    image: mcr.microsoft.com/containernetworking/azure-cns:v1.7.9-0
+    imageID: sha256:3c6788ba12364c21ac8e7032e327fa6afa1784f4dfb4a903ceb9a934279ba63f
+    lastState: {}
+    name: cns-container
+    ready: false
+    resources:
+      limits:
+        cpu: 40m
+        memory: 250Mi
+      requests:
+        cpu: 40m
+        memory: 250Mi
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2026-03-23T04:37:17Z"
+    volumeMounts:
+    - mountPath: /var/log
+      name: log
+    - mountPath: /var/lib/azure-network
+      name: cns-state
+    - mountPath: /etc/azure-cns
+      name: cns-config
+    - mountPath: /opt/cni/bin
+      name: cni-bin
+    - mountPath: /var/run/azure-vnet
+      name: azure-vnet
+    - mountPath: /var/lock/azure-vnet
+      name: cni-lock
+    - mountPath: /var/run/azure-vnet.json
+      name: legacy-cni-state
+    - mountPath: /etc/cni/net.d
+      name: cni-conflist
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-grg8k
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 10.224.0.5
+  hostIPs:
+  - ip: 10.224.0.5
+  initContainerStatuses:
+  - containerID: containerd://9d87404b573d182fe9a3ca336a1d3b8b4e5a1089b33328e4aec58590d845867b
+    image: mcr.microsoft.com/containernetworking/azure-cni:v1.7.9-0
+    imageID: sha256:9e545c5bdc0761aee7e84d60402babac2bc090ddb3f3c4e1e79a754dc48f2549
+    lastState: {}
+    name: cni-installer
+    ready: true
+    resources: {}
+    restartCount: 0
+    started: false
+    state:
+      terminated:
+        containerID: containerd://9d87404b573d182fe9a3ca336a1d3b8b4e5a1089b33328e4aec58590d845867b
+        exitCode: 0
+        finishedAt: "2026-03-23T04:37:15Z"
+        reason: Completed
+        startedAt: "2026-03-23T04:37:13Z"
+    volumeMounts:
+    - mountPath: /opt/cni/bin
+      name: cni-bin
+    - mountPath: /etc/cni/net.d
+      name: cni-conflist
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-grg8k
+      readOnly: true
+      recursiveReadOnly: Disabled
+  phase: Running
+  podIP: 10.224.0.5
+  podIPs:
+  - ip: 10.224.0.5
+  qosClass: Burstable
+  startTime: "2026-03-23T02:53:13Z"

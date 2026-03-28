@@ -1,0 +1,7 @@
+id|bigint|NO|
+story_id|bigint|NO|
+parent_id|bigint|YES|
+text|text|YES|
+by|text|YES|
+posted_at|timestamp with time zone|NO|
+created_at|timestamp with time zone|YES|now()

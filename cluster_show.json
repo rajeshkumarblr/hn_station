@@ -1,0 +1,251 @@
+{
+  "aadProfile": null,
+  "addonProfiles": {
+    "azureKeyvaultSecretsProvider": {
+      "config": {
+        "enableSecretRotation": "false",
+        "rotationPollInterval": "2m"
+      },
+      "enabled": true,
+      "identity": {
+        "clientId": "b3f791ca-ad5b-44f4-8a30-6cb3ec0fe78e",
+        "objectId": "5dfa1cb4-4f1c-4c2e-90f8-476638881ac0",
+        "resourceId": "/subscriptions/639f0db8-c01c-407f-934d-cfb7202756e1/resourcegroups/MC_my-hn-rg_my-hn-cluster_eastus/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azurekeyvaultsecretsprovider-my-hn-cluster"
+      }
+    }
+  },
+  "agentPoolProfiles": [
+    {
+      "availabilityZones": null,
+      "capacityReservationGroupId": null,
+      "count": 2,
+      "creationData": null,
+      "currentOrchestratorVersion": "1.33.6",
+      "eTag": "0cf46e23-685b-4242-ab65-9bfe6c2df268",
+      "enableAutoScaling": false,
+      "enableEncryptionAtHost": false,
+      "enableFips": false,
+      "enableNodePublicIp": false,
+      "enableUltraSsd": false,
+      "gatewayProfile": null,
+      "gpuInstanceProfile": null,
+      "gpuProfile": null,
+      "hostGroupId": null,
+      "kubeletConfig": null,
+      "kubeletDiskType": "OS",
+      "linuxOsConfig": null,
+      "localDnsProfile": null,
+      "maxCount": null,
+      "maxPods": 250,
+      "messageOfTheDay": null,
+      "minCount": null,
+      "mode": "System",
+      "name": "nodepool2",
+      "networkProfile": null,
+      "nodeImageVersion": "AKSUbuntu-2204gen2containerd-202603.12.0",
+      "nodeLabels": null,
+      "nodePublicIpPrefixId": null,
+      "nodeTaints": null,
+      "orchestratorVersion": "1.33",
+      "osDiskSizeGb": 128,
+      "osDiskType": "Managed",
+      "osSku": "Ubuntu",
+      "osType": "Linux",
+      "podIpAllocationMode": null,
+      "podSubnetId": null,
+      "powerState": {
+        "code": "Running"
+      },
+      "provisioningState": "Updating",
+      "proximityPlacementGroupId": null,
+      "scaleDownMode": "Delete",
+      "scaleSetEvictionPolicy": null,
+      "scaleSetPriority": null,
+      "securityProfile": {
+        "enableSecureBoot": false,
+        "enableVtpm": false,
+        "sshAccess": null
+      },
+      "spotMaxPrice": null,
+      "status": null,
+      "tags": null,
+      "type": "VirtualMachineScaleSets",
+      "upgradeSettings": {
+        "drainTimeoutInMinutes": null,
+        "maxSurge": "10%",
+        "maxUnavailable": "0",
+        "nodeSoakDurationInMinutes": null,
+        "undrainableNodeBehavior": "Schedule"
+      },
+      "virtualMachineNodesStatus": null,
+      "virtualMachinesProfile": null,
+      "vmSize": "Standard_D2s_v3",
+      "windowsProfile": null,
+      "workloadRuntime": null
+    }
+  ],
+  "aiToolchainOperatorProfile": null,
+  "apiServerAccessProfile": null,
+  "autoScalerProfile": null,
+  "autoUpgradeProfile": {
+    "nodeOsUpgradeChannel": "NodeImage",
+    "upgradeChannel": null
+  },
+  "azureMonitorProfile": null,
+  "azurePortalFqdn": "my-hn-clus-my-hn-rg-639f0d-l2qt416j.portal.hcp.eastus.azmk8s.io",
+  "bootstrapProfile": {
+    "artifactSource": "Direct",
+    "containerRegistryId": null
+  },
+  "currentKubernetesVersion": "1.33.6",
+  "disableLocalAccounts": false,
+  "diskEncryptionSetId": null,
+  "dnsPrefix": "my-hn-clus-my-hn-rg-639f0d",
+  "eTag": "e39f62e4-502d-4abf-b7fd-16daed3998f4",
+  "enableRbac": true,
+  "extendedLocation": null,
+  "fqdn": "my-hn-clus-my-hn-rg-639f0d-l2qt416j.hcp.eastus.azmk8s.io",
+  "fqdnSubdomain": null,
+  "httpProxyConfig": null,
+  "id": "/subscriptions/639f0db8-c01c-407f-934d-cfb7202756e1/resourcegroups/my-hn-rg/providers/Microsoft.ContainerService/managedClusters/my-hn-cluster",
+  "identity": {
+    "delegatedResources": null,
+    "principalId": "57219172-b2a9-46b4-af41-3b5147093b1f",
+    "tenantId": "d3c187bb-f433-492a-8866-6aca0c938873",
+    "type": "SystemAssigned",
+    "userAssignedIdentities": null
+  },
+  "identityProfile": {
+    "kubeletidentity": {
+      "clientId": "32f54e90-cc71-4366-be57-dfc2d37ae1b0",
+      "objectId": "b442714a-36a1-4419-9e7e-cfa81e2a2d69",
+      "resourceId": "/subscriptions/639f0db8-c01c-407f-934d-cfb7202756e1/resourcegroups/MC_my-hn-rg_my-hn-cluster_eastus/providers/Microsoft.ManagedIdentity/userAssignedIdentities/my-hn-cluster-agentpool"
+    }
+  },
+  "ingressProfile": null,
+  "kind": "Base",
+  "kubernetesVersion": "1.33",
+  "linuxProfile": {
+    "adminUsername": "azureuser",
+    "ssh": {
+      "publicKeys": [
+        {
+          "keyData": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC+9U8t/FIqsGNmXn87QAarFE2rqe8BUrRVHvEq/CKiAdbTc/7zRnIyA2iHVgyqiUauDbuWMeml8a/rpLkj78pcS9xVpGbV87CMknRlFWHk4fIATcCe746sapDWK+RH/eZcZWtho6DhVcN1hE5/BSZtLVDNJgPZnJPB/npgTsuwi394zN3NB37RGA/szVKLAS1/roPRkWY9nSZ5ayJPNoIvmST0Ar8pH6yjR4O+mE1WvuCKmLBf0hnFym3nwO7CtrV+wGWqLwN05h5kGOMXIc1ahA0WMa6xMjwLraFjSW849UDltfRQ2Wksn+2pxU+PC4M5FSmG9c17Ub9+J74lcaZtrrpA/lZoGHUkGDrRDVMXkbX+E93lCWyKvjU0tLArDn/6Ybj7FYqHbzkwh+OiRoj2JhKZO4SykhiBntBqW+5zlEbv3IYcvqHYWawTL0hPU4odtWc0DHri/xizX2OUfRAPFYTJQHVDt27V6MVsgxwbHuyUbT2iplr6jkI9IeQDhs+9cEigIW9uBYp4iKIhd5hYimy7HhamFGJEeFnwDBIE3VRirvC9H/p2MdTqieKaCFEU+bHvKCYuurXAiPqHYHF+QriALo+Hru43XgJgizrho7ABE6xd6wbmbBm9GX++N+Uo6S0917eMHaVaY93a0261Oj+z8fgw7ONRjqeaJEr4IQ== WSL key personal\n"
+        }
+      ]
+    }
+  },
+  "location": "eastus",
+  "maxAgentPools": 100,
+  "metricsProfile": {
+    "costAnalysis": {
+      "enabled": false
+    }
+  },
+  "name": "my-hn-cluster",
+  "networkProfile": {
+    "advancedNetworking": null,
+    "dnsServiceIp": "10.0.0.10",
+    "ipFamilies": [
+      "IPv4"
+    ],
+    "loadBalancerProfile": {
+      "allocatedOutboundPorts": null,
+      "backendPoolType": "nodeIPConfiguration",
+      "effectiveOutboundIPs": [
+        {
+          "id": "/subscriptions/639f0db8-c01c-407f-934d-cfb7202756e1/resourceGroups/MC_my-hn-rg_my-hn-cluster_eastus/providers/Microsoft.Network/publicIPAddresses/e1ef972d-b716-4c7c-8ce5-75ec9e261b6f",
+          "resourceGroup": "MC_my-hn-rg_my-hn-cluster_eastus"
+        }
+      ],
+      "enableMultipleStandardLoadBalancers": null,
+      "idleTimeoutInMinutes": null,
+      "managedOutboundIPs": {
+        "count": 1,
+        "countIpv6": null
+      },
+      "outboundIPs": null,
+      "outboundIpPrefixes": null
+    },
+    "loadBalancerSku": "standard",
+    "natGatewayProfile": null,
+    "networkDataplane": "azure",
+    "networkMode": null,
+    "networkPlugin": "azure",
+    "networkPluginMode": "overlay",
+    "networkPolicy": "none",
+    "outboundType": "loadBalancer",
+    "podCidr": "10.244.0.0/16",
+    "podCidrs": [
+      "10.244.0.0/16"
+    ],
+    "serviceCidr": "10.0.0.0/16",
+    "serviceCidrs": [
+      "10.0.0.0/16"
+    ],
+    "staticEgressGatewayProfile": null
+  },
+  "nodeProvisioningProfile": {
+    "defaultNodePools": "Auto",
+    "mode": "Manual"
+  },
+  "nodeResourceGroup": "MC_my-hn-rg_my-hn-cluster_eastus",
+  "nodeResourceGroupProfile": null,
+  "oidcIssuerProfile": {
+    "enabled": false,
+    "issuerUrl": null
+  },
+  "podIdentityProfile": null,
+  "powerState": {
+    "code": "Running"
+  },
+  "privateFqdn": null,
+  "privateLinkResources": null,
+  "provisioningState": "Updating",
+  "publicNetworkAccess": null,
+  "resourceGroup": "my-hn-rg",
+  "resourceUid": "699c0014d241f100014168f7",
+  "securityProfile": {
+    "azureKeyVaultKms": null,
+    "customCaTrustCertificates": null,
+    "defender": null,
+    "imageCleaner": null,
+    "workloadIdentity": null
+  },
+  "serviceMeshProfile": null,
+  "servicePrincipalProfile": {
+    "clientId": "msi"
+  },
+  "sku": {
+    "name": "Base",
+    "tier": "Free"
+  },
+  "status": {
+    "errordetail": {
+      "code": "ControlPlaneAddOnsNotReady",
+      "message": "Pod metrics-server-74dcfd64d7-7l4nb is unschedulable due to PodUnscheduled_UntoleratedTaint, pod condition message: [0/1 nodes are available: 1 node(s) had untolerated taint {node.kubernetes.io/not-ready: }. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.]. Pod metrics-server-74dcfd64d7-l9xrk is unschedulable due to PodUnscheduled_UntoleratedTaint, pod condition message: [0/1 nodes are available: 1 node(s) had untolerated taint {node.kubernetes.io/not-ready: }. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.]. Pod coredns-75d6fcd44b-vmbq5 is unschedulable due to PodUnscheduled_UntoleratedTaint, pod condition message: [0/1 nodes are available: 1 node(s) had untolerated taint {node.kubernetes.io/not-ready: }. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.]. Pod coredns-75d6fcd44b-zsspd is unschedulable due to PodUnscheduled_UntoleratedTaint, pod condition message: [0/1 nodes are available: 1 node(s) had untolerat"
+    },
+    "provisioningError": null
+  },
+  "storageProfile": {
+    "blobCsiDriver": null,
+    "diskCsiDriver": {
+      "enabled": true
+    },
+    "fileCsiDriver": {
+      "enabled": true
+    },
+    "snapshotController": {
+      "enabled": true
+    }
+  },
+  "supportPlan": "KubernetesOfficial",
+  "systemData": null,
+  "type": "Microsoft.ContainerService/ManagedClusters",
+  "upgradeSettings": null,
+  "windowsProfile": null,
+  "workloadAutoScalerProfile": {
+    "keda": null,
+    "verticalPodAutoscaler": null
+  }
+}

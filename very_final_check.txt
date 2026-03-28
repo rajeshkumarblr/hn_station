@@ -1,0 +1,8 @@
+NAME                                   READY   STATUS              RESTARTS      AGE
+backend-865fb7bb5d-lttf9               0/1     Error               2 (26s ago)   29s
+backend-865fb7bb5d-sxvrg               0/1     Error               2 (27s ago)   29s
+frontend-79c6bf444d-4sbpl              1/1     Running             0             15m
+frontend-79c6bf444d-ss58f              1/1     Running             0             15m
+ingest-64d5f84b8d-dw2w9                0/1     Error               2 (25s ago)   27s
+postgres-0                             0/1     ContainerCreating   0             30s
+secret-sync-sidecar-5568d598c7-hvcgw   1/1     Running             0             5m4s

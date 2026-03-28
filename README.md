@@ -16,7 +16,9 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Liv
 
 A powerful, zero-login desktop experience. It uses a **Background Windows Service** for continuous story ingestion, ensuring your feed is always fresh even when the app is closed.
 
-### ✨ Desktop Features (v1.8)
+### ✨ Desktop Features (v1.8.5)
+- **Optional Cloud Sync**: Sign in with Google on desktop to sync bookmarks with the cloud Postgres database.
+- **Tab Refresh Buttons**: Manual refresh icons for the Feed and individual story tabs.
 - **Background Ingestion Service**: Stories are fetched continuously in the background via a native Windows service.
 - **Shared Persistent Storage**: Your database stays safe at `C:\ProgramData\HNStation\hn.db` even during app upgrades.
 - **Independent Web/Desktop Core**: Build-time optimized versions for maximum performance and security.

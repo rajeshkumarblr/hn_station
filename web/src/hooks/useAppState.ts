@@ -140,6 +140,26 @@ export function useAppState() {
     const [globalWarning, setGlobalWarning] = useState<string | null>(null);
 
     const handleRefresh = () => setRefreshKey(prev => prev + 1);
+    const handleRefreshTab = useCallback((tabId?: string) => {
+        if (!tabId || tabId === 'feed') {
+            handleRefresh();
+            return;
+        }
+
+        // Find the tab to re-fetch its story data
+        const tab = tabs.find(t => t.id === tabId);
+        if (!tab) return;
+
+        const baseUrl = getApiBase();
+        fetch(`${baseUrl}/api/stories/${tab.storyId}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data && data.story) {
+                    setTabs(prev => prev.map(t => t.id === tabId ? { ...t, story: data.story } : t));
+                }
+            })
+            .catch(() => { });
+    }, [tabs, handleRefresh]);
     const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
     const closeTab = useCallback((tabId: string) => {
@@ -528,7 +548,7 @@ export function useAppState() {
         setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         setDisabledTopics, setGlobalWarning,
         // Handlers
-        handleRefresh, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, handleHideStory,
+        handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, handleHideStory,
         handleStorySelect, handleToggleSave, handleBack, handleHome,
     };
 

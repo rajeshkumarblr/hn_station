@@ -206,7 +206,7 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 	}()
 
 	// ── Server ─────────────────────────────────────────────────────────────────
-	authCfg := auth.NewLocalConfig()
+	authCfg := auth.NewConfig()
 	server := api.NewServer(store, authCfg, aiClient, geminiClient, true)
 	srv := &http.Server{Handler: server}
 
@@ -267,19 +267,15 @@ func (m *hnSvc) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-loop:
-	for {
-		select {
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Interrogate:
-				changes <- c.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				cancel()
-				break loop
-			default:
-				log.Printf("unexpected control request #%d", c)
-			}
+	for c := range r {
+		switch c.Cmd {
+		case svc.Interrogate:
+			changes <- c.CurrentStatus
+		case svc.Stop, svc.Shutdown:
+			cancel()
+			return
+		default:
+			log.Printf("unexpected control request #%d", c.Cmd)
 		}
 	}
 

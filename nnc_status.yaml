@@ -1,0 +1,57 @@
+apiVersion: v1
+items:
+- apiVersion: acn.azure.com/v1alpha
+  kind: NodeNetworkConfig
+  metadata:
+    creationTimestamp: "2026-03-22T16:06:33Z"
+    finalizers:
+    - finalizers.acn.azure.com/dnc-operations
+    generation: 1
+    labels:
+      kubernetes.azure.com/podnetwork-delegationguid: ""
+      kubernetes.azure.com/podnetwork-subnet: ""
+      kubernetes.azure.com/podnetwork-type: overlay
+      managed: "true"
+      owner: aks-nodepool2-98911737-vmss000000
+    name: aks-nodepool2-98911737-vmss000000
+    namespace: kube-system
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Node
+      name: aks-nodepool2-98911737-vmss000000
+      uid: cecf8e2e-ab3b-4ff2-ba51-a588a53650eb
+    resourceVersion: "10980663"
+    uid: 06786576-92ed-4c42-9225-b20eb26a78f1
+  spec:
+    requestedIPCount: 0
+- apiVersion: acn.azure.com/v1alpha
+  kind: NodeNetworkConfig
+  metadata:
+    creationTimestamp: "2026-03-23T02:53:11Z"
+    finalizers:
+    - finalizers.acn.azure.com/dnc-operations
+    generation: 1
+    labels:
+      kubernetes.azure.com/podnetwork-delegationguid: ""
+      kubernetes.azure.com/podnetwork-subnet: ""
+      kubernetes.azure.com/podnetwork-type: overlay
+      managed: "true"
+      owner: aks-nodepool2-98911737-vmss000001
+    name: aks-nodepool2-98911737-vmss000001
+    namespace: kube-system
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Node
+      name: aks-nodepool2-98911737-vmss000001
+      uid: 66ca52b7-a52a-4061-8060-83ba4ef89889
+    resourceVersion: "11158407"
+    uid: 2f3aaab9-8479-4da8-a7d7-bb25a42a066b
+  spec:
+    requestedIPCount: 0
+kind: List
+metadata:
+  resourceVersion: ""

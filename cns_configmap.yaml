@@ -1,0 +1,42 @@
+apiVersion: v1
+data:
+  cns_config.json: |-
+    {
+      "CNIConflistFilepath": "/etc/cni/net.d/15-azure-swift-overlay.conflist",
+      "CNIConflistScenario": "v4overlay",
+      "ChannelMode": "CRD",
+      "EnableAsyncPodDelete": true,
+      "EnableCNIConflistGeneration": true,
+      "EnableIPAMv2": false,
+      "EnableK8sDevicePlugin": false,
+      "EnableLoggerV2": false,
+      "EnableStateMigration": false,
+      "EnableSubnetScarcity": false,
+      "EnableSwiftV1DualStack": false,
+      "InitializeFromCNI": true,
+      "ManageEndpointState": false,
+      "ManagedSettings": {
+        "InfrastructureNetworkID": "",
+        "NodeID": "",
+        "NodeSyncIntervalInSeconds": 30,
+        "PrivateEndpoint": ""
+      },
+      "MetricsBindAddress": ":10092",
+      "ProgramSNATIPTables": false,
+      "TelemetrySettings": {
+        "DebugMode": false,
+        "DisableAll": false,
+        "HeartBeatIntervalInMins": 30,
+        "RefreshIntervalInSecs": 15,
+        "SnapshotIntervalInMins": 60,
+        "TelemetryBatchIntervalInSecs": 15,
+        "TelemetryBatchSizeBytes": 16384
+      }
+    }
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2026-02-23T07:24:10Z"
+  name: cns-config
+  namespace: kube-system
+  resourceVersion: "11093304"
+  uid: ff697e18-fccc-476e-91cf-ce9cc356bae9

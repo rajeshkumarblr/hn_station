@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2026-03-23T05:08:38Z"
+  generateName: postgres-
+  labels:
+    app: postgres
+    apps.kubernetes.io/pod-index: "0"
+    controller-revision-hash: postgres-6599cc6dfb
+    statefulset.kubernetes.io/pod-name: postgres-0
+  name: postgres-0
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: StatefulSet
+    name: postgres
+    uid: 46bb848e-4878-4859-af42-cffcf5e669ef
+  resourceVersion: "4335"
+  uid: b9ffd497-2562-43ca-98a6-19793d50fd75
+spec:
+  containers:
+  - env:
+    - name: POSTGRES_DB
+      value: hn_station
+    - name: POSTGRES_USER
+      value: hn_user
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          key: password
+          name: secrets
+    - name: PGDATA
+      value: /var/lib/postgresql/data/pgdata
+    image: pgvector/pgvector:pg16
+    imagePullPolicy: IfNotPresent
+    name: postgres
+    ports:
+    - containerPort: 5432
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/lib/postgresql/data
+      name: postgres-data
+    - mountPath: /mnt/secrets-store
+      name: secrets-store-inline
+      readOnly: true
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-wk7s4
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  hostname: postgres-0
+  nodeName: aks-nodepool1-34298725-vmss000001
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  subdomain: postgres
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: postgres-data
+    persistentVolumeClaim:
+      claimName: postgres-data-postgres-0
+  - csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: azure-kv
+    name: secrets-store-inline
+  - name: kube-api-access-wk7s4
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T05:09:06Z"
+    status: "True"
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T05:08:40Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T05:09:06Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T05:09:06Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2026-03-23T05:08:40Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://d132b775b13e73af8aae2e3460b947e0ec6e1eefd44d5ea0c3754ca709a499ff
+    image: docker.io/pgvector/pgvector:pg16
+    imageID: docker.io/pgvector/pgvector@sha256:7d400e340efb42f4d8c9c12c6427adb253f726881a9985d2a471bf0eed824dff
+    lastState: {}
+    name: postgres
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2026-03-23T05:09:06Z"
+    volumeMounts:
+    - mountPath: /var/lib/postgresql/data
+      name: postgres-data
+    - mountPath: /mnt/secrets-store
+      name: secrets-store-inline
+      readOnly: true
+      recursiveReadOnly: Disabled
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-wk7s4
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 10.224.0.4
+  hostIPs:
+  - ip: 10.224.0.4
+  phase: Running
+  podIP: 10.244.0.48
+  podIPs:
+  - ip: 10.244.0.48
+  qosClass: BestEffort
+  startTime: "2026-03-23T05:08:40Z"
