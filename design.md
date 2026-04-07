@@ -1,6 +1,6 @@
 # HN Station — Design Document
 
-> **Version**: 1.8.5 · **Last Updated**: 2026-03-27
+> **Version**: 1.9.0 · **Last Updated**: 2026-03-31
 > Live at [hnstation.dev](https://hnstation.dev)
 
 This document captures the **architectural decisions, design rationale, and operational constraints** that govern HN Station. It exists so future changes don't accidentally revert hard-won lessons.
@@ -15,23 +15,23 @@ HN Station runs as **two independent deployments** that share the same Postgres 
 ┌──────────────────────────────────┐     ┌──────────────────────────────────┐
 │     DESKTOP APP (Electron)       │     │     CLOUD WEB APP (AKS)          │
 │                                  │     │                                  │
-│  ┌────────────┐  ┌────────────┐  │     │  ┌────────────┐  ┌────────────┐ │
-│  │ React UI   │  │ hn-local   │  │     │  │ React UI   │  │ Go API     │ │
-│  │ (Vite)     │  │ (Go)       │  │     │  │ (Nginx)    │  │ (cmd/server│ │
-│  └─────┬──────┘  └──┬───┬────┘  │     │  └─────┬──────┘  └──┬────────┘ │
-│        │            │   │       │     │        │            │          │
-│        └────────────┘   │       │     │        └────────────┘          │
-│              │          │       │     │              │                 │
-│         ┌────▼────┐     │       │     │         ┌────▼────┐            │
-│         │ SQLite  │     │       │     │         │Postgres │            │
-│         │ (local) │     │       │     │         │ (cloud) │            │
-│         └─────────┘     │       │     │         └─────────┘            │
-│                         │       │     │              ▲                 │
-│              ┌──────────┘       │     │              │                 │
-│              │ Dual-Sync        │     │         ┌────┴────┐            │
-│              │ (MultiStore)     │────────────▶  │Postgres │            │
-│              └──────────────────│     │         │ (same)  │            │
-│                                  │     │         └─────────┘            │
+│  ┌────────────┐  ┌────────────┐  │     │  ┌────────────────────────────┐  │
+│  │ React UI   │  │ hn-local   │  │     │  │      Unified Backend       │  │
+│  │ (Vite)     │  │ (Go)       │  │     │  │ (Embeds React SPA Assets)  │  │
+│  └─────┬──────┘  └──┬───┬────┘  │     │  └─────────────┬──────────────┘  │
+│        │            │   │       │     │                │                 │
+│        └────────────┘   │       │     │                │                 │
+│              │          │       │     │                │                 │
+│         ┌────▼────┐     │       │     │           ┌────▼────┐            │
+│         │ SQLite  │     │       │     │           │Postgres │            │
+│         │ (local) │     │       │     │           │ (cloud) │            │
+│         └─────────┘     │       │     │           └─────────┘            │
+│                         │       │     │                ▲                 │
+│              ┌──────────┘       │     │                │                 │
+│              │ Dual-Sync        │     │           ┌────┴────┐            │
+│              │ (MultiStore)     │──────────────▶  │Postgres │            │
+│              └──────────────────│     │           │ (same)  │            │
+│                                  │     │           └─────────┘            │
 └──────────────────────────────────┘     └──────────────────────────────────┘
 ```
 
@@ -50,12 +50,12 @@ HN Station runs as **two independent deployments** that share the same Postgres 
 | Aspect | SQLite (`sqlite.go`) | Postgres (`store.go`) |
 |--------|---------------------|-----------------------|
 | Topics | JSON text column `'[]'` | `text[]` array |
-| Users table | `hn_users` | `users` (has `submitted`) |
-| Auth | Stubs (returns errors) | Full Google OAuth |
+| Users table | `auth_users` (local profile persistence) | `auth_users` (full user base) |
+| Auth | Profile Persistence (Bearer Token fallback) | Full Google OAuth + JWT Session |
 | Interactions | Inline `is_read/is_saved/is_hidden` on `stories` | Separate `user_interactions` table |
 | Embedding | Not supported | `pgvector` (768-dim, currently disabled) |
 | Full-text search | Not supported | `search_vector` tsvector column |
-| Chat | Stubs | `chat_messages` table |
+| Chat | Stubs (returns errors) | `chat_messages` table |
 
 > **⚠️ CRITICAL**: Each store generates its own SQL. The `MultiStore` calls the correct store's method, so **type conversions are handled automatically**. Never try to send SQLite-formatted data (JSON topics) directly to a Postgres query.
 
@@ -131,9 +131,9 @@ A **single Go binary** (`hn-local.exe`) that runs both the API server and the in
 
 ### 3.2 Cloud Backend (`cmd/server`)
 
-A Go binary using `go-chi/chi` serving the REST API. Connects to Cloud Postgres directly. Features Google OAuth, user interactions, AI chat (Gemini BYOK), admin dashboard.
+A containerized Go API that **embeds and serves the React SPA assets** directly. This replaces the old NGINX-based frontend deployment for a more robust "Unified Container" model. Features Google OAuth, user interactions, AI chat (Gemini BYOK), admin dashboard.
 
-**Key routes**: `/api/stories`, `/api/stories/{id}`, `/api/chat`, `/auth/google`, `/api/me`
+**Key routes**: `/` (SPA), `/api/stories`, `/api/stories/{id}`, `/api/chat`, `/auth/google`, `/api/me`
 
 ### 3.3 Cloud Ingestion (`cmd/ingest`)
 
@@ -142,8 +142,8 @@ A Go binary that polls the HN Firebase API every minute. Upserts stories, commen
 ### 3.4 Frontend (`web/`)
 
 React 18 + TypeScript + Vite + Tailwind CSS. Builds to **two targets**:
-1. **Web**: Static files served by Nginx container in AKS
-2. **Desktop**: Electron app wrapping the same React code with `vite-plugin-electron`
+1. **Web**: Embedded in the Unified Backend Docker image and served via Go's `FileServer`.
+2. **Desktop**: Electron app wrapping the same React code with `vite-plugin-electron`.
 
 **Layout**: Three-pane resizable design:
 - Left: Story list (filterable, sortable, paginated)
@@ -201,8 +201,7 @@ Summary Worker (3 workers, 500ms rate-limited)
 
 | Service | Type | Purpose |
 |---------|------|---------|
-| `backend` | ClusterIP | Internal API access |
-| `frontend` | ClusterIP | Internal frontend access |
+| `backend` | ClusterIP | Internal access to the Unified Backend |
 | `postgres` | Headless (`clusterIP: None`) | Internal DB access for backend/ingest |
 | `postgres-external` | **LoadBalancer** | External DB access for desktop dual-sync |
 

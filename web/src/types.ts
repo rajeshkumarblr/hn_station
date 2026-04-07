@@ -1,3 +1,22 @@
+export interface User {
+    id: string;
+    email: string;
+    name: string;
+    topics: string[];
+    iframe_blocked: boolean | null;
+    avatar_url: string;
+    is_admin: boolean;
+    authenticated: boolean;
+    ai_summaries_enabled: boolean;
+    ollama_available: boolean;
+    ollama_model?: string;
+    ollama_models?: string[];
+    gemini_api_key?: string;
+    total_views?: number;
+    last_seen?: string | null;
+    created_at?: string;
+}
+
 export interface Story {
     id: number;
     title: string;

@@ -183,20 +183,33 @@ func (m *MultiStore) UpsertUser(ctx context.Context, user User) error {
 // ─── Auth Methods ───
 
 func (m *MultiStore) UpsertAuthUser(ctx context.Context, googleID, email, name, avatarURL string) (*AuthUser, error) {
+	// 1. Update Primary
+	user, err := m.Primary.UpsertAuthUser(ctx, googleID, email, name, avatarURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Propagate to Secondaries
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, sec := range m.Secondaries {
-		return sec.UpsertAuthUser(ctx, googleID, email, name, avatarURL)
+		if _, sErr := sec.UpsertAuthUser(ctx, googleID, email, name, avatarURL); sErr != nil {
+			log.Printf("MultiStore: Secondary UpsertAuthUser failed: %v", sErr)
+		}
 	}
-	return m.Primary.UpsertAuthUser(ctx, googleID, email, name, avatarURL)
+	return user, nil
 }
 
 func (m *MultiStore) GetAuthUser(ctx context.Context, userID string) (*AuthUser, error) {
+	// Try secondaries first (Cloud is source of truth for authenticated users)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, sec := range m.Secondaries {
-		return sec.GetAuthUser(ctx, userID)
+		if user, err := sec.GetAuthUser(ctx, userID); err == nil {
+			return user, nil
+		}
 	}
+	// Fallback to Primary (SQLite)
 	return m.Primary.GetAuthUser(ctx, userID)
 }
 
@@ -204,9 +217,22 @@ func (m *MultiStore) UpdateUserGeminiKey(ctx context.Context, userID, apiKey str
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, sec := range m.Secondaries {
-		return sec.UpdateUserGeminiKey(ctx, userID, apiKey)
+		if sErr := sec.UpdateUserGeminiKey(ctx, userID, apiKey); sErr != nil {
+			log.Printf("MultiStore: Secondary UpdateUserGeminiKey failed: %v", sErr)
+		}
 	}
 	return m.Primary.UpdateUserGeminiKey(ctx, userID, apiKey)
+}
+
+func (m *MultiStore) UpdateUserTopics(ctx context.Context, userID string, topics []string) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, sec := range m.Secondaries {
+		if sErr := sec.UpdateUserTopics(ctx, userID, topics); sErr != nil {
+			log.Printf("MultiStore: Secondary UpdateUserTopics failed: %v", sErr)
+		}
+	}
+	return m.Primary.UpdateUserTopics(ctx, userID, topics)
 }
 
 func (m *MultiStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {

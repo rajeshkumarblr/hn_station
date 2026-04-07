@@ -1,0 +1,76 @@
+[
+  {
+    "applicationId": null,
+    "objectId": "7a2cf8ea-e1e5-4a6b-bacd-77feb465dd7b",
+    "permissions": {
+      "certificates": [
+        "all"
+      ],
+      "keys": [
+        "all"
+      ],
+      "secrets": [
+        "all"
+      ],
+      "storage": [
+        "all"
+      ]
+    },
+    "tenantId": "d3c187bb-f433-492a-8866-6aca0c938873"
+  },
+  {
+    "applicationId": null,
+    "objectId": "d65316d3-12f2-467b-9809-e39d1f6839b6",
+    "permissions": {
+      "certificates": null,
+      "keys": null,
+      "secrets": [
+        "get"
+      ],
+      "storage": null
+    },
+    "tenantId": "d3c187bb-f433-492a-8866-6aca0c938873"
+  },
+  {
+    "applicationId": null,
+    "objectId": "5a3f4aa4-af6a-49bb-b492-7426639f0db8",
+    "permissions": {
+      "certificates": null,
+      "keys": null,
+      "secrets": [
+        "get",
+        "list"
+      ],
+      "storage": null
+    },
+    "tenantId": "d3c187bb-f433-492a-8866-6aca0c938873"
+  },
+  {
+    "applicationId": null,
+    "objectId": "b3f791ca-ad5b-44f4-8a30-6cb3ec0fe78e",
+    "permissions": {
+      "certificates": null,
+      "keys": null,
+      "secrets": [
+        "get",
+        "list"
+      ],
+      "storage": null
+    },
+    "tenantId": "d3c187bb-f433-492a-8866-6aca0c938873"
+  },
+  {
+    "applicationId": null,
+    "objectId": "b2447346-d00d-40cb-afef-b99aa462fe3f",
+    "permissions": {
+      "certificates": null,
+      "keys": null,
+      "secrets": [
+        "list",
+        "get"
+      ],
+      "storage": null
+    },
+    "tenantId": "d3c187bb-f433-492a-8866-6aca0c938873"
+  }
+]

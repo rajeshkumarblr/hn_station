@@ -35,6 +35,9 @@ client_secret.json
 client_secret.json
 google-oauth-secret.yaml
 infrastructure/k8s/secrets.yaml
+secret_secrets.json
+secret_full.json
+web/release/
 
 # Local binaries and logs
 bin/

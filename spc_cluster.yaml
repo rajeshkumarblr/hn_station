@@ -1,0 +1,48 @@
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"secrets-store.csi.x-k8s.io/v1","kind":"SecretProviderClass","metadata":{"annotations":{},"name":"azure-kv","namespace":"default"},"spec":{"parameters":{"cloudName":"","keyvaultName":"my-hn-kv-22139","objects":"array:\n  - |\n    objectName: db-url\n    objectType: secret\n  - |\n    objectName: google-client-id\n    objectType: secret\n  - |\n    objectName: google-client-secret\n    objectType: secret\n  - |\n    objectName: jwt-secret\n    objectType: secret\n","tenantId":"d3c187bb-f433-492a-8866-6aca0c938873","usePodIdentity":"false","useVMManagedIdentity":"true","userAssignedIdentityID":"fc446eed-16f9-4244-b85d-9e4326cb3023"},"provider":"azure","secretObjects":[{"data":[{"key":"DATABASE_URL","objectName":"db-url"},{"key":"GOOGLE_CLIENT_ID","objectName":"google-client-id"},{"key":"GOOGLE_CLIENT_SECRET","objectName":"google-client-secret"},{"key":"JWT_SECRET","objectName":"jwt-secret"}],"secretName":"secrets","type":"Opaque"}]}}
+    reconcile-trigger: "1774243309"
+  creationTimestamp: "2026-03-23T05:08:33Z"
+  generation: 9
+  name: azure-kv
+  namespace: default
+  resourceVersion: "2830453"
+  uid: 5014b1c8-8b32-47b0-b604-65985a7a34a5
+spec:
+  parameters:
+    cloudName: ""
+    keyvaultName: my-hn-kv-22139
+    objects: |
+      array:
+        - |
+          objectName: db-url
+          objectType: secret
+        - |
+          objectName: google-client-id
+          objectType: secret
+        - |
+          objectName: google-client-secret
+          objectType: secret
+        - |
+          objectName: jwt-secret
+          objectType: secret
+    tenantId: d3c187bb-f433-492a-8866-6aca0c938873
+    usePodIdentity: "false"
+    useVMManagedIdentity: "true"
+    userAssignedIdentityID: fc446eed-16f9-4244-b85d-9e4326cb3023
+  provider: azure
+  secretObjects:
+  - data:
+    - key: DATABASE_URL
+      objectName: db-url
+    - key: GOOGLE_CLIENT_ID
+      objectName: google-client-id
+    - key: GOOGLE_CLIENT_SECRET
+      objectName: google-client-secret
+    - key: JWT_SECRET
+      objectName: jwt-secret
+    secretName: secrets
+    type: Opaque

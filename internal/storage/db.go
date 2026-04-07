@@ -33,6 +33,7 @@ type DB interface {
 	UpsertAuthUser(ctx context.Context, googleID, email, name, avatarURL string) (*AuthUser, error)
 	GetAuthUser(ctx context.Context, userID string) (*AuthUser, error)
 	UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error
+	UpdateUserTopics(ctx context.Context, userID string, topics []string) error
 	GetAllUsers(ctx context.Context) ([]*AuthUser, error)
 	GetAnyAdminAPIKey(ctx context.Context) (string, error)
 	GetAppStats(ctx context.Context) (*AppStats, error)
@@ -94,9 +95,11 @@ type AuthUser struct {
 	ID           string     `json:"id"`
 	GoogleID     string     `json:"google_id"`
 	Email        string     `json:"email"`
-	Name         string     `json:"name"`
-	AvatarURL    string     `json:"avatar_url"`
-	IsAdmin      bool       `json:"is_admin"`
+	Name             string     `json:"name"`
+	AvatarURL        string     `json:"avatar_url"`
+	IsAdmin          bool       `json:"is_admin"`
+	SummariesEnabled bool       `json:"ai_summaries_enabled"`
+	Topics           []string   `json:"topics"` // User-preferred filters (synced)
 	TotalViews   int        `json:"total_views"`
 	LastSeen     *time.Time `json:"last_seen"` // Pointer to handle nulls
 	GeminiAPIKey string     `json:"-"`         // Never expose to frontend

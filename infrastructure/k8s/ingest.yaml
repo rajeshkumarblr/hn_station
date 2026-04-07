@@ -21,7 +21,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: database_url
+                  key: DATABASE_URL
             - name: OLLAMA_URL
               value: "http://ollama:11434"
             - name: DISABLE_AI

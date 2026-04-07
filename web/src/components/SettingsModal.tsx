@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
+import { fetchWithAuth } from '../utils/api';
 import { X, Save, Key, ExternalLink, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -47,7 +48,7 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
 
         try {
             const baseUrl = getApiBase();
-            const res = await fetch(`${baseUrl}/api/settings`, {
+            const res = await fetchWithAuth(`${baseUrl}/api/settings`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

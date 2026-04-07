@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -108,15 +109,29 @@ func (c *Config) ValidateToken(tokenString string) (*Claims, error) {
 	return claims, nil
 }
 
-// GetUserIDFromRequest extracts the user ID from the session cookie.
+// GetUserIDFromRequest extracts the user ID from the session cookie or Authorization header.
 // Returns empty string if not authenticated (not an error — anonymous usage is OK).
 func (c *Config) GetUserIDFromRequest(r *http.Request) string {
-	cookie, err := r.Cookie(CookieName)
-	if err != nil {
+	var tokenValue string
+
+	// 1. Check Cookie
+	if cookie, err := r.Cookie(CookieName); err == nil {
+		tokenValue = cookie.Value
+	}
+
+	// 2. Fallback to Authorization Header (Bearer Token)
+	if tokenValue == "" {
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenValue = strings.TrimPrefix(authHeader, "Bearer ")
+		}
+	}
+
+	if tokenValue == "" {
 		return ""
 	}
 
-	claims, err := c.ValidateToken(cookie.Value)
+	claims, err := c.ValidateToken(tokenValue)
 	if err != nil {
 		return ""
 	}

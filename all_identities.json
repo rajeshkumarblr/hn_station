@@ -1,0 +1,20 @@
+[
+  {
+    "ClientId": "ad90a674-6d8d-43e2-96d8-ad883c1479e4",
+    "Name": "my-hn-cluster-agentpool",
+    "PrincipalId": "b2447346-d00d-40cb-afef-b99aa462fe3f",
+    "ResourceGroup": "MC_my-hn-rg_my-hn-cluster_eastus"
+  },
+  {
+    "ClientId": "2ffed08a-601b-4782-a519-1502501c4715",
+    "Name": "azurekeyvaultsecretsprovider-my-hn-cluster",
+    "PrincipalId": "668de139-9d55-4ac3-a86e-b83b7740962c",
+    "ResourceGroup": "MC_my-hn-rg_my-hn-cluster_eastus"
+  },
+  {
+    "ClientId": "fc446eed-16f9-4244-b85d-9e4326cb3023",
+    "Name": "snapstudy-aks-minimal-agentpool",
+    "PrincipalId": "10ae35cc-f732-417b-8e8d-d71c738a16b8",
+    "ResourceGroup": "MC_snapstudy-minimal-AKS-rg_snapstudy-aks-minimal_eastus2"
+  }
+]

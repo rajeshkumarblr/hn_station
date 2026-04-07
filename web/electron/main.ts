@@ -45,6 +45,16 @@ logToFile(`[main] Log initialized: ${logFile}`);
 logToFile(`[main] Version: ${app.getVersion()}`);
 logToFile(`[main] App Root: ${process.env.APP_ROOT}`);
 
+// Deep Debug: Write to a path we KNOW is accessible
+const debugLog = 'C:\\Users\\rajes\\hn-station-debug.log';
+function debug(msg: string) {
+    try {
+        fs.appendFileSync(debugLog, `[DEBUG ${new Date().toISOString()}] ${msg}\n`);
+    } catch(e) {}
+}
+debug(`Main process starting v1.8.9. __dirname=${__dirname}`);
+debug(`APP_PATH=${app.getAppPath()}`);
+
 // Set App User Model ID early for correct Windows Taskbar grouping/pinning
 if (process.platform === 'win32') {
     app.setAppUserModelId('com.hnstation.app');
@@ -174,6 +184,10 @@ ipcMain.handle('get-local-api-url', () =>
     localApiPort ? `http://127.0.0.1:${localApiPort}` : null
 );
 
+ipcMain.on('open-external', (_, url: string) => {
+    shell.openExternal(url);
+});
+
 // ── Window ────────────────────────────────────────────────────────────────────
 function createWindow() {
     win = new BrowserWindow({
@@ -185,10 +199,23 @@ function createWindow() {
         icon: path.join(process.env.VITE_PUBLIC!, 'hn.ico'),
         webPreferences: {
             webviewTag: true,
-            preload: path.join(MAIN_DIST, 'preload.js'),
+            preload: (() => {
+                const jsPath = path.join(__dirname, 'preload.js');
+                const mjsPath = path.join(__dirname, 'preload.mjs');
+                const p = fs.existsSync(jsPath) ? jsPath : mjsPath;
+                debug(`[preload] checking: js=${jsPath} exists=${fs.existsSync(jsPath)}`);
+                debug(`[preload] checking: mjs=${mjsPath} exists=${fs.existsSync(mjsPath)}`);
+                debug(`[preload] final choice: ${p} packaged=${app.isPackaged}`);
+                return p;
+            })(),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: false, // Critical: some antiviruses block the sandbox bridge
             webSecurity: false,
         },
     });
+
+    debug(`BrowserWindow created. Preload applied.`);
 
     ipcMain.on('window-minimize', () => win?.minimize());
     ipcMain.on('window-close', () => win?.close());

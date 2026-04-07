@@ -36,22 +36,22 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: database_url
+                  key: DATABASE_URL
             - name: GOOGLE_CLIENT_ID
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: google_client_id
+                  key: GOOGLE_CLIENT_ID
             - name: GOOGLE_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: google_client_secret
+                  key: GOOGLE_CLIENT_SECRET
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: secrets
-                  key: jwt_secret
+                  key: JWT_SECRET
             - name: OAUTH_CALLBACK_URL
               value: "https://hnstation.dev/auth/google/callback"
             - name: FRONTEND_URL
@@ -69,6 +69,18 @@ spec:
             limits:
               cpu: "250m"
               memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /healthc
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthc
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
       volumes:
         - name: secrets-store-inline
           csi:

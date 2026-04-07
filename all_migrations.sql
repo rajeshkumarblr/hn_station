@@ -54,27 +54,6 @@ ALTER TABLE stories ADD COLUMN IF NOT EXISTS hn_rank INT;
 
 -- Add search_vector column
 ALTER TABLE stories ADD COLUMN IF NOT EXISTS search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', title)) STORED;
-
--- Create indices
-CREATE INDEX IF NOT EXISTS idx_stories_rank ON stories(hn_rank);
-CREATE INDEX IF NOT EXISTS idx_stories_score_desc ON stories(score DESC);
-CREATE INDEX IF NOT EXISTS idx_stories_search ON stories USING GIN(search_vector);
-
-CREATE TABLE IF NOT EXISTS auth_users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    google_id VARCHAR(255) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    name VARCHAR(255),
-    avatar_url TEXT,
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS user_interactions (
-    user_id UUID NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
-    story_id BIGINT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
-    is_read BOOLEAN NOT NULL DEFAULT FALSE,
-    is_saved BOOLEAN NOT NULL DEFAULT FALSE,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     PRIMARY KEY (user_id, story_id)
 );

@@ -70,7 +70,7 @@ export function useGlobalKeyboardNav(
             }
 
             // --- Ctrl + Tab / Ctrl + Shift + Tab to Cycle Tabs & Feed ---
-            if (e.ctrlKey && e.key === 'Tab') {
+            if (e.ctrlKey && e.code === 'Tab') {
                 e.preventDefault();
                 if (e.shiftKey) {
                     // Cycle Left (Backwards)

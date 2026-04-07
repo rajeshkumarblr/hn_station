@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "28"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"name":"frontend","namespace":"default"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"frontend"}},"template":{"metadata":{"labels":{"app":"frontend"}},"spec":{"containers":[{"image":"myhnregistry270.azurecr.io/frontend:latest","imagePullPolicy":"Always","name":"frontend","ports":[{"containerPort":80}],"resources":{"limits":{"cpu":"250m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}}]}}}}
+  creationTimestamp: "2026-03-26T13:59:05Z"
+  generation: 28
+  name: frontend
+  namespace: default
+  resourceVersion: "2823130"
+  uid: 2a515b8f-f798-41bb-a444-27680dee4cb4
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: frontend
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-03-30T11:28:05+05:30"
+      creationTimestamp: null
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - image: myhnregistry270.azurecr.io/frontend:latest
+        imagePullPolicy: Always
+        name: frontend
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 2
+  conditions:
+  - lastTransitionTime: "2026-03-26T13:59:10Z"
+    lastUpdateTime: "2026-03-26T13:59:10Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-03-26T13:59:05Z"
+    lastUpdateTime: "2026-03-30T05:58:07Z"
+    message: ReplicaSet "frontend-5f6b8476f7" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 28
+  readyReplicas: 2
+  replicas: 2
+  updatedReplicas: 2

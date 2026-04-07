@@ -76,6 +76,17 @@ func (s *SQLiteStore) migrate() error {
 		key   TEXT PRIMARY KEY,
 		value TEXT NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS auth_users (
+		id         TEXT PRIMARY KEY,
+		email      TEXT NOT NULL,
+		name       TEXT NOT NULL,
+		avatar_url TEXT NOT NULL,
+		is_admin   BOOLEAN NOT NULL DEFAULT 0,
+		summaries_enabled BOOLEAN NOT NULL DEFAULT 1,
+		topics     TEXT NOT NULL DEFAULT '[]',
+		created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+	);
 	`
 	_, err := s.db.Exec(schema)
 	if err != nil {
@@ -88,6 +99,8 @@ func (s *SQLiteStore) migrate() error {
 		"ALTER TABLE stories ADD COLUMN is_saved BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN iframe_blocked BOOLEAN NOT NULL DEFAULT 0",
+		"ALTER TABLE auth_users ADD COLUMN summaries_enabled BOOLEAN NOT NULL DEFAULT 1",
+		"ALTER TABLE auth_users ADD COLUMN topics TEXT NOT NULL DEFAULT '[]'",
 	}
 	for _, sql := range cols {
 		_, _ = s.db.Exec(sql)
@@ -404,20 +417,76 @@ func (s *SQLiteStore) UpsertUser(ctx context.Context, user User) error {
 
 // ─── Auth stubs (local mode has no auth) ───
 
-func (s *SQLiteStore) UpsertAuthUser(_ context.Context, _, _, _, _ string) (*AuthUser, error) {
-	return nil, fmt.Errorf("auth not supported in local mode")
+func (s *SQLiteStore) UpsertAuthUser(ctx context.Context, id, email, name, avatar string) (*AuthUser, error) {
+	user := &AuthUser{
+		ID:               id,
+		Email:            email,
+		Name:             name,
+		AvatarURL:        avatar,
+		IsAdmin:          true, // Hardcode local user as admin for now if they are signed in
+		SummariesEnabled: true,
+	}
+	topicsJSON := topicsToJSON(nil)
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO auth_users (id, email, name, avatar_url, is_admin, summaries_enabled, topics)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			email = excluded.email,
+			name = excluded.name,
+			avatar_url = excluded.avatar_url,
+			summaries_enabled = excluded.summaries_enabled
+	`, user.ID, user.Email, user.Name, user.AvatarURL, user.IsAdmin, user.SummariesEnabled, topicsJSON)
+
+	return user, err
 }
 
-func (s *SQLiteStore) GetAuthUser(_ context.Context, _ string) (*AuthUser, error) {
-	return nil, fmt.Errorf("auth not supported in local mode")
+func (s *SQLiteStore) GetAuthUser(ctx context.Context, id string) (*AuthUser, error) {
+	var user AuthUser
+	var topicsJSON string
+	err := s.db.QueryRowContext(ctx, "SELECT id, email, name, avatar_url, is_admin, summaries_enabled, topics FROM auth_users WHERE id = ?", id).
+		Scan(&user.ID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &topicsJSON)
+	user.Topics = jsonToTopics(topicsJSON)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (s *SQLiteStore) UpdateUserGeminiKey(_ context.Context, _, _ string) error {
 	return nil
 }
 
-func (s *SQLiteStore) GetAllUsers(_ context.Context) ([]*AuthUser, error) {
-	return nil, nil
+func (s *SQLiteStore) UpdateUserTopics(ctx context.Context, userID string, topics []string) error {
+	// For local mode, we save topics to the settings table if it's the local user
+	if userID == "local-user" {
+		return s.SetSetting(ctx, "active_topics", topicsToJSON(topics))
+	}
+	return nil
+}
+
+func (s *SQLiteStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT id, email, name, avatar_url, is_admin, created_at, summaries_enabled, topics FROM auth_users ORDER BY created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := []*AuthUser{}
+	for rows.Next() {
+		u := &AuthUser{}
+		var topicsJSON string
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.AvatarURL, &u.IsAdmin, &u.CreatedAt, &u.SummariesEnabled, &topicsJSON); err != nil {
+			return nil, err
+		}
+		u.Topics = jsonToTopics(topicsJSON)
+		users = append(users, u)
+	}
+	return users, nil
 }
 
 func (s *SQLiteStore) GetAnyAdminAPIKey(_ context.Context) (string, error) {
@@ -428,6 +497,7 @@ func (s *SQLiteStore) GetAppStats(ctx context.Context) (*AppStats, error) {
 	stats := &AppStats{}
 	_ = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM stories").Scan(&stats.TotalStories)
 	_ = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM comments").Scan(&stats.TotalComments)
+	_ = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM auth_users").Scan(&stats.TotalUsers)
 	return stats, nil
 }
 

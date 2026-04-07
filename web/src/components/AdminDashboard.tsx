@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import type { User } from '../types';
 import { getApiBase } from '../utils/apiBase';
 import { Users, MousePointerClick, FileText, MessageSquare, Search, X } from 'lucide-react';
+import { fetchWithAuth } from '../utils/api';
 import { AdminHeader } from './AdminHeader';
 
 interface AdminDashboardProps {
@@ -12,17 +14,6 @@ interface AppStats {
     total_interactions: number;
     total_stories: number;
     total_comments: number;
-}
-
-interface User {
-    id: string;
-    email: string;
-    name: string;
-    avatar_url: string;
-    is_admin: boolean;
-    total_views: number;
-    last_seen: string | null;
-    created_at: string;
 }
 
 export function AdminDashboard({ onClose }: AdminDashboardProps) {
@@ -38,8 +29,8 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
         const baseUrl = getApiBase();
         try {
             const [statsRes, usersRes] = await Promise.all([
-                fetch(`${baseUrl}/api/admin/stats`, { credentials: 'include' }),
-                fetch(`${baseUrl}/api/admin/users`, { credentials: 'include' })
+                fetchWithAuth(`${baseUrl}/api/admin/stats`, { credentials: 'include' }),
+                fetchWithAuth(`${baseUrl}/api/admin/users`, { credentials: 'include' })
             ]);
 
             if (!statsRes.ok || !usersRes.ok) {
@@ -212,7 +203,7 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-3 whitespace-nowrap text-gray-500 text-xs">
-                                                        {new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                                        {new Date(user.created_at || new Date().toISOString()).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                                                     </td>
                                                 </tr>
                                             ))}

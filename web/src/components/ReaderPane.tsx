@@ -2,10 +2,12 @@ import { useRef, useEffect, useState } from 'react';
 import type { Story } from '../types';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
+import { fetchWithAuth } from '../utils/api';
 import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, FileText, Columns2, Home } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
+import { getTagStyle } from './StoryCard';
 
 
 interface ReaderPaneProps {
@@ -24,7 +26,7 @@ interface ReaderPaneProps {
     onSetIframeBlocked?: (storyId: number, blocked: boolean) => void;
 }
 
-export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onHide, onSetGlobalWarning, onSetIframeBlocked }: ReaderPaneProps) {
+export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onTabChange, onHide, onSetGlobalWarning, onSetIframeBlocked }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
@@ -45,8 +47,7 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
 
     const [isCopied, setIsCopied] = useState(false);
     const [showSummary, setShowSummary] = useState(false);
-    const [userManuallyToggledSummary, setUserManuallyToggledSummary] = useState(false);
-    const [splitWidth, setSplitWidth] = useState(50); // percentage
+    const [splitWidth, setSplitWidth] = useState(70); // percentage
     const [isResizing, setIsResizing] = useState(false);
 
     const startResizing = (e: React.MouseEvent) => {
@@ -90,7 +91,7 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
         setCommentsLoading(true);
         const baseUrl = getApiBase();
         const controller = new AbortController();
-        fetch(`${baseUrl}/api/stories/${id}`, { signal: controller.signal })
+        fetchWithAuth(`${baseUrl}/api/stories/${id}`, { signal: controller.signal })
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data) {
@@ -114,7 +115,7 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
         // Also explicitly check iframe if not known
         if (isWebMode && story.url && story.iframe_blocked === undefined) {
             const baseUrl = getApiBase();
-            fetch(`${baseUrl}/api/stories/${story.id}/check-iframe`)
+            fetchWithAuth(`${baseUrl}/api/stories/${story.id}/check-iframe`)
                 .then(res => res.ok ? res.json() : null)
                 .then(data => {
                     if (data && data.iframe_blocked !== undefined) {
@@ -156,7 +157,11 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
         containerRef,
         commentsLoading,
         handleCollapse,
-        () => { },
+        () => {
+            if (story.summary) {
+                setShowSummary(true);
+            }
+        },
         onHome,
         initialActiveCommentId
     );
@@ -283,7 +288,25 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
                             <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
                         </button>
                     )}
+                    {story.summary && (
+                        <button
+                            onClick={() => {
+                                const nextState = !showSummary;
+                                setShowSummary(nextState);
+                                if (nextState && activeTab === 'discussion') {
+                                    setActiveTab('split');
+                                    onTabChange?.('split');
+                                }
+                            }}
+                            className={`p-2 rounded-lg transition-all ${showSummary ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-sm' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
+                            title="AI Summary"
+                        >
+                            <Sparkles size={18} />
+                        </button>
+                    )}
                 </div>
+
+                <div className="flex-1"></div>
             </div>
 
             {/* Main Content Area Container */}
@@ -339,6 +362,86 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
                                     )}
                                 </div>
 
+                                {/* AI Summary (Nested under article) */}
+                                {showSummary && story.summary && (
+                                    <div
+                                        className="flex-shrink-0 bg-amber-50/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-amber-200 dark:border-white/10 shadow-lg animate-in slide-in-from-bottom-2 duration-200 flex flex-col overflow-hidden"
+                                        style={{ maxHeight: '40%' }}
+                                        onMouseLeave={() => setShowSummary(false)}
+                                    >
+                                        {/* Header */}
+                                        <div className="px-4 py-2 border-b border-amber-200/50 dark:border-white/5 flex items-center justify-between bg-amber-100/30 dark:bg-amber-500/5 flex-shrink-0">
+                                            <div className="flex items-center gap-2">
+                                                <Sparkles size={12} className="text-amber-500 dark:text-amber-400" />
+                                                <h4 className="text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">AI Summary</h4>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowSummary(false)}
+                                                className="p-1 rounded-full text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 hover:bg-amber-100 dark:hover:bg-white/5 transition-colors"
+                                                title="Close"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+
+                                        {/* Tags & Content */}
+                                        <div className="flex-1 overflow-y-auto px-5 py-3 custom-scrollbar">
+                                            {story.topics && story.topics.length > 0 && (
+                                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                                    {story.topics.map((topic: string) => {
+                                                        const ts = getTagStyle(topic);
+                                                        return (
+                                                            <span
+                                                                key={topic}
+                                                                className="inline-flex items-center text-[9px] font-black px-2 py-0.5 rounded-md border shadow-sm transition-all hover:scale-105"
+                                                                style={{
+                                                                    backgroundColor: ts.bg,
+                                                                    color: ts.color,
+                                                                    borderColor: ts.border,
+                                                                }}
+                                                            >
+                                                                #{topic.replace(/\s+/g, '')}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                            <div className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 font-medium prose prose-slate dark:prose-invert prose-p:my-0.5 prose-li:list-none prose-li:my-0 prose-ul:my-1 prose-ul:pl-0 max-w-none">
+                                                <ReactMarkdown
+                                                    components={{
+                                                        li: ({node, ...props}) => {
+                                                            const text = String(props.children);
+                                                            let hash = 0;
+                                                            for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
+                                                            const colors = [
+                                                                { dot: 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]', text: 'text-blue-600 dark:text-blue-300' },
+                                                                { dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]', text: 'text-emerald-600 dark:text-emerald-300' },
+                                                                { dot: 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]', text: 'text-purple-600 dark:text-purple-300' },
+                                                                { dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]', text: 'text-amber-600 dark:text-amber-300' },
+                                                                { dot: 'bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.5)]', text: 'text-pink-600 dark:text-pink-300' },
+                                                                { dot: 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]', text: 'text-cyan-600 dark:text-cyan-300' }
+                                                            ];
+                                                            const color = colors[Math.abs(hash) % colors.length];
+                                                            return (
+                                                                <li className="flex gap-2 items-start mb-1.5">
+                                                                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${color.dot}`} />
+                                                                    <span className={`${color.text} font-semibold`} {...props} />
+                                                                </li>
+                                                            );
+                                                        },
+                                                        p: ({node, ...props}) => <p className="mb-2" {...props} />,
+                                                        strong: ({node, ...props}) => (
+                                                            <strong className="text-blue-600 dark:text-blue-400 font-black" {...props} />
+                                                        )
+                                                    }}
+                                                >
+                                                    {story.summary}
+                                                </ReactMarkdown>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Transparent overlay while resizing to prevent iframe from capturing events */}
                                 {isResizing && (
                                     <div className="absolute inset-0 z-50 cursor-col-resize bg-transparent" />
@@ -392,74 +495,8 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
                         )}
                     </div>
 
-                    {/* Right AI Summary Sidebar */}
-                    {showSummary && story.summary && (
-                        <div
-                            className="w-72 shrink-0 h-full overflow-y-auto border-l border-amber-200/50 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-900/10 backdrop-blur-sm flex flex-col animate-in slide-in-from-right-4 duration-300"
-                            onMouseLeave={() => {
-                                if (!userManuallyToggledSummary) {
-                                    setShowSummary(false);
-                                }
-                            }}
-                        >
-                            {/* Header */}
-                            <div className="px-4 py-3 border-b border-amber-200/60 dark:border-amber-500/20 flex items-center justify-between bg-amber-100/60 dark:bg-amber-500/10 sticky top-0 z-10">
-                                <div className="flex items-center gap-2">
-                                    <Sparkles size={14} className="text-amber-500 dark:text-amber-400" />
-                                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">Article Summary by AI</h4>
-                                </div>
-                                <button
-                                    onClick={() => { setShowSummary(false); setUserManuallyToggledSummary(false); }}
-                                    className="p-1 rounded text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-500/10 transition-colors"
-                                    title="Close"
-                                >
-                                    <X size={12} />
-                                </button>
-                            </div>
-
-                            {/* Tags */}
-                            {story.topics && story.topics.length > 0 && (
-                                <div className="px-4 pt-4 pb-2">
-                                    <p className="text-[9px] uppercase tracking-widest font-bold text-amber-500/80 dark:text-amber-500/60 mb-2">Tags</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {story.topics.map((topic: string) => (
-                                            <span
-                                                key={topic}
-                                                className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30"
-                                            >
-                                                #{topic.replace(/\s+/g, '')}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Summary Text */}
-                            <div className="flex-1 px-4 pb-6 pt-3">
-                                <p className="text-[9px] uppercase tracking-widest font-bold text-amber-500/80 dark:text-amber-500/60 mb-3">Summary</p>
-                                <div className="text-sm leading-relaxed text-amber-900 dark:text-amber-100/80 font-medium prose prose-slate dark:prose-invert prose-p:my-2 prose-li:my-1 prose-ul:my-2 prose-sm max-w-none">
-                                    <ReactMarkdown>{story.summary}</ReactMarkdown>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Invisible hover trigger zone for expanding summary when collapsed */}
-                    {!showSummary && story.summary && (
-                        <div
-                            className="absolute right-0 top-0 bottom-0 w-6 z-20 cursor-w-resize group"
-                            onMouseEnter={() => {
-                                if (!userManuallyToggledSummary) {
-                                    setShowSummary(true);
-                                }
-                            }}
-                        >
-                            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-16 bg-amber-500/20 dark:bg-amber-500/30 rounded-l-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <div className="w-0.5 h-8 bg-amber-500/50 rounded-full"></div>
-                            </div>
-                        </div>
-                    )}
                 </div>
+
             </div>
         </div>
     );

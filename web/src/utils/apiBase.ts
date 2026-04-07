@@ -36,19 +36,8 @@ async function probeService(url: string): Promise<boolean> {
 }
 
 export async function initApiBase(): Promise<void> {
-    // 1. Check for local Windows Service (Port 8050)
-    // We do this first so the app connects to the background service if available.
-    if (typeof window !== 'undefined' && isElectron()) {
-        const isSvc = await probeService('http://127.0.0.1:58090');
-        if (isSvc) {
-            apiBase = 'http://127.0.0.1:58090';
-            console.log(`[apiBase] Connected to Windows Service: ${apiBase}`);
-            notifyListeners();
-            return;
-        }
-    }
-
-    // 2. Electron Environment (Fallback to spawned process)
+    // 1. Electron Environment (Spawned process)
+    // We check this first because if we are in Electron, we want to talk to the backend we just started.
     if (typeof window !== 'undefined' && (window as any).electronAPI) {
         try {
             const url = await (window as any).electronAPI.getLocalApiUrl();
@@ -60,6 +49,18 @@ export async function initApiBase(): Promise<void> {
             }
         } catch (e) {
             console.error('[apiBase] Failed to fetch Electron API URL:', e);
+        }
+    }
+
+    // 2. Local Windows Service (Port 58090)
+    // Fallback if no spawned process (e.g. running as a background service)
+    if (typeof window !== 'undefined' && isElectron()) {
+        const isSvc = await probeService('http://127.0.0.1:58090');
+        if (isSvc) {
+            apiBase = 'http://127.0.0.1:58090';
+            console.log(`[apiBase] Connected to Windows Service: ${apiBase}`);
+            notifyListeners();
+            return;
         }
     }
 

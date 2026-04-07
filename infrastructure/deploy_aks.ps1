@@ -14,11 +14,7 @@ Write-Host "2. Building and Pushing Backend..." -ForegroundColor Cyan
 docker build --no-cache -t "${ACR_SERVER}/backend:latest" -f Dockerfile.backend .
 docker push "${ACR_SERVER}/backend:latest"
 
-Write-Host "3. Building and Pushing Frontend..." -ForegroundColor Cyan
-docker build --no-cache -t "${ACR_SERVER}/frontend:latest" -f web/Dockerfile ./web
-docker push "${ACR_SERVER}/frontend:latest"
-
-Write-Host "4. Deploying to AKS..." -ForegroundColor Cyan
+Write-Host "3. Deploying to AKS..." -ForegroundColor Cyan
 
 # Apply Secrets (Optional)
 if (Test-Path "infrastructure/k8s/secrets.yaml") {
@@ -33,21 +29,20 @@ else {
 Write-Host "Deploying Postgres..."
 kubectl apply -f infrastructure/k8s/postgres.yaml
 
-Write-Host "Deploying Backend, Frontend, and Ingestion..."
+Write-Host "Deploying SECRETS, Backend, and Ingestion..."
+kubectl apply -f infrastructure/k8s/secret-provider.yaml
 kubectl apply -f infrastructure/k8s/backend.yaml
-kubectl apply -f infrastructure/k8s/frontend.yaml
 kubectl apply -f infrastructure/k8s/ingest.yaml
 
 Write-Host "Deploying Ingress and TLS..."
 kubectl apply -f infrastructure/k8s/production-issuer.yaml
 kubectl apply -f infrastructure/k8s/ingress.yaml
 
-Write-Host "Restarting Backend, Frontend, and Ingestion to apply new images..." -ForegroundColor Cyan
+Write-Host "Restarting Backend and Ingestion to apply new images..." -ForegroundColor Cyan
 kubectl rollout restart deployment/backend
-kubectl rollout restart deployment/frontend
 kubectl rollout restart deployment/ingest
 
 Write-Host "--------------------------------------------------" -ForegroundColor Green
 Write-Host "Deployment triggered!" -ForegroundColor Green
 Write-Host "Check status with: kubectl get pods"
-Write-Host "Watch for External IP: kubectl get svc frontend -w"
+Write-Host "Watch for External IP: kubectl get ingress -w"

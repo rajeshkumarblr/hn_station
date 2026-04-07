@@ -1,0 +1,89 @@
+Name:             backend-7f58858bcd-4qrwv
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             aks-cheappool-38886146-vmss000000/10.224.0.4
+Start Time:       Mon, 30 Mar 2026 11:27:46 +0530
+Labels:           app=backend
+                  pod-template-hash=7f58858bcd
+Annotations:      kubectl.kubernetes.io/restartedAt: 2026-03-30T10:42:05+05:30
+Status:           Pending
+IP:               
+IPs:              <none>
+Controlled By:    ReplicaSet/backend-7f58858bcd
+Containers:
+  backend:
+    Container ID:   
+    Image:          myhnregistry270.azurecr.io/backend:latest
+    Image ID:       
+    Port:           8080/TCP
+    Host Port:      0/TCP
+    State:          Waiting
+      Reason:       ContainerCreating
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      cpu:     250m
+      memory:  256Mi
+    Requests:
+      cpu:     100m
+      memory:  128Mi
+    Environment Variables from:
+      secrets  Secret  Optional: false
+    Environment:
+      OAUTH_CALLBACK_URL:  https://hnstation.dev/auth/google/callback
+      FRONTEND_URL:        /
+      OLLAMA_URL:          http://ollama:11434
+    Mounts:
+      /mnt/secrets-store from secrets-store-inline (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-pwvhf (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  secrets-store-inline:
+    Type:              CSI (a Container Storage Interface (CSI) volume source)
+    Driver:            secrets-store.csi.k8s.io
+    FSType:            
+    ReadOnly:          true
+    VolumeAttributes:      secretProviderClass=azure-kv
+  kube-api-access-pwvhf:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/memory-pressure:NoSchedule op=Exists
+                             node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason       Age                  From               Message
+  ----     ------       ----                 ----               -------
+  Normal   Scheduled    18m                  default-scheduler  Successfully assigned default/backend-7f58858bcd-4qrwv to aks-cheappool-38886146-vmss000000
+  Warning  FailedMount  102s (x16 over 18m)  kubelet            MountVolume.SetUp failed for volume "secrets-store-inline" : rpc error: code = Unknown desc = failed to mount secrets store objects for pod default/backend-7f58858bcd-4qrwv, err: rpc error: code = Unknown desc = failed to mount objects, error: failed to get objectType:secret, objectName:db-url, objectVersion:: ManagedIdentityCredential authentication failed. ManagedIdentityCredential authentication failed. the requested identity isn't assigned to this resource
+GET http://169.254.169.254/metadata/identity/oauth2/token
+--------------------------------------------------------------------------------
+RESPONSE 400 Bad Request
+--------------------------------------------------------------------------------
+{
+  "error": "invalid_request",
+  "error_description": "Identity not found"
+}
+--------------------------------------------------------------------------------
+To troubleshoot, visit https://aka.ms/azsdk/go/identity/troubleshoot#managed-id
+GET http://169.254.169.254/metadata/identity/oauth2/token
+--------------------------------------------------------------------------------
+RESPONSE 400 Bad Request
+--------------------------------------------------------------------------------
+{
+  "error": "invalid_request",
+  "error_description": "Identity not found"
+}
+--------------------------------------------------------------------------------
+To troubleshoot, visit https://aka.ms/azsdk/go/identity/troubleshoot#managed-id

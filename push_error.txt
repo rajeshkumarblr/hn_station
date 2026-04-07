@@ -1,0 +1,41 @@
+remote: warning: See https://gh.io/lfs for more information.        
+remote: warning: File web/release/win-unpacked/resources/app.asar is 54.39 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB        
+remote: warning: File web/release/win-unpacked/resources/app.asar is 53.93 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB        
+remote: warning: File web/release/win-unpacked/resources/app.asar is 52.69 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB        
+remote: warning: File web/release/win-unpacked/resources/app.asar is 56.17 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB        
+remote: warning: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.        
+remote: error: GH013: Repository rule violations found for refs/heads/main.        
+remote: 
+remote: - GITHUB PUSH PROTECTION        
+remote:   —————————————————————————————————————————        
+remote:     Resolve the following violations before pushing again        
+remote: 
+remote:     - Push cannot contain secrets        
+remote: 
+remote:             
+remote:      (?) Learn how to resolve a blocked push        
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push        
+remote:             
+remote:             
+remote:       —— Google OAuth Client ID ————————————————————————————        
+remote:        locations:        
+remote:          - commit: 4af6fba908a6b038addc7c72a0f17a4eb041a3f4        
+remote:            path: secret_secrets.json:5        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/rajeshkumarblr/hn_station/security/secret-scanning/unblock-secret/3C1cKUDaE0trHa5lvP6oDzF8rJF        
+remote:             
+remote:             
+remote:       —— Google OAuth Client Secret ————————————————————————        
+remote:        locations:        
+remote:          - commit: 4af6fba908a6b038addc7c72a0f17a4eb041a3f4        
+remote:            path: secret_secrets.json:6        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/rajeshkumarblr/hn_station/security/secret-scanning/unblock-secret/3C1cKVFYokvPlr5je8OoSmJLBrp        
+remote:             
+remote: 
+remote: 
+To github.com:rajeshkumarblr/hn_station.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'github.com:rajeshkumarblr/hn_station.git'

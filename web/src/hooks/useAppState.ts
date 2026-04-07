@@ -1,8 +1,18 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { PAGE_SIZE, MAX_READ_IDS } from '../types';
-import type { Story, ReaderTab, ModeKey } from '../types';
+import type { Story, ReaderTab, ModeKey, User } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview, isElectron } from '../utils/env';
+
+async function fetchWithAuth(url: string, init?: RequestInit): Promise<Response> {
+    const token = localStorage.getItem('hn_jwt_token');
+    const headers = new Headers(init?.headers || {});
+    if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+    return fetch(url, { ...init, headers });
+}
+
 function loadReadIds(): Set<number> {
     try {
         const saved = localStorage.getItem('hn_read_stories');
@@ -62,21 +72,6 @@ export interface BackendStats {
     total_interactions: number;
     total_stories: number;
     total_comments: number;
-}
-
-interface User {
-    id: string;
-    email: string;
-    name: string;
-    topics: string[];
-    iframe_blocked: boolean | null;
-    avatar_url: string;
-    is_admin: boolean;
-    ai_summaries_enabled: boolean;
-    ollama_available: boolean;
-    ollama_model?: string;
-    ollama_models?: string[];
-    gemini_api_key?: string;
 }
 
 export function getStoryTopicMatch(storyTitle: string | undefined, storyTopics: string[] | undefined, activeTopics: string[]): string | null {
@@ -151,7 +146,7 @@ export function useAppState() {
         if (!tab) return;
 
         const baseUrl = getApiBase();
-        fetch(`${baseUrl}/api/stories/${tab.storyId}`)
+        fetchWithAuth(`${baseUrl}/api/stories/${tab.storyId}`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data && data.story) {
@@ -224,13 +219,44 @@ export function useAppState() {
         if (isElectron() && (!apiBase || apiBase.includes('hnstation.dev'))) {
             return;
         }
-        const url = `${apiBase}/api/me`;
 
-        fetch(url, { credentials: 'include' })
-            .then(res => res.ok ? res.json() : null)
-            .then(data => setUser(data))
-            .catch(() => setUser(null));
-    }, [apiBase]);
+        // Diagnostic check: If we are in Electron but electronAPI is missing, show a warning
+        if (isElectron() && !(window as any).electronAPI) {
+            setGlobalWarning("IPC Bridge Failure: The background process is restricted. Please check if your antivirus is blocking the app components.");
+        }
+
+        const fetchMe = () => {
+            const url = `${apiBase}/api/me`;
+
+            fetchWithAuth(url, { credentials: 'include' })
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data) {
+                        setUser(data);
+                        if (data.jwt_token) {
+                            localStorage.setItem('hn_jwt_token', data.jwt_token);
+                        }
+                    } else {
+                        setUser(null);
+                    }
+                })
+                .catch(() => {
+                    setUser(null);
+                });
+        };
+
+        fetchMe();
+
+        // If not logged in on desktop, poll every 2 seconds to "claim" the proxy token
+        let interval: any;
+        if (isElectron() && !user?.authenticated) {
+            interval = setInterval(fetchMe, 2000);
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [apiBase, user?.authenticated]);
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -278,7 +304,7 @@ export function useAppState() {
         setBufferOffset(prev => prev);
         if (user) {
             const baseUrl = getApiBase();
-            fetch(`${baseUrl}/api/stories/${id}/interact`, {
+            fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -353,7 +379,7 @@ export function useAppState() {
 
         if (user) {
             const baseUrl = getApiBase();
-            fetch(`${baseUrl}/api/stories/${id}/interact`, {
+            fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -369,7 +395,7 @@ export function useAppState() {
         setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, is_saved: saved } } : t));
 
         const baseUrl = getApiBase();
-        fetch(`${baseUrl}/api/stories/${id}/interact`, {
+        fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -418,7 +444,7 @@ export function useAppState() {
         const url = buildUrl(bufferOffset);
         if (!url) return;
         setFetchingMore(true);
-        fetch(url)
+        fetchWithAuth(url)
             .then(res => { if (!res.ok) throw new Error('Failed'); return res.json(); })
             .then(data => {
                 const incoming: Story[] = data.stories || [];
@@ -442,7 +468,7 @@ export function useAppState() {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-        fetch(url, { signal: controller.signal })
+        fetchWithAuth(url, { signal: controller.signal })
             .then(res => {
                 clearTimeout(timeout);
                 if (!res.ok) throw new Error('Could not connect to backend. Please check if the local server is running.');
@@ -479,10 +505,9 @@ export function useAppState() {
     useEffect(() => {
         const fetchStats = () => {
             const baseUrl = getApiBase();
-            // Don't fetch if apiBase is not yet initialized in Electron
             if (!baseUrl && isElectron()) return;
             
-            fetch(`${baseUrl}/api/stats`)
+            fetchWithAuth(`${baseUrl}/api/stats`)
                 .then(res => res.ok ? res.json() : null)
                 .then(data => {
                     if (data) setBackendStats(data);
@@ -490,10 +515,19 @@ export function useAppState() {
                 .catch(err => console.error('[useAppState] stats fetch error:', err));
         };
 
+        // Initial fetch
         fetchStats();
-        const interval = setInterval(fetchStats, 10000); // Every 10s
-        return () => clearInterval(interval);
-    }, [apiBase]);
+
+        // Only poll if Admin Dashboard is open OR we have no stories (showing "Initializing" screen)
+        let interval: any;
+        if (isAdminModalOpen || (stories.length === 0 && !loading)) {
+            interval = setInterval(fetchStats, 15000); // Pulse slower (15s)
+        }
+        
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [apiBase, isAdminModalOpen, stories.length === 0, loading]);
 
     useEffect(() => {
         // Only trigger the "refill" logic if we are on the first page (offset 0).
@@ -516,7 +550,7 @@ export function useAppState() {
     useEffect(() => {
         if (selectedStoryId === null) return;
         const baseUrl = apiBase ?? '';
-        fetch(`${baseUrl}/api/stories/${selectedStoryId}`)
+        fetchWithAuth(`${baseUrl}/api/stories/${selectedStoryId}`)
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 // We still want to update the tab's injected story object (with URL etc.)

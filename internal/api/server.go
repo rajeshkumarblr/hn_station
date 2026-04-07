@@ -27,6 +27,7 @@ type Server struct {
 	aiClient     *ai.OllamaClient
 	geminiClient *ai.GeminiClient
 	localMode    bool // true = SQLite local mode, auth disabled
+	pendingAuthToken string
 }
 
 func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, localMode bool) *Server {
@@ -79,14 +80,16 @@ func (s *Server) routes() {
 	s.router.Get("/api/stories/{id}/content", s.handleGetArticleContent)
 	s.router.Get("/api/stories/{id}/check-iframe", s.handleCheckIframe)
 	s.router.Get("/api/me", s.handleGetMe)
-	s.router.Get("/api/stats", s.handleGetStats)
+	s.router.Post("/api/user/topics", s.handleUpdateUserTopics)
 	s.router.Post("/api/settings", s.handleUpdateSettings)
+	s.router.Get("/api/stats", s.handleGetStats)
 	s.router.Get("/api/download/latest", s.handleDownloadLatest)
 
 	// Auth routes
 	s.router.Get("/auth/google", s.handleGoogleLogin)
 	s.router.Get("/auth/google/callback", s.handleGoogleCallback)
 	s.router.Get("/auth/logout", s.handleLogout)
+	s.router.Get("/auth/callback", s.handleDesktopCallback)
 
 	// AI routes
 	s.router.Get("/api/models/ollama", s.handleListOllamaModels)
@@ -104,47 +107,49 @@ func (s *Server) routes() {
 	// Serve index.html for any other route that doesn't match API or static files
 	// This assumes the frontend build output is served from "web/dist" or similar
 	// But actually, in production, usually Nginx handles this.
-	// If Go server is the only entrypoint, it needs to serve static files too.
-	// Let's check where static files are served.
-	// Current code doesn't seem to serve static files at all!
-	// It assumes specific API routes.
-	// Wait, Dockerfile might copy static files to a location.
-	// But s.routes() has no FileServer logic.
-	// Let's add it.
-
-	workDir, _ := os.Getwd()
-	filesDir := http.Dir(fmt.Sprintf("%s/web/dist", workDir))
-
-	// Serve static files
-	FileServer(s.router, "/", filesDir)
+	// Serve static files with SPA fallback
+	staticDir := os.Getenv("STATIC_FILES_DIR")
+	if staticDir == "" {
+		staticDir = "./web/dist"
+	}
+	s.FileServer("/", http.Dir(staticDir))
 }
 
 // FileServer sets up a handler that serves static files from a http.FileSystem.
-// If a file is not found, it falls back to serving index.html (SPA behavior).
-func FileServer(r chi.Router, path string, root http.FileSystem) {
+// If a file is not found and the path doesn't start with /api or /auth, it falls back to serving index.html (SPA behavior).
+func (s *Server) FileServer(path string, root http.FileSystem) {
 	if strings.Contains(path, "{}") {
 		panic("FileServer does not permit any URL parameters.")
 	}
 
 	if path != "/" && path[len(path)-1] != '/' {
-		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		s.router.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
 		path += "/"
 	}
 	path += "*"
 
-	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
+	s.router.Get(path, func(w http.ResponseWriter, r *http.Request) {
 		rctx := chi.RouteContext(r.Context())
 		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
 		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
 
 		// Check if file exists
 		fsPath := strings.TrimPrefix(r.URL.Path, pathPrefix)
+		if fsPath == "" {
+			fsPath = "/"
+		}
+
 		f, err := root.Open(fsPath)
 		if err != nil {
-			// File not found, serve index.html
+			// If it's an API or Auth route, don't serve index.html, let Chi 404
+			if strings.HasPrefix(r.URL.Path, "/api") || strings.HasPrefix(r.URL.Path, "/auth") {
+				http.NotFound(w, r)
+				return
+			}
+
+			// File not found, serve index.html for SPA fallback
 			index, err := root.Open("index.html")
 			if err != nil {
-				// Don't expose internal error, just 404
 				http.NotFound(w, r)
 				return
 			}
@@ -152,7 +157,7 @@ func FileServer(r chi.Router, path string, root http.FileSystem) {
 			http.ServeContent(w, r, "index.html", time.Time{}, index)
 			return
 		}
-		defer f.Close()
+		f.Close()
 
 		// Serve the file
 		fs.ServeHTTP(w, r)
@@ -184,7 +189,8 @@ func isSecureRequest(r *http.Request) bool {
 		return true
 	}
 	// Behind a proxy (K8s ingress)
-	return r.Header.Get("X-Forwarded-Proto") == "https"
+	proto := r.Header.Get("X-Forwarded-Proto")
+	return proto == "https" || proto == "HTTPS"
 }
 
 // ─── Auth Handlers ───
@@ -192,15 +198,44 @@ func isSecureRequest(r *http.Request) bool {
 func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	state := auth.GenerateStateToken()
 
+	desktopPort := r.URL.Query().Get("desktop_port")
+	if desktopPort != "" {
+		// Basic numeric validation to prevent malicious redirects
+		if _, err := strconv.Atoi(desktopPort); err == nil {
+			secure := isSecureRequest(r)
+			sameSite := http.SameSiteLaxMode
+			if secure {
+				sameSite = http.SameSiteNoneMode
+			}
+
+			// Store desktop port in a cookie for callback
+			http.SetCookie(w, &http.Cookie{
+				Name:     "oauth_desktop_port",
+				Value:    desktopPort,
+				Path:     "/",
+				MaxAge:   300,
+				HttpOnly: true,
+				Secure:   secure,
+				SameSite: sameSite,
+			})
+		}
+	}
+
 	// Store state in a short-lived cookie for verification on callback
+	secure := isSecureRequest(r)
+	sameSite := http.SameSiteLaxMode
+	if secure {
+		sameSite = http.SameSiteNoneMode
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
 		Path:     "/",
 		MaxAge:   300, // 5 minutes
 		HttpOnly: true,
-		Secure:   isSecureRequest(r),
-		SameSite: http.SameSiteLaxMode,
+		Secure:   secure,
+		SameSite: sameSite,
 	})
 
 	url := s.auth.OAuth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
@@ -210,7 +245,13 @@ func (s *Server) handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// Verify state for CSRF protection
 	stateCookie, err := r.Cookie("oauth_state")
-	if err != nil || stateCookie.Value != r.URL.Query().Get("state") {
+	receivedState := r.URL.Query().Get("state")
+	if err != nil || stateCookie.Value != receivedState {
+		cookieVal := "NONE"
+		if err == nil {
+			cookieVal = stateCookie.Value
+		}
+		log.Printf("Auth State Mismatch: cookie=%s, received=%s, err=%v", cookieVal, receivedState, err)
 		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
 		return
 	}
@@ -273,7 +314,47 @@ func (s *Server) handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// Set session cookie
 	auth.SetSessionCookie(w, jwtToken, isSecureRequest(r))
 
-	// Redirect to frontend
+	// Check for desktop redirect
+	desktopPort := ""
+	if portCookie, err := r.Cookie("oauth_desktop_port"); err == nil {
+		desktopPort = portCookie.Value
+		// Clear desktop port cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:   "oauth_desktop_port",
+			Value:  "",
+			Path:   "/",
+			MaxAge: -1,
+		})
+	}
+
+	if desktopPort != "" {
+		// Redirect back to local desktop app with token and user info
+		// We pass user info so the local app can update its SQLite cache immediately
+		// The local app MUST have a handler for this callback.
+		localCallbackURL := fmt.Sprintf("http://127.0.0.1:%s/auth/callback?token=%s&id=%s&email=%s&name=%s&avatar=%s",
+			desktopPort, jwtToken, user.ID, user.Email, user.Name, user.AvatarURL)
+		http.Redirect(w, r, localCallbackURL, http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Redirect to frontend (standard web flow)
+	if s.localMode {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `
+			<html>
+			<head><title>Login Successful</title></head>
+			<body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: #f8fafc; margin: 0;">
+				<div style="text-align: center; max-width: 400px; padding: 40px; border-radius: 20px; background: #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+					<h1 style="color: #60a5fa; margin-bottom: 10px;">Login Successful!</h1>
+					<p style="color: #94a3b8; margin-bottom: 25px;">You have successfully signed in. You can now close this browser tab and return to the HN Station app.</p>
+					<button onclick="window.close()" style="padding: 12px 24px; background: #3b82f6; border: none; color: white; border-radius: 10px; cursor: pointer; font-weight: bold; transition: background 0.2s;">Close Tab</button>
+				</div>
+			</body>
+			</html>
+		`)
+		return
+	}
+
 	redirectURL := os.Getenv("FRONTEND_URL")
 	if redirectURL == "" {
 		redirectURL = "/"
@@ -286,13 +367,90 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	redirectURL := os.Getenv("FRONTEND_URL")
 	if redirectURL == "" {
+		if s.localMode {
+			w.Header().Set("Content-Type", "text/html")
+			fmt.Fprint(w, `
+				<html>
+				<head><title>Logged Out</title></head>
+				<body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: #f8fafc; margin: 0;">
+					<div style="text-align: center; max-width: 400px; padding: 40px; border-radius: 20px; background: #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+						<h1 style="color: #ef4444; margin-bottom: 10px;">Logged Out</h1>
+						<p style="color: #94a3b8; margin-bottom: 25px;">You have been successfully logged out of HN Station. You can now close this browser tab.</p>
+						<button onclick="window.close()" style="padding: 12px 24px; background: #475569; border: none; color: white; border-radius: 10px; cursor: pointer; font-weight: bold;">Close Tab</button>
+					</div>
+				</body>
+				</html>
+			`)
+			return
+		}
 		redirectURL = "/"
 	}
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
+func (s *Server) handleDesktopCallback(w http.ResponseWriter, r *http.Request) {
+	// Only allow in local mode (security)
+	if !s.localMode {
+		http.Error(w, "Endpoint only available in local mode", http.StatusForbidden)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	email := r.URL.Query().Get("email")
+	name := r.URL.Query().Get("name")
+	avatar := r.URL.Query().Get("avatar")
+
+	if id != "" {
+		// Use Background context to ensure write completes even if browser tab closes fast
+		if _, err := s.store.UpsertAuthUser(context.Background(), id, email, name, avatar); err != nil {
+			log.Printf("Failed to cache proxy user in local DB: %v", err)
+		}
+	}
+
+	// We trust the proxy redirect to 127.0.0.1:58090.
+	// Since the local agent has a different JWT_SECRET than the cloud,
+	// we generate a NEW local token for this user so handleGetMe can validate it.
+	localToken, err := s.auth.GenerateToken(id, email)
+	if err != nil {
+		log.Printf("[AUTH] Failed to generate local token for %s: %v", id, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Save token for Electron app to claim via handleGetMe poll
+	s.pendingAuthToken = localToken
+
+	// Show success page
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprint(w, `
+		<html>
+		<head><title>Cloud Sync Enabled</title></head>
+		<body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #0f172a; color: #f8fafc; margin: 0;">
+			<div style="text-align: center; max-width: 400px; padding: 40px; border-radius: 20px; background: #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+				<h1 style="color: #60a5fa; margin-bottom: 10px;">Cloud Sync Enabled!</h1>
+				<p style="color: #94a3b8; margin-bottom: 25px;">You have successfully linked your account. Your bookmarks and filters will now sync with the cloud.</p>
+				<button onclick="window.close()" style="padding: 12px 24px; background: #3b82f6; border: none; color: white; border-radius: 10px; cursor: pointer; font-weight: bold;">Close Tab</button>
+				<script>setTimeout(() => window.close(), 5000);</script>
+			</div>
+		</body>
+		</html>
+	`)
+}
+
 func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)
+
+	var claimedToken string
+	// In local mode, if we're not logged in but have a pending token from the auth proxy, claim it!
+	if userID == "" && s.localMode && s.pendingAuthToken != "" {
+		claims, err := s.auth.ValidateToken(s.pendingAuthToken)
+		if err == nil && claims != nil {
+			userID = claims.UserID
+			auth.SetSessionCookie(w, s.pendingAuthToken, isSecureRequest(r))
+			claimedToken = s.pendingAuthToken
+			s.pendingAuthToken = ""
+		}
+	}
 
 	// Determine Ollama availability
 	ollamaURL := os.Getenv("OLLAMA_URL")
@@ -319,7 +477,7 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 		ollamaModels, _ = s.aiClient.ListModels(r.Context(), ollamaURL)
 	}
 
-	// In local mode, if not authenticated, return a default mock user
+	// In local mode, if not authenticated, return a default mock user with authenticated: false
 	if userID == "" && s.localMode {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -328,10 +486,12 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 			"name":                 "Local User",
 			"avatar_url":           "",
 			"is_admin":             true,
+			"authenticated":        false, // Explicitly marked as not cloud-authenticated
 			"ai_summaries_enabled": aiEnabled,
 			"ollama_available":     ollamaAvailable,
 			"ollama_model":         ollamaModel,
 			"ollama_models":        ollamaModels,
+			"jwt_token":            claimedToken, // Might be empty if nothing claimed
 		})
 		return
 	}
@@ -344,7 +504,12 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := s.store.GetAuthUser(r.Context(), userID)
-	if err != nil {
+	if err != nil || user == nil {
+		if err != nil {
+			log.Printf("Error fetching claimed user %s: %v", userID, err)
+		} else {
+			log.Printf("Claimed user %s not found in database", userID)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{"error": "user not found"})
@@ -354,18 +519,22 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	// Map to response struct that includes the extra fields
 	resp := struct {
 		*storage.AuthUser
+		Authenticated      bool     `json:"authenticated"`
 		AISummariesEnabled bool     `json:"ai_summaries_enabled"`
 		OllamaAvailable    bool     `json:"ollama_available"`
 		OllamaModel        string   `json:"ollama_model"`
 		OllamaModels       []string `json:"ollama_models"`
 		AIProvider         string   `json:"ai_provider"`
+		JWTToken           string   `json:"jwt_token,omitempty"`
 	}{
 		AuthUser:           user,
+		Authenticated:      true, // Real session
 		AISummariesEnabled: aiEnabled,
 		OllamaAvailable:    ollamaAvailable,
 		OllamaModel:        ollamaModel,
 		OllamaModels:       ollamaModels,
 		AIProvider:         aiProvider,
+		JWTToken:           claimedToken,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -708,6 +877,33 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		"summary": result.Summary,
 		"topics":  result.Topics,
 	})
+}
+
+func (s *Server) handleUpdateUserTopics(w http.ResponseWriter, r *http.Request) {
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		if s.localMode {
+			userID = "local-user"
+		} else {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+	}
+
+	var req struct {
+		Topics []string `json:"topics"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.UpdateUserTopics(r.Context(), userID, req.Topics); err != nil {
+		http.Error(w, "Failed to update topics", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {

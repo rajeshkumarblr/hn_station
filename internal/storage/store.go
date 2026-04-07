@@ -19,15 +19,97 @@ func New(db *pgxpool.Pool) *PostgresStore {
 }
 
 func (s *PostgresStore) Migrate(ctx context.Context) error {
-	query := `
+	// Initial schema creation if stories table doesn't exist
+	initQuery := `
+		CREATE TABLE IF NOT EXISTS stories (
+			id BIGINT PRIMARY KEY,
+			title TEXT NOT NULL,
+			url TEXT,
+			score INT DEFAULT 0,
+			by TEXT,
+			descendants INT DEFAULT 0,
+			posted_at TIMESTAMP WITH TIME ZONE NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			hn_rank INT,
+			summary TEXT,
+			topics TEXT[] DEFAULT '{}',
+			search_vector tsvector,
+			iframe_blocked BOOLEAN
+		);
+		CREATE INDEX IF NOT EXISTS idx_stories_posted_at ON stories(posted_at DESC);
+		CREATE INDEX IF NOT EXISTS idx_stories_search_vector ON stories USING gin(search_vector);
+
+		CREATE TABLE IF NOT EXISTS comments (
+			id BIGINT PRIMARY KEY,
+			story_id BIGINT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+			parent_id BIGINT,
+			text TEXT NOT NULL,
+			by TEXT,
+			posted_at TIMESTAMP WITH TIME ZONE NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		);
+		CREATE INDEX IF NOT EXISTS idx_comments_story_id ON comments(story_id);
+
+		CREATE TABLE IF NOT EXISTS users (
+			id TEXT PRIMARY KEY,
+			created INT,
+			karma INT,
+			about TEXT,
+			submitted INT[],
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS auth_users (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			google_id TEXT UNIQUE NOT NULL,
+			email TEXT UNIQUE NOT NULL,
+			name TEXT,
+			avatar_url TEXT,
+			is_admin BOOLEAN DEFAULT FALSE,
+			summaries_enabled BOOLEAN DEFAULT TRUE,
+			gemini_api_key TEXT,
+			topics TEXT[] DEFAULT '{}',
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS user_interactions (
+			user_id UUID REFERENCES auth_users(id) ON DELETE CASCADE,
+			story_id BIGINT REFERENCES stories(id) ON DELETE CASCADE,
+			is_read BOOLEAN DEFAULT FALSE,
+			is_saved BOOLEAN DEFAULT FALSE,
+			is_hidden BOOLEAN DEFAULT FALSE,
+			PRIMARY KEY (user_id, story_id)
+		);
+
+		CREATE TABLE IF NOT EXISTS chat_messages (
+			id SERIAL PRIMARY KEY,
+			user_id UUID REFERENCES auth_users(id) ON DELETE CASCADE,
+			story_id BIGINT REFERENCES stories(id) ON DELETE CASCADE,
+			role TEXT NOT NULL,
+			content TEXT NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		);
+	`
+	if _, err := s.db.Exec(ctx, initQuery); err != nil {
+		return fmt.Errorf("initial migration failed: %w", err)
+	}
+
+	// Hot-fix migrations for existing tables
+	hotFixQuery := `
 		DO $$
 		BEGIN
 			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='iframe_blocked') THEN
 				ALTER TABLE stories ADD COLUMN iframe_blocked BOOLEAN DEFAULT NULL;
 			END IF;
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='auth_users' AND column_name='topics') THEN
+				ALTER TABLE auth_users ADD COLUMN topics TEXT[] DEFAULT '{}';
+			END IF;
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='auth_users' AND column_name='summaries_enabled') THEN
+				ALTER TABLE auth_users ADD COLUMN summaries_enabled BOOLEAN DEFAULT TRUE;
+			END IF;
 		END $$;
 	`
-	_, err := s.db.Exec(ctx, query)
+	_, err := s.db.Exec(ctx, hotFixQuery)
 	return err
 }
 
@@ -274,12 +356,13 @@ func (s *PostgresStore) UpsertAuthUser(ctx context.Context, googleID, email, nam
 		SET email = EXCLUDED.email,
 			name = EXCLUDED.name,
 			avatar_url = EXCLUDED.avatar_url
-		RETURNING id, google_id, email, name, avatar_url, is_admin, COALESCE(gemini_api_key, ''), created_at
+		RETURNING id, google_id, email, name, avatar_url, is_admin, COALESCE(gemini_api_key, ''), COALESCE(topics, '{}'::text[]), created_at
 	`
 	var user AuthUser
 	err := s.db.QueryRow(ctx, query, googleID, email, name, avatarURL).Scan(
-		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.GeminiAPIKey, &user.CreatedAt,
+		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.GeminiAPIKey, &user.Topics, &user.CreatedAt,
 	)
+	user.SummariesEnabled = true // Default for cloud upsert if not in returning
 	if err != nil {
 		return nil, err
 	}
@@ -288,15 +371,24 @@ func (s *PostgresStore) UpsertAuthUser(ctx context.Context, googleID, email, nam
 
 // GetAuthUser fetches a user by their UUID.
 func (s *PostgresStore) GetAuthUser(ctx context.Context, userID string) (*AuthUser, error) {
-	query := `SELECT id, google_id, email, name, avatar_url, is_admin, COALESCE(gemini_api_key, ''), created_at FROM auth_users WHERE id = $1`
+	query := `SELECT id, google_id, email, name, avatar_url, is_admin, summaries_enabled, COALESCE(gemini_api_key, ''), COALESCE(topics, '{}'::text[]), created_at FROM auth_users WHERE id = $1`
 	var user AuthUser
 	err := s.db.QueryRow(ctx, query, userID).Scan(
-		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.GeminiAPIKey, &user.CreatedAt,
+		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &user.GeminiAPIKey, &user.Topics, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (s *PostgresStore) UpdateUserTopics(ctx context.Context, userID string, topics []string) error {
+	if len(userID) < 32 {
+		return nil
+	}
+	query := `UPDATE auth_users SET topics = $1 WHERE id = $2`
+	_, err := s.db.Exec(ctx, query, topics, userID)
+	return err
 }
 
 func (s *PostgresStore) UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error {
@@ -305,8 +397,11 @@ func (s *PostgresStore) UpdateUserGeminiKey(ctx context.Context, userID, apiKey 
 	return err
 }
 
-// UpsertInteraction creates or updates a user-story interaction.
 func (s *PostgresStore) UpsertInteraction(ctx context.Context, userID string, storyID int, isRead *bool, isSaved *bool, isHidden *bool) error {
+	// Skip if not a valid UUID (e.g. "local-user" during guest mode on desktop)
+	if len(userID) < 32 {
+		return nil
+	}
 	query := `
 		INSERT INTO user_interactions (user_id, story_id, is_read, is_saved, is_hidden, updated_at)
 		VALUES ($1, $2, COALESCE($3, FALSE), COALESCE($4, FALSE), COALESCE($5, FALSE), NOW())
@@ -442,12 +537,12 @@ func (s *PostgresStore) GetAppStats(ctx context.Context) (*AppStats, error) {
 func (s *PostgresStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
 	query := `
 		SELECT 
-			u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, COALESCE(u.gemini_api_key, ''), u.created_at,
+			u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, u.summaries_enabled, COALESCE(u.gemini_api_key, ''), u.created_at,
 			COUNT(ui.story_id) FILTER (WHERE ui.is_read = TRUE) as total_views,
 			MAX(ui.updated_at) as last_seen
 		FROM auth_users u
 		LEFT JOIN user_interactions ui ON u.id = ui.user_id
-		GROUP BY u.id
+		GROUP BY u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, u.summaries_enabled, u.gemini_api_key, u.created_at
 		ORDER BY u.created_at DESC
 	`
 	rows, err := s.db.Query(ctx, query)
@@ -460,7 +555,7 @@ func (s *PostgresStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
 	for rows.Next() {
 		var user AuthUser
 		if err := rows.Scan(
-			&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.GeminiAPIKey, &user.CreatedAt,
+			&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &user.GeminiAPIKey, &user.CreatedAt,
 			&user.TotalViews, &user.LastSeen,
 		); err != nil {
 			return nil, err

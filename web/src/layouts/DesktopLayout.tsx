@@ -1,15 +1,17 @@
 import { useRef, useState, useEffect } from 'react';
-import { RefreshCw, Home, Settings, Shield, LogIn, LogOut, X, Download } from 'lucide-react';
+import { RefreshCw, Home, Settings, Shield, LogIn, LogOut, X } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
 import { AdminDashboard } from '../components/AdminDashboard';
 import { SettingsModal } from '../components/SettingsModal';
 import { getStoryTopicMatch } from '../hooks/useAppState';
+import { getApiBase } from '../utils/apiBase';
 import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
 import { MODES } from '../types';
-import { isWebPreview } from '../utils/env';
+import { isElectron as getIsElectron } from '../utils/env';
+import { fetchWithAuth } from '../utils/api';
 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
@@ -25,16 +27,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         handleStorySelect, handleToggleSave,
         readIds, setReadIds, setHighlightedStoryId
     } = app;
-    const isWebMode = isWebPreview();
+    const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const [isHelpOpen, setIsHelpOpen] = useState(false);
+    const PAGE_SIZE = 10;
+    const isElectron = getIsElectron();
 
     // Resolve the story object for the highlighted (keyboard/hovered) card
     const highlightedStory = stories.find(s => s.id === highlightedStoryId) ?? null;
-
-    const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const modeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
-    const [isHelpOpen, setIsHelpOpen] = useState(false);
-    const PAGE_SIZE = 10;
-    const isElectron = !!(window as any).electronAPI;
 
     // Auto-switch to page 1 only when the user MANUALLY changes activeTopics.
     // (Handled via setOffset(0) in FilterSidebar or useAppState, not here to avoid pagination jump)
@@ -71,7 +70,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             });
 
             // Mark as read in backend
-            fetch(`${baseUrl}/api/stories/${highlightedStoryId}/interact`, {
+            fetchWithAuth(`${baseUrl}/api/stories/${highlightedStoryId}/interact`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -84,140 +83,139 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     return (
         <div className="h-screen bg-[#f3f4f6] dark:bg-[#0f172a] text-gray-800 dark:text-slate-200 font-sans overflow-hidden flex flex-col transition-colors duration-200">
             {/* ─── Zen Header ─── */}
-            <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-            {/* -webkit-app-region:drag makes the header the native Electron drag handle */}
-            <header className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-5 flex-shrink-0 z-50 h-[56px] relative" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
-                <div className="h-full flex items-center relative" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-                    {/* Absolute Center Layer: Branding & Reader Controls */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                        <div className="flex items-center gap-10 whitespace-nowrap pointer-events-auto">
-                            {/* Left: Branding Left Spacer */}
-                            <div className="min-w-[120px]"></div>
-
-                            {/* Center: Branding */}
-                            <div className="flex flex-col items-center">
-                                <span className="text-sm font-black tracking-tighter text-[#ff6600] uppercase">HN Station</span>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 opacity-60 leading-tight">{isWebMode ? 'Web UI v1.7.3' : 'v1.1.1'}</span>
-                            </div>
-
-                            {/* Right: Actions Portal */}
-                            <div className="flex items-center min-w-[200px] justify-start bg-slate-200/20 dark:bg-slate-700/20 rounded-lg px-2 min-h-[32px]"></div>
-                        </div>
-                    </div>
-
-                    {/* Content Layers (Left/Right) */}
-                    <div className="flex-1 flex items-center justify-between h-full relative z-10 pointer-events-none">
-                        {/* Left Section: Menu */}
-                        <div className="flex items-center h-full pointer-events-auto bg-slate-100 dark:bg-slate-800 pr-6">
-                            <nav className="h-full flex items-center gap-6">
-                                {MODES.map((m, i) => {
-                                    const isActive = mode === m.key;
-                                    return (
-                                        <button
-                                            key={m.key}
-                                            ref={el => modeButtonRefs.current[i] = el}
-                                            onClick={() => {
-                                                if (mode === m.key) handleRefresh();
-                                                else { setMode(m.key as any); setOffset?.(0); }
-                                                setCurrentView('feed');
-                                            }}
-                                            className={`h-full flex items-center text-xs font-bold transition-all outline-none border-b-2 ${isActive
-                                                ? 'text-white border-white'
-                                                : 'text-blue-100/70 border-transparent hover:text-white hover:border-white/50'
-                                                }`}
-                                        >
-                                            {m.label}
-                                        </button>
-                                    );
-                                })}
-                            </nav>
-                        </div>
-
-                        {/* Right Section: App Controls */}
-                        <div className="flex items-center justify-end gap-1.5 shrink-0 pointer-events-auto bg-slate-100 dark:bg-slate-800 pl-6">
-                            <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" title="Settings">
-                                <Settings size={16} />
-                            </button>
-
-                            {isWebMode && (
-                                <a
-                                    href="/api/download/latest"
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/20 transition-all ml-2"
+            {/* ─── Zen Header ─── */}
+            <header 
+                className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 h-[48px] flex items-center justify-between px-4 shrink-0 z-[100] relative select-none"
+                style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+            >
+                {/* Left Section: Modes */}
+                <div className="flex items-center h-full gap-4 shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                    <nav className="h-full flex items-center gap-4">
+                        {MODES.map((m) => {
+                            const isActive = mode === m.key;
+                            return (
+                                <button
+                                    key={m.key}
+                                    onClick={() => {
+                                        if (mode === m.key) handleRefresh();
+                                        else { setMode(m.key as any); setOffset?.(0); }
+                                        setCurrentView('feed');
+                                    }}
+                                    className={`text-xs font-bold transition-all outline-none py-1 border-b-2 ${isActive
+                                        ? 'text-blue-600 border-blue-600'
+                                        : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-white'
+                                        }`}
                                 >
-                                    <Download size={14} />
-                                    Download
-                                </a>
-                            )}
+                                    {m.label}
+                                </button>
+                            );
+                        })}
+                    </nav>
+                </div>
 
-                            {/* Auth — Now enabled for both Web and Desktop (for cloud sync) */}
-                            <>
-                                    {user ? (
-                                        <div className="flex items-center gap-2 ml-1">
-                                            {user.is_admin && (
-                                                <button onClick={() => setIsAdminModalOpen(true)} className="p-2 mr-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
-                                                    <Shield size={14} />
-                                                </button>
-                                            )}
-                                            <img src={user.avatar_url} alt={user.name} className="w-7 h-7 rounded-full ring-2 ring-slate-300 dark:ring-slate-700" title={user.name} />
-                                            <a href="/auth/logout" className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"><LogOut size={16} /></a>
-                                        </div>
-                                    ) : (
-                                        <a href="/auth/google" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold ml-1">
-                                            <LogIn size={14} /> Sign in
-                                        </a>
-                                    )}
-                            </>
+                {/* Center Branding: Absolute Centered */}
+                <div 
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none"
+                    style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+                >
+                    <span className="text-[11px] font-black tracking-widest text-[#ff6600] uppercase leading-none drop-shadow-sm">HN Station</span>
+                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v1.9.0</span>
+                </div>
 
-                            {/* Window controls — Windows style, only in Electron */}
-                            {isElectron && (
-                                <div className="flex items-center ml-3 pl-2 border-l border-slate-300 dark:border-slate-700/60" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-                                    {/* Minimize */}
-                                    <button
-                                        onClick={() => (window as any).electronAPI.minimize()}
-                                        className="w-11 h-8 flex items-center justify-center text-slate-400 hover:bg-slate-600/60 hover:text-white transition-colors text-sm"
-                                        title="Minimize"
-                                    >
-                                        <span className="text-base leading-none select-none">─</span>
-                                    </button>
-                                    {/* Maximize */}
-                                    <button
-                                        onClick={() => (window as any).electronAPI.maximize()}
-                                        className="w-11 h-8 flex items-center justify-center text-slate-400 hover:bg-slate-600/60 hover:text-white transition-colors text-sm"
-                                        title="Maximize / Restore"
-                                    >
-                                        <span className="text-[11px] leading-none select-none border border-current" style={{ padding: '1px 3px' }}>□</span>
-                                    </button>
-                                    {/* Close */}
-                                    <button
-                                        onClick={() => (window as any).electronAPI.close()}
-                                        className="w-11 h-8 flex items-center justify-center text-slate-400 hover:bg-red-600 hover:text-white transition-colors text-base font-bold"
-                                        title="Close"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
+                {/* Right Section: Controls & Auth */}
+                <div className="flex items-center gap-2 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                    <button 
+                        onClick={() => setIsSettingsOpen(true)} 
+                        className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" 
+                        title="Settings"
+                    >
+                        <Settings size={16} />
+                    </button>
+
+                    {user && user.authenticated ? (
+                        <div className="flex items-center gap-2">
+                            {user.is_admin && (
+                                <button onClick={() => setIsAdminModalOpen(true)} className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
+                                    <Shield size={14} />
+                                </button>
                             )}
+                            <img src={user.avatar_url} alt={user.name} className="w-6 h-6 rounded-full ring-1 ring-slate-300 dark:ring-slate-700" title={user.name} />
+                            <button
+                                onClick={() => {
+                                    const url = `${getApiBase()}/auth/logout`;
+                                    const electron = (window as any).electronAPI;
+                                    if (isElectron && electron) electron.openExternal(url);
+                                    else window.location.href = url;
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                            >
+                                <LogOut size={16} />
+                            </button>
                         </div>
-                    </div>
+                    ) : (
+                        <button
+                            onClick={() => {
+                                const base = getApiBase();
+                                const port = base.split(':').pop() || '58090';
+                                const url = isElectron 
+                                    ? `https://hnstation.dev/auth/google?desktop_port=${port}`
+                                    : `${base}/auth/google`;
+                                
+                                const electron = (window as any).electronAPI;
+                                if (isElectron && electron) {
+                                    electron.openExternal(url);
+                                } else {
+                                    window.location.href = url;
+                                }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold shadow-lg shadow-blue-500/20 transition-all uppercase"
+                        >
+                            <LogIn size={12} /> Sign in
+                        </button>
+                    )}
+
+                    {/* Window Controls - Tight Windows Style */}
+                    {isElectron && (
+                        <div className="flex items-center ml-2 border-l border-slate-200 dark:border-slate-700 pl-1 h-full">
+                            <button
+                                onClick={() => (window as any).electronAPI?.minimize()}
+                                className="w-10 h-full flex items-center justify-center text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <span className="text-sm">─</span>
+                            </button>
+                            <button
+                                onClick={() => (window as any).electronAPI?.maximize()}
+                                className="w-10 h-full flex items-center justify-center text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <span className="text-[10px] border border-current px-0.5">□</span>
+                            </button>
+                            <button
+                                onClick={() => (window as any).electronAPI?.close()}
+                                className="w-10 h-full flex items-center justify-center text-slate-400 hover:bg-red-500 hover:text-white transition-colors"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </header>
 
             {/* Global Tab Bar Container (Neutral Theme - Flush) */}
             {tabs.length > 0 && (
-                <div className="flex bg-slate-100 dark:bg-slate-800 overflow-x-auto border-b border-slate-200 dark:border-slate-700 shrink-0 gap-0">
+                <div className="flex bg-slate-100 dark:bg-slate-800 overflow-hidden border-b border-slate-200 dark:border-slate-700 shrink-0 gap-0">
                     <button
                         onClick={() => { setCurrentView('feed'); }}
-                        className={`flex flex-shrink-0 items-center justify-center gap-2 px-6 py-2 rounded-t-lg border transition-all h-[44px] relative -mb-[1px] ${currentView === 'feed'
-                            ? 'bg-white dark:bg-[#1e293b] text-blue-600 dark:text-blue-400 border-amber-200/50 border-b-white dark:border-b-[#1e293b] shadow-[0_-2px_8px_rgba(0,0,0,0.1)] z-10'
+                        className={`group flex items-center justify-center gap-2 px-6 py-2 rounded-t-lg border-x border-t transition-all h-[44px] relative -mb-[1px] ${currentView === 'feed'
+                            ? 'bg-slate-50 dark:bg-slate-950 text-blue-600 dark:text-blue-400 border-x-slate-200 dark:border-x-slate-700 border-t-2 border-t-blue-500 border-b-slate-50 dark:border-b-slate-950 shadow-[0_-2px_8px_rgba(0,0,0,0.1)] z-10'
                             : 'bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold self-end border-b-0'}`}
                     >
                         <Home size={14} /> <span className="text-[12px] font-bold tracking-tight uppercase">Feed</span>
                         <div 
                             onClick={(e) => { e.stopPropagation(); handleRefreshTab('feed'); }}
-                            className="ml-2 p-1 rounded-md text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all opacity-0 group-hover:opacity-100"
+                            className={`ml-2 p-1 rounded-md transition-all ${currentView === 'feed' ? 'opacity-100 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                             title="Refresh Feed"
                         >
-                            <RefreshCw size={10} className={loading && currentView === 'feed' ? "animate-spin" : ""} />
+                            <RefreshCw size={12} className={loading && currentView === 'feed' ? "animate-spin" : ""} />
                         </div>
                     </button>
                     {tabs.map(t => {
@@ -233,9 +231,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         return (
                             <div
                                 key={t.id}
-                                className={`flex flex-shrink-0 flex-col items-start rounded-t-lg border relative group transition-all w-[180px] h-[44px] -mb-[1px] ${isActive
-                                    ? 'bg-white dark:bg-[#111d2e] text-blue-600 dark:text-blue-400 border-amber-200 border-b-white dark:border-b-[#111d2e] shadow-[0_-2px_10px_rgba(0,0,0,0.15)] z-10'
-                                    : 'bg-transparent border-amber-200/20 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 self-end border-b-0'}`}
+                                className={`flex flex-1 min-w-[40px] max-w-[200px] flex-col items-start rounded-t-lg border-x border-t relative group transition-all h-[44px] -mb-[1px] ${isActive
+                                    ? 'bg-white dark:bg-[#111d2e] text-blue-600 dark:text-blue-400 border-x-slate-200 dark:border-x-slate-700 border-t-2 border-t-blue-500 border-b-white dark:border-b-[#111d2e] shadow-[0_-2px_10px_rgba(0,0,0,0.15)] z-10'
+                                    : 'bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 self-end border-b-0'}`}
                             >
                                 <button
                                     onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
@@ -276,6 +274,19 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div className="flex w-full h-full relative">
                             <div className="flex-1 flex flex-col h-full overflow-hidden">
                                 <div className="flex-1 flex flex-col h-full w-full">
+                                    <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Feed Content</span>
+                                            {loading && <RefreshCw size={12} className="animate-spin text-blue-500" />}
+                                        </div>
+                                        <button 
+                                            onClick={handleRefresh}
+                                            className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+                                        >
+                                            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                                            Refresh
+                                        </button>
+                                    </div>
                                     {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500" /></div>}
                                     {!loading && (
                                         <div className="flex-1 flex flex-col h-full gap-0 overflow-y-auto custom-scrollbar">
@@ -478,6 +489,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 )}
                 {isAdminModalOpen && <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />}
                 {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} user={user} />}
+                <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
             </div>
 
             {/* Status Bar */}
@@ -495,9 +507,19 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         )}
                     </span>
                 </div>
-                <div className="flex-1"></div>
-                <div className="text-[10px] font-bold text-slate-500/50 uppercase tracking-widest">
-                    {currentView === 'feed' ? `Page ${Math.floor(offset / PAGE_SIZE) + 1}` : 'Reader View'}
+                <div className="flex-1 flex justify-center">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1.5">
+                            <div className={`w-1.5 h-1.5 rounded-full ${user?.authenticated ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-slate-400'}`}></div>
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                                Session: {user?.authenticated ? 'Cloud Sync active' : 'Local Only'}
+                            </span>
+                        </div>
+                        <div className="w-[1px] h-3 bg-slate-200 dark:border-slate-800"></div>
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            {currentView === 'feed' ? `Page ${Math.floor(offset / PAGE_SIZE) + 1}` : 'Reader View'}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
