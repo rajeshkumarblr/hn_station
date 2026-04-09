@@ -6,7 +6,14 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
 [![Live](https://img.shields.io/badge/Live-hnstation.dev-orange?style=flat-square)](https://hnstation.dev)
 
-A modern, fast, and feature-rich Hacker News client built with Go and React. Live at **[hnstation.dev](https://hnstation.dev)**, or as a **fully-contained local Desktop app**.
+A modern, fast, and feature-rich Hacker News client built with Go and React. 
+
+### ⚡ The Experience
+> [!TIP]
+> **Desktop vs. Web**: The Web version is a "Lite" preview limited by browser security (X-Frame-Options). For the **full, unrestricted split-pane experience** that loads almost any article side-by-side with comments, use the **Desktop App**.
+
+![Workflow Demo](screenshots/workflow_demo.gif)
+*A seamless split-view for reading and discussing simultaneously.*
 
 ### 🛠️ App Experience
 

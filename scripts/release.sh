@@ -4,7 +4,7 @@
 
 set -e
 
-echo "🚀 Starting Unified Release Process (v1.7.3)..."
+echo "🚀 Starting Unified Release Process (v1.9.0)..."
 
 # 1. Build Local Go Backend
 echo -e "\n1. Building Local Go Backend (hn-local.exe)..."
@@ -22,4 +22,4 @@ cd ..
 
 echo -e "\n✨ Unified Release Complete!"
 echo "Web: Check https://hnstation.dev"
-echo "Desktop: Installer ready at web/release/HN Station Setup 1.1.0.exe"
+echo "Desktop: Installer ready at web/release/HN Station Setup 1.9.0.exe"

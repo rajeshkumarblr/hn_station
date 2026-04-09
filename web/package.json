@@ -20,6 +20,7 @@
     "build:win": "cross-env VITE_ELECTRON=true tsc && cross-env VITE_ELECTRON=true vite build && electron-builder --win",
     "build:dir": "tsc -b && vite build && electron-builder --win --dir",
     "build:linux": "tsc -b && vite build && electron-builder --linux",
+    "build:mac": "tsc -b && vite build && electron-builder --mac",
     "lint": "eslint .",
     "preview": "vite preview"
   },
