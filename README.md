@@ -15,19 +15,10 @@ A modern, fast, and feature-rich Hacker News client built with Go and React.
 ![Workflow Demo](screenshots/workflow_demo.gif)
 *A seamless split-view for reading and discussing simultaneously.*
 
-### 🛠️ App Experience
-
-#### 1. Feed View
-![Feed View](screenshots/feed_view.png)
-
-#### 2. Article Reading
-![Article View](screenshots/article_view.png)
-
-#### 3. Threaded Discussions
-![Discussion View](screenshots/discussion_view.png)
-
-#### 4. Split-Pane Workspace
-![Split View](screenshots/split_view.png)
+### 🛠️ Key Components
+- **Unified Backend**: Containerized Go API serving the React SPA.
+- **Background Ingestor**: Native Windows service for continuous HN fetching.
+- **Split-Pane UI**: Advanced workspace logic for zero-distraction reading.
 
 ---
 
