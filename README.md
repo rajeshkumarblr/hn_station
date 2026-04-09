@@ -35,6 +35,10 @@ A powerful, zero-login desktop experience. It uses a **Background Windows Servic
 - **Improved Ctrl+Tab**: High-reliability tab cycling using `e.code` detection.
 - **Optimized Split Ratio**: Default 70/30 (Article/Comments) split for better readability.
 - **Background Ingestion Service**: Stories are fetched continuously in the background via a native Windows service.
+- **Reliability Enhancements (v1.9.1)**:
+    - Reduced AI summarization timeout (2m) to prevent service hangs when Ollama is unavailable.
+    - Added 30s timeouts to all secondary cloud sync operations to ensure local database availability.
+    - Improved credential validation for Cloud Sync mode.
 - **Shared Persistent Storage**: Your database stays safe at `C:\ProgramData\HNStation\hn.db` even during app upgrades.
 - **Automated Service Management**: Installer (v1.9.0+) automatically stops, replaces, and restarts the background ingestion service.
 - **Robust Port-Mapping**: Uses a safe, non-conflicting port (`58090`) to avoid common system blocks.

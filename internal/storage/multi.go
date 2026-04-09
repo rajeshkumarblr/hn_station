@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"sync"
+	"time"
 )
 
 // MultiStore implements DB over multiple DB instances.
@@ -33,7 +34,10 @@ func (m *MultiStore) UpsertStory(ctx context.Context, story Story) error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, sec := range m.Secondaries {
-		if sErr := sec.UpsertStory(ctx, story); sErr != nil {
+		secCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		sErr := sec.UpsertStory(secCtx, story)
+		cancel()
+		if sErr != nil {
 			log.Printf("MultiStore: Secondary UpsertStory failed: %v", sErr)
 		}
 	}
@@ -75,7 +79,10 @@ func (m *MultiStore) UpdateStorySummaryAndTopics(ctx context.Context, id int, su
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, sec := range m.Secondaries {
-		if sErr := sec.UpdateStorySummaryAndTopics(ctx, id, summary, topics); sErr != nil {
+		secCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		sErr := sec.UpdateStorySummaryAndTopics(secCtx, id, summary, topics)
+		cancel()
+		if sErr != nil {
 			log.Printf("MultiStore: Secondary UpdateStorySummaryAndTopics failed: %v", sErr)
 		}
 	}

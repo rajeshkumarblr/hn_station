@@ -176,7 +176,7 @@ func (c *OllamaClient) doOllamaRequest(ctx context.Context, endpoint string, req
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Minute}
+	client := &http.Client{Timeout: 2 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("http request failed: %w", err)
