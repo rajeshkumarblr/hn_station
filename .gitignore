@@ -43,7 +43,18 @@ web/release/
 bin/
 logs/
 cmd/ingest/ingest
+server
+ingest_test
+*.exe
 *.log
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# Screenshots
+screenshot.png
 
 # Scripts
 scripts/screenshot/node_modules/
