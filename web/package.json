@@ -3,7 +3,7 @@
   "appId": "com.hnstation.app",
   "productName": "HN Station",
   "private": true,
-  "version": "1.9.0",
+  "version": "0.9.0",
   "description": "Hacker News Desktop Reader",
   "author": {
     "name": "HN Station",
@@ -63,7 +63,7 @@
       "createStartMenuShortcut": true,
       "shortcutName": "HN Station",
       "menuCategory": "HN Station",
-      "perMachine": true,
+      "perMachine": false,
       "include": "build/installer.nsh"
     },
     "linux": {

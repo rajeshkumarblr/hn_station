@@ -119,7 +119,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
                 >
                     <span className="text-[11px] font-black tracking-widest text-[#ff6600] uppercase leading-none drop-shadow-sm">HN Station</span>
-                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v1.9.0</span>
+                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v0.9.0</span>
                 </div>
 
                 {/* Right Section: Controls & Auth */}
@@ -478,6 +478,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         onHide={(id) => { handleHideStory(id); app.handleHome(); }}
                                         onSetGlobalWarning={app.setGlobalWarning}
                                         onSetIframeBlocked={app.setStoryIframeBlocked}
+                                        user={user}
+                                        onOpenSettings={() => setIsSettingsOpen(true)}
                                     />
                                 </div>
                             );

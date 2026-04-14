@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -32,57 +33,49 @@ import (
 	"github.com/rajeshkumarblr/hn_station/internal/content"
 	"github.com/rajeshkumarblr/hn_station/internal/hn"
 	"github.com/rajeshkumarblr/hn_station/internal/storage"
-	"golang.org/x/sys/windows/svc"
-	"golang.org/x/sys/windows/svc/mgr"
 )
 
 const (
 	workerCount  = 3
 	totalStories = 100 // Keep top 100 front-page stories
-
-	svcName = "HNStationIngest"
-	svcDisplayName = "HN Station Ingestion Service"
-	svcDescription = "Background service for HN Station to fetch and index stories."
 )
 
 func main() {
-	// 1. Immediate Service check (Must happen before flag parsing or slow IO)
-	isSvc, err := svc.IsWindowsService()
-	if err == nil && isSvc {
-		// Minimum setup for service mode
-		runService(svcName, defaultDBPath(), "58090", "http://localhost:11434", 5*time.Minute)
-		return
-	}
-
-	// 2. Interactive/Install mode
 	dbPath := flag.String("db", defaultDBPath(), "Path to SQLite database file")
 	port := flag.String("port", "58090", "HTTP port (0 = OS picks a free port in interactive mode)")
 	ollamaURL := flag.String("ollama", "http://localhost:11434", "Ollama base URL")
 	interval := flag.Duration("interval", 5*time.Minute, "Ingestion interval")
-	install := flag.Bool("install", false, "Install Windows service")
-	remove := flag.Bool("remove", false, "Remove Windows service")
 	flag.Parse()
 
-	if *install {
-		err := installService(svcName, svcDisplayName, svcDescription)
-		if err != nil {
-			log.Fatalf("failed to install %s: %v", svcName, err)
-		}
-		fmt.Printf("Service %s installed successfully\n", svcName)
-		return
+	if err := os.MkdirAll(filepath.Dir(*dbPath), 0755); err != nil {
+		log.Printf("Warning: failed to create DB directory: %v", err)
 	}
 
-	if *remove {
-		err := removeService(svcName)
-		if err != nil {
-			log.Fatalf("failed to remove %s: %v", svcName, err)
-		}
-		fmt.Printf("Service %s removed successfully\n", svcName)
-		return
+	// Setup file logging
+	logFile, err := setupLogging(*dbPath)
+	if err != nil {
+		log.Printf("Warning: failed to setup file logging: %v", err)
+	} else if logFile != nil {
+		defer logFile.Close()
 	}
 
-	// Interactive mode
 	runInteractive(*dbPath, *port, *ollamaURL, *interval)
+}
+
+func setupLogging(dbPath string) (*os.File, error) {
+	logDir := filepath.Dir(dbPath)
+	logPath := filepath.Join(logDir, "hn-backend.log")
+
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	// Log to both file and current stderr (captured by Electron in dev)
+	log.SetOutput(f)
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.Println("--- BACKEND STARTUP ---")
+	return f, nil
 }
 
 func runInteractive(dbPath, port, ollamaURL string, interval time.Duration) {
@@ -107,97 +100,41 @@ func runInteractive(dbPath, port, ollamaURL string, interval time.Duration) {
 		}
 	}
 
-	log.Printf("Starting interactive mode on %s", listener.Addr())
+	log.Printf("Starting backend on %s", listener.Addr())
 	run(ctx, dbPath, ollamaURL, interval, listener)
 }
 
-func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, listener net.Listener) {
-	// ── DB ─────────────────────────────────────────────────────────────────────
-	// Ensure absolute path, especially for service mode
-	if !filepath.IsAbs(dbPath) {
-		if exe, err := os.Executable(); err == nil {
-			dbPath = filepath.Join(filepath.Dir(exe), dbPath)
-		}
-	}
-	
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		log.Printf("[error] Failed to create db dir %s: %v", filepath.Dir(dbPath), err)
-		// Fallback to a guaranteed writable path in user home if possible
-		if home, err := os.UserHomeDir(); err == nil {
-			dbPath = filepath.Join(home, ".hn-station", "hn.db")
-			_ = os.MkdirAll(filepath.Dir(dbPath), 0755)
-		}
-	}
+func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, listener net.Listener) error {
+	// Load environment if .env exists
+	_ = godotenv.Load()
 
-	// Load environment variables for service context
-	_ = godotenv.Load() // 1. Current Working Dir
-	if exe, err := os.Executable(); err == nil {
-		_ = godotenv.Load(filepath.Join(filepath.Dir(exe), ".env")) // 2. Executable Dir
-	}
-	_ = godotenv.Load(filepath.Join(filepath.Dir(dbPath), ".env")) // 3. DB Dir (e.g. ProgramData, Highest Priority)
-
-	primaryStore, err := storage.NewSQLite(dbPath)
+	// Initialize database
+	store, err := storage.NewSQLite(dbPath)
 	if err != nil {
-		log.Fatalf("open sqlite: %v", err)
+		return fmt.Errorf("storage: %v", err)
 	}
-	
-	multiStore := storage.NewMultiStore(primaryStore)
-	var store storage.DB = multiStore
 
-	secondaryURL := os.Getenv("SECONDARY_DATABASE_URL")
-	if secondaryURL != "" {
-		urls := strings.Split(secondaryURL, ",")
-		for _, url := range urls {
-			url = strings.TrimSpace(url)
-			if url == "" {
-				continue
-			}
-			log.Printf("[info] Connecting to secondary storage: %s", url)
-			connCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			secStore, err := storage.NewStore(connCtx, url)
-			cancel()
-			if err != nil {
-				log.Printf("[warn] Failed to connect secondary storage (%s): %v — continuing without cloud sync", url, err)
-				continue
-			}
-			log.Printf("[info] Secondary storage connected successfully: %s", url)
-			multiStore.AddSecondary(secStore)
-		}
-	}
-	log.Printf("Database: %s", dbPath)
-
-	// ── Components ─────────────────────────────────────────────────────────────
+	// Initialize HN Client
 	hnClient := hn.NewClient()
-	aiClient := ai.NewOllamaClient()
+
+	// Initialize AI Clients
+	ollamaClient := ai.NewOllamaClient()
 	geminiClient := ai.NewGeminiClient()
+
+	// Start Ingestion Worker
 	summaryQueue := make(chan summaryJob, 100)
-	limiter := time.NewTicker(500 * time.Millisecond)
-	defer limiter.Stop()
-
-	var workerWg sync.WaitGroup
-	for i := 0; i < workerCount; i++ {
-		workerWg.Add(1)
-		go func(id int) {
-			defer workerWg.Done()
-			runSummaryWorker(id, ctx, store, aiClient, geminiClient, ollamaURL, summaryQueue, limiter)
-		}(i)
-	}
-
-	// Initial ingestion
-	go func() {
-		log.Println("Running initial ingestion...")
-		runIngestion(ctx, hnClient, store, summaryQueue)
-	}()
-
-	// Periodic ingestion
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
+		log.Printf("[ingest] Starting worker loop (interval: %v)...", interval)
+		// Run immediately on start
+		log.Println("[ingest] Triggering initial run...")
+		runIngestion(ctx, hnClient, store, summaryQueue)
+
 		for {
 			select {
 			case <-ctx.Done():
-				close(summaryQueue)
-				workerWg.Wait()
 				return
 			case <-ticker.C:
 				runIngestion(ctx, hnClient, store, summaryQueue)
@@ -205,168 +142,94 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 		}
 	}()
 
-	// ── Server ─────────────────────────────────────────────────────────────────
-	authCfg := auth.NewConfig()
-	server := api.NewServer(store, authCfg, aiClient, geminiClient, true)
-	srv := &http.Server{Handler: server}
+	// Start Summary Workers
+	limiter := time.NewTicker(2 * time.Second)
+	defer limiter.Stop()
+	for i := 0; i < workerCount; i++ {
+		go runSummaryWorker(i, ctx, store, ollamaClient, geminiClient, ollamaURL, summaryQueue, limiter)
+	}
+
+	// Start API Server
+	authCfg := auth.NewLocalConfig()
+	srv := api.NewServer(store, authCfg, ollamaClient, geminiClient, true) // localMode = true
+
+	httpSrv := &http.Server{
+		Addr:    listener.Addr().String(),
+		Handler: srv, // Server implements ServeHTTP
+	}
 
 	go func() {
-		if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
-			log.Printf("HTTP server error: %v", err)
+		if err := httpSrv.Serve(listener); err != nil && err != http.ErrServerClosed {
+			log.Printf("[server] Error: %v", err)
 		}
 	}()
 
+	log.Printf("[server] API server listening on %s", listener.Addr())
+
 	<-ctx.Done()
-	shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutCancel()
-	srv.Shutdown(shutCtx)
-	log.Println("Server stopped")
-}
+	log.Println("[server] Shutting down...")
 
-// ── Service Logic ─────────────────────────────────────────────────────────────
-
-type hnSvc struct {
-	dbPath    string
-	port      string
-	ollamaURL string
-	interval  time.Duration
-}
-
-func (m *hnSvc) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
-	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
-	changes <- svc.Status{State: svc.StartPending}
-
-	// Setup log file for service
-	logDir := filepath.Dir(m.dbPath)
-	_ = os.MkdirAll(logDir, 0755)
-	logFile, err := os.OpenFile(filepath.Join(logDir, "service.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err == nil {
-		log.SetOutput(logFile)
-		defer logFile.Close()
-	}
-	log.Printf("--- Service starting ---")
-
-	ctx, cancel := context.WithCancel(context.Background())
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	return httpSrv.Shutdown(shutdownCtx)
+}
 
-	// Bind specifically to 127.0.0.1 to avoid IPv6 issues or open firewall prompts
-	bindAddr := "127.0.0.1:" + m.port
-	if m.port == "0" || m.port == "" {
-		bindAddr = "127.0.0.1:0"
+func defaultDBPath() string {
+	newDir, _ := os.UserConfigDir()
+	// Match Electron's app.setName('HN Station')
+	newPath := filepath.Join(newDir, "HN Station", "hn.db")
+
+	// 1. If the new standard path already has a database, use it.
+	if _, err := os.Stat(newPath); err == nil {
+		return newPath
 	}
 
-	listener, err := net.Listen("tcp", bindAddr)
-	if err != nil {
-		log.Printf("[service] Failed to listen on %s: %v", bindAddr, err)
-		return false, 1
-	}
-	log.Printf("[service] Listening on %s", listener.Addr().String())
-
-	log.Printf("[service] Starting backend with db=%s, port=%s", m.dbPath, m.port)
-	go run(ctx, m.dbPath, m.ollamaURL, m.interval, listener)
-
-	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
-
-	for c := range r {
-		switch c.Cmd {
-		case svc.Interrogate:
-			changes <- c.CurrentStatus
-		case svc.Stop, svc.Shutdown:
-			cancel()
-			return
-		default:
-			log.Printf("unexpected control request #%d", c.Cmd)
+	// 2. Check for intermediate "no-space" version (from last update)
+	noSpacePath := filepath.Join(newDir, "HNStation", "hn.db")
+	if _, err := os.Stat(noSpacePath); err == nil {
+		log.Printf("[migration] Detected no-space database at %s. Moving to %s...", noSpacePath, newPath)
+		if err := migrateFile(noSpacePath, newPath); err == nil {
+			return newPath
 		}
 	}
 
-	changes <- svc.Status{State: svc.StopPending}
-	return
-}
-
-func runService(name string, dbPath, port, ollamaURL string, interval time.Duration) {
-	err := svc.Run(name, &hnSvc{
-		dbPath:    dbPath,
-		port:      port,
-		ollamaURL: ollamaURL,
-		interval:  interval,
-	})
-	if err != nil {
-		log.Fatalf("service %s failed: %v", name, err)
-	}
-}
-
-func installService(name, displayName, desc string) error {
-	exepath, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	m, err := mgr.Connect()
-	if err != nil {
-		return err
-	}
-	defer m.Disconnect()
-	s, err := m.OpenService(name)
-	if err == nil {
-		s.Close()
-		return fmt.Errorf("service %s already exists", name)
-	}
-	s, err = m.CreateService(name, exepath, mgr.Config{
-		DisplayName: displayName,
-		Description: desc,
-		StartType:   mgr.StartAutomatic,
-	})
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	return nil
-}
-
-func removeService(name string) error {
-	m, err := mgr.Connect()
-	if err != nil {
-		return err
-	}
-	defer m.Disconnect()
-	s, err := m.OpenService(name)
-	if err != nil {
-		return fmt.Errorf("service %s is not installed", name)
-	}
-	defer s.Close()
-	err = s.Delete()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// defaultDBPath returns C:\ProgramData\HNStation\hn.db on Windows or ~/.hn-station/hn.db otherwise
-func defaultDBPath() string {
-	// Priority 1: Windows ProgramData (for shared service access)
-	// We use hardcoded path fallback because PROGRAMDATA env var might be missing in service context
+	// 2. New file doesn't exist. Check for legacy ProgramData database.
 	pd := os.Getenv("PROGRAMDATA")
 	if pd == "" {
 		pd = "C:\\ProgramData"
 	}
-	
-	// Check if we can write to ProgramData
-	targetDir := filepath.Join(pd, "HNStation")
-	if err := os.MkdirAll(targetDir, 0755); err == nil {
-		return filepath.Join(targetDir, "hn.db")
+	legacyPath := filepath.Join(pd, "HNStation", "hn.db")
+	if info, err := os.Stat(legacyPath); err == nil && !info.IsDir() {
+		// Attempt migration (copy)
+		log.Printf("[migration] Detected legacy database at %s. Moving to %s...", legacyPath, newPath)
+		if err := migrateFile(legacyPath, newPath); err == nil {
+			log.Println("[migration] Successfully migrated database to new location.")
+			return newPath
+		}
+		log.Printf("[migration] WARNING: Copy failed: %v. Using legacy path for now.", err)
+		return legacyPath
 	}
 
-	// Priority 2: User Home
-	home, err := os.UserHomeDir()
-	if err == nil {
-		return filepath.Join(home, ".hn-station", "hn.db")
+	// 3. Brand new installation, use standard Electron path.
+	return newPath
+}
+
+func migrateFile(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
 	}
-	
-	// Final fallback (executable dir)
-	if exe, err := os.Executable(); err == nil {
-		return filepath.Join(filepath.Dir(exe), "hn.db")
+	s, err := os.Open(src)
+	if err != nil {
+		return err
 	}
-	
-	return "hn.db"
+	defer s.Close()
+	d, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	_, err = io.Copy(d, s)
+	return err
 }
 
 // ── Ingestion ──────────────────────────────────────────────────────────────────
@@ -569,14 +432,22 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 	}
 
 	if item.URL != "" && item.Score > 10 {
-		existing, err := store.GetStory(ctx, id)
-		needsSummary := err != nil || existing.Summary == nil || *existing.Summary == ""
-		needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0
-		if needsSummary || needsTopics {
-			select {
-			case summaryQueue <- summaryJob{ID: id, URL: item.URL, Title: item.Title}:
-			default:
-				log.Printf("[ingest] Summary queue full, skipping story %d", id)
+		// Only queue for summary if AI features are enabled in settings
+		aiEnabled := false
+		if val, err := store.GetSetting(ctx, "ai_summaries_enabled"); err == nil && val == "true" {
+			aiEnabled = true
+		}
+
+		if aiEnabled {
+			existing, err := store.GetStory(ctx, id)
+			needsSummary := err != nil || existing.Summary == nil || *existing.Summary == ""
+			needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0
+			if needsSummary || needsTopics {
+				select {
+				case summaryQueue <- summaryJob{ID: id, URL: item.URL, Title: item.Title}:
+				default:
+					log.Printf("[ingest] Summary queue full, skipping story %d", id)
+				}
 			}
 		}
 	}

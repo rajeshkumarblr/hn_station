@@ -1,6 +1,6 @@
 # release.ps1 — Unified Release Script for HN Station (Web + Desktop)
 # Usage: .\scripts\release.ps1
-$VERSION = "1.9.0"
+$VERSION = "0.9.0"
 Write-Host "🚀 Starting Unified Release Process (v$VERSION)..." -ForegroundColor Cyan
 
 # 1. Build Local Go Backend

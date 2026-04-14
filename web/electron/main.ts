@@ -52,7 +52,7 @@ function debug(msg: string) {
         fs.appendFileSync(debugLog, `[DEBUG ${new Date().toISOString()}] ${msg}\n`);
     } catch(e) {}
 }
-debug(`Main process starting v1.8.9. __dirname=${__dirname}`);
+debug(`Main process starting v0.9.0. __dirname=${__dirname}`);
 debug(`APP_PATH=${app.getAppPath()}`);
 
 // Set App User Model ID early for correct Windows Taskbar grouping/pinning
@@ -290,19 +290,12 @@ function createWindow() {
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
     try {
-        const serviceRunning = await isPortOpen(8050);
-        if (serviceRunning) {
-            logToFile('[main] Windows Service detected on port 8050. Skipping local spawn.');
-            // We still need to set localApiPort for the IPC handler if needed, 
-            // but apiBase in renderer now probes 8050 independently.
-            // However, let's set it to 8050 so get-local-api-url works if called.
-            localApiPort = 8050;
-        } else {
-            await startLocalBackend();
-            logToFile('[main] Local backend ready');
-        }
+        // We no longer check for external services on 8050. 
+        // HN Station is now strictly app-bound.
+        await startLocalBackend();
+        logToFile('[main] Local backend ready');
     } catch (err: any) {
-        logToFile(`[main] CRITICAL: Failed to start/detect backend: ${err.message}`);
+        logToFile(`[main] CRITICAL: Failed to start backend: ${err.message}`);
     }
     createWindow();
 });

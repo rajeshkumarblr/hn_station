@@ -3,7 +3,7 @@ import type { Story } from '../types';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, FileText, Columns2, Home } from 'lucide-react';
+import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, FileText, Columns2, Home, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { CommentList } from './CommentList';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
@@ -24,9 +24,11 @@ interface ReaderPaneProps {
     isActive?: boolean;
     onSetGlobalWarning?: (msg: string | null) => void;
     onSetIframeBlocked?: (storyId: number, blocked: boolean) => void;
+    user?: any;
+    onOpenSettings?: () => void;
 }
 
-export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onTabChange, onHide, onSetGlobalWarning, onSetIframeBlocked }: ReaderPaneProps) {
+export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab: activeTabProp, onTabChange, onHide, onSetGlobalWarning, onSetIframeBlocked, user, onOpenSettings }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
     const storyUrl = rawUrl.replace(/^http:\/\//, 'https://');
@@ -196,10 +198,30 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
         }
     }, [activeCommentId, onSaveProgress]);
 
-    // Reset article state when story changes
-    useEffect(() => {
-        // No longer fetching text content; webview handles itself via src prop
-    }, [story.id]);
+    const [summarizing, setSummarizing] = useState(false);
+
+    const handleSummarize = async () => {
+        if (summarizing) return;
+        setSummarizing(true);
+        try {
+            const baseUrl = getApiBase();
+            const res = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/summarize`, {
+                method: 'POST',
+            });
+            if (res.ok) {
+                // Ideally we'd update the story object in parent state, 
+                // but for MVP we can reload content or rely on the next fetch.
+                // Refetching story details is best.
+                loadContent(story.id); 
+            }
+        } catch (err) {
+            console.error('Summarization failed:', err);
+        } finally {
+            setSummarizing(false);
+        }
+    };
+
+    const aiEnabled = user?.ai_summaries_enabled || false;
 
     return (
         <div className="relative h-full flex flex-row bg-white dark:bg-[#111d2e] border-t border-slate-200 dark:border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)]">
@@ -288,7 +310,7 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
                             <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
                         </button>
                     )}
-                    {story.summary && (
+                    {(story.summary || aiEnabled) && (
                         <button
                             onClick={() => {
                                 const nextState = !showSummary;
@@ -298,8 +320,8 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
                                     onTabChange?.('split');
                                 }
                             }}
-                            className={`p-2 rounded-lg transition-all ${showSummary ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-sm' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
-                            title="AI Summary"
+                            className={`p-2 rounded-lg transition-all ${showSummary ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20 shadow-sm' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'} ${summarizing ? 'animate-pulse' : ''}`}
+                            title={story.summary ? "AI Summary" : "Generate AI Summary"}
                         >
                             <Sparkles size={18} />
                         </button>
@@ -362,8 +384,8 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
                                     )}
                                 </div>
 
-                                {/* AI Summary (Nested under article) */}
-                                {showSummary && story.summary && (
+                                 {/* AI Summary (Nested under article) */}
+                                {showSummary && (
                                     <div
                                         className="flex-shrink-0 bg-amber-50/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-amber-200 dark:border-white/10 shadow-lg animate-in slide-in-from-bottom-2 duration-200 flex flex-col overflow-hidden"
                                         style={{ maxHeight: '40%' }}
@@ -386,58 +408,89 @@ export function ReaderPane({ story, onBack, onHome, onTakeFocus, initialActiveCo
 
                                         {/* Tags & Content */}
                                         <div className="flex-1 overflow-y-auto px-5 py-3 custom-scrollbar">
-                                            {story.topics && story.topics.length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5 mb-2">
-                                                    {story.topics.map((topic: string) => {
-                                                        const ts = getTagStyle(topic);
-                                                        return (
-                                                            <span
-                                                                key={topic}
-                                                                className="inline-flex items-center text-[9px] font-black px-2 py-0.5 rounded-md border shadow-sm transition-all hover:scale-105"
-                                                                style={{
-                                                                    backgroundColor: ts.bg,
-                                                                    color: ts.color,
-                                                                    borderColor: ts.border,
-                                                                }}
+                                            {!story.summary ? (
+                                                <div className="flex flex-col items-center justify-center py-6 text-center">
+                                                    {aiEnabled ? (
+                                                        <>
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">No summary yet for this story.</p>
+                                                            <button
+                                                                onClick={handleSummarize}
+                                                                disabled={summarizing}
+                                                                className="flex items-center gap-2 px-6 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black shadow-lg shadow-amber-500/20 transition-all disabled:opacity-50"
                                                             >
-                                                                #{topic.replace(/\s+/g, '')}
-                                                            </span>
-                                                        );
-                                                    })}
+                                                                {summarizing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                                                                {summarizing ? 'SUMMARIZING...' : 'GENERATE SUMMARY'}
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">AI Summaries are currently disabled.</p>
+                                                            <button
+                                                                onClick={onOpenSettings}
+                                                                className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-500/20 transition-all"
+                                                            >
+                                                                <Settings size={14} />
+                                                                ENABLE AI SUMMARIES
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
+                                            ) : (
+                                                <>
+                                                    {story.topics && story.topics.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 mb-2">
+                                                            {story.topics.map((topic: string) => {
+                                                                const ts = getTagStyle(topic);
+                                                                return (
+                                                                    <span
+                                                                        key={topic}
+                                                                        className="inline-flex items-center text-[9px] font-black px-2 py-0.5 rounded-md border shadow-sm transition-all hover:scale-105"
+                                                                        style={{
+                                                                            backgroundColor: ts.bg,
+                                                                            color: ts.color,
+                                                                            borderColor: ts.border,
+                                                                        }}
+                                                                    >
+                                                                        #{topic.replace(/\s+/g, '')}
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                    <div className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 font-medium prose prose-slate dark:prose-invert prose-p:my-0.5 prose-li:list-none prose-li:my-0 prose-ul:my-1 prose-ul:pl-0 max-w-none">
+                                                        <ReactMarkdown
+                                                            components={{
+                                                                li: ({node, ...props}) => {
+                                                                    const text = String(props.children);
+                                                                    let hash = 0;
+                                                                    for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
+                                                                    const colors = [
+                                                                        { dot: 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]', text: 'text-blue-600 dark:text-blue-300' },
+                                                                        { dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]', text: 'text-emerald-600 dark:text-emerald-300' },
+                                                                        { dot: 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]', text: 'text-purple-600 dark:text-purple-300' },
+                                                                        { dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]', text: 'text-amber-600 dark:text-amber-300' },
+                                                                        { dot: 'bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.5)]', text: 'text-pink-600 dark:text-pink-300' },
+                                                                        { dot: 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]', text: 'text-cyan-600 dark:text-cyan-300' }
+                                                                    ];
+                                                                    const color = colors[Math.abs(hash) % colors.length];
+                                                                    return (
+                                                                        <li className="flex gap-2 items-start mb-1.5">
+                                                                            <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${color.dot}`} />
+                                                                            <span className={`${color.text} font-semibold`} {...props} />
+                                                                        </li>
+                                                                    );
+                                                                },
+                                                                p: ({node, ...props}) => <p className="mb-2" {...props} />,
+                                                                strong: ({node, ...props}) => (
+                                                                    <strong className="text-blue-600 dark:text-blue-400 font-black" {...props} />
+                                                                )
+                                                            }}
+                                                        >
+                                                            {story.summary}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                </>
                                             )}
-                                            <div className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 font-medium prose prose-slate dark:prose-invert prose-p:my-0.5 prose-li:list-none prose-li:my-0 prose-ul:my-1 prose-ul:pl-0 max-w-none">
-                                                <ReactMarkdown
-                                                    components={{
-                                                        li: ({node, ...props}) => {
-                                                            const text = String(props.children);
-                                                            let hash = 0;
-                                                            for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
-                                                            const colors = [
-                                                                { dot: 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]', text: 'text-blue-600 dark:text-blue-300' },
-                                                                { dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]', text: 'text-emerald-600 dark:text-emerald-300' },
-                                                                { dot: 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]', text: 'text-purple-600 dark:text-purple-300' },
-                                                                { dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]', text: 'text-amber-600 dark:text-amber-300' },
-                                                                { dot: 'bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.5)]', text: 'text-pink-600 dark:text-pink-300' },
-                                                                { dot: 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]', text: 'text-cyan-600 dark:text-cyan-300' }
-                                                            ];
-                                                            const color = colors[Math.abs(hash) % colors.length];
-                                                            return (
-                                                                <li className="flex gap-2 items-start mb-1.5">
-                                                                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${color.dot}`} />
-                                                                    <span className={`${color.text} font-semibold`} {...props} />
-                                                                </li>
-                                                            );
-                                                        },
-                                                        p: ({node, ...props}) => <p className="mb-2" {...props} />,
-                                                        strong: ({node, ...props}) => (
-                                                            <strong className="text-blue-600 dark:text-blue-400 font-black" {...props} />
-                                                        )
-                                                    }}
-                                                >
-                                                    {story.summary}
-                                                </ReactMarkdown>
-                                            </div>
                                         </div>
                                     </div>
                                 )}
