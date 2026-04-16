@@ -1,73 +1,68 @@
-# Deploying "hn_station" to Azure Kubernetes Service (AKS)
+# Deploying HN Station
 
-This guide walks you through deploying the application to AKS using the Free Tier and self-hosted PostgreSQL, keeping costs within $150/month.
+HN Station supports two deployment targets: **Cloud Mode** (AKS) and **Desktop Mode** (Windows Electron).
 
-## Prerequisites
+---
 
-- **Azure CLI** (`az`) installed and logged in (`az login`).
-- **kubectl** installed.
-- **Docker** installed.
+## 🖥️ Desktop Mode (Windows)
 
-## 1. Infrastructure Provisioning
+The desktop app is built as a self-contained installer that includes both the React frontend and the Go local backend.
 
-Run the provision script to create the Resource Group, ACR, and AKS cluster.
+### 1. Build & Package
+We use a unified release script to handle the compilation and packaging:
 
+```powershell
+# Run the release script from the project root
+.\scripts\release.ps1
+```
+
+**This script performs the following:**
+1.  Compiles the Go local backend (`hn-local.exe`) and moves it to the Electron resources directory.
+2.  Builds the React frontend assets (`web/dist`).
+3.  Runs `electron-builder` to generate the Windows installer.
+4.  Optionally deploys the cloud components if ACR/AKS is configured.
+
+### 2. Output
+The final installer will be available at:
+`web/release/HN Station Setup {VERSION}.exe`
+
+---
+
+## 🚀 Cloud Mode (Azure AKS)
+
+The web version is deployed to AKS using a unified container model.
+
+### 1. Prerequisites
+- **Azure CLI** (`az login`).
+- **Docker** installed and running.
+- **Access to ACR** (`myhnregistry270`).
+
+### 2. Infrastructure Setup
+If you are setting up the environment from scratch:
 ```bash
-chmod +x infrastructure/provision.sh
+# Provision RG, ACR, and AKS
 ./infrastructure/provision.sh
 ```
 
-**Note**: This script uses `Standard_B2s` nodes (2x) and the Free Tier AKS management to minimize costs.
+### 3. Deploy (CI/CD)
+The deployment is automated via PowerShell to ensure compatibility with Windows-based environments:
 
-## 2. Deploy (Build, Push, & Apply)
-
-Use the automated script to build Docker images, push them to ACR, and deploy to AKS.
-
-```bash
-chmod +x infrastructure/deploy_aks.sh
-./infrastructure/deploy_aks.sh
+```powershell
+# Build Docker images, push to ACR, and rollout to AKS
+powershell -File infrastructure/deploy_aks.ps1
 ```
 
-This script will:
-1.  Log in to ACR.
-2.  Build and push `backend` and `frontend` images.
-3.  Apply all Kubernetes manifests (Secrets, Postgres, Backend, Ingestion, Frontend).
-
-## 3. Verify Deployment
-
-Check the status of your pods:
-
+### 4. Database Initialization
+The application uses migrations but requires the base `hn_station` database to exist.
 ```bash
-kubectl get pods
+# Apply migrations to the cloud Postgres instance
+cat migrations/*.sql | kubectl exec -i postgres-0 -- psql -U hn_user -d hn_station
 ```
 
-kubectl apply -f infrastructure/k8s/ingest.yaml
-kubectl apply -f infrastructure/k8s/frontend.yaml
+---
 
-## 6. Initialize Database (Run Migrations)
+## 🏗️ Architecture Summary
 
-The application does not run migrations automatically. You must run them once after deploying Postgres.
-
-```bash
-# Apply all UP migrations
-cat migrations/*.up.sql | kubectl exec -i postgres-0 -- psql -U hn_user -d hn_station
-```
-
-## 7. Access the Application
-
-Get the public IP of the frontend LoadBalancer:
-
-```bash
-kubectl get svc frontend --watch
-```
-
-Once the `EXTERNAL-IP` is populated, open it in your browser.
-
-## Cost Breakdown (Estimated)
-
-- **AKS Cluster**: $0 (Free Tier)
-- **VMs (2x Standard_B2s)**: ~$60/month
-- **Managed Disk (10GB)**: < $5/month
-- **Load Balancer**: ~$18/month
-- **ACR (Basic)**: ~$5/month
-- **Total**: ~$88/month
+- **Desktop**: Electron + Local Go Backend + SQLite.
+- **Cloud**: React (embedded in Go) + PostgreSQL (AKS).
+- **Communication**: Both versions share the same `internal/` logic for story fetching and AI integration.
