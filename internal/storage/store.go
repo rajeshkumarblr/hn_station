@@ -383,12 +383,12 @@ func (s *PostgresStore) GetAuthUser(ctx context.Context, userID string) (*AuthUs
 }
 
 func (s *PostgresStore) UpdateUserTopics(ctx context.Context, userID string, topics []string) error {
-	if len(userID) < 32 {
-		return nil
-	}
-	query := `UPDATE auth_users SET topics = $1 WHERE id = $2`
-	_, err := s.db.Exec(ctx, query, topics, userID)
+	_, err := s.db.Exec(ctx, "UPDATE auth_users SET topics = $1 WHERE id = $2", topics, userID)
 	return err
+}
+
+func (s *PostgresStore) GetActiveTopics(_ context.Context) ([]string, error) {
+	return nil, nil // Not used in cloud mode currently (topics are per-user)
 }
 
 func (s *PostgresStore) UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error {

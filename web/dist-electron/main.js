@@ -1,4 +1,4 @@
-import { app as c, ipcMain as f, shell as x, globalShortcut as T, BrowserWindow as I, nativeImage as v, session as j } from "electron";
+import { app as r, ipcMain as f, shell as x, globalShortcut as T, BrowserWindow as I, nativeImage as j, session as A } from "electron";
 import s from "node:path";
 import { fileURLToPath as L } from "node:url";
 import { spawn as O } from "node:child_process";
@@ -7,16 +7,16 @@ import "node:http";
 import C from "node:os";
 const S = s.dirname(L(import.meta.url));
 process.env.APP_ROOT = s.join(S, "..");
-const $ = process.env.VITE_DEV_SERVER_URL, q = s.join(process.env.APP_ROOT, "dist-electron"), E = s.join(process.env.APP_ROOT, "dist");
+const $ = process.env.VITE_DEV_SERVER_URL, G = s.join(process.env.APP_ROOT, "dist-electron"), E = s.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = $ ? s.join(process.env.APP_ROOT, "public") : E;
-const g = s.join(c.getPath("userData"), "app.log");
-function t(n) {
+const g = s.join(r.getPath("userData"), "app.log");
+function o(n) {
   try {
     const i = `[${(/* @__PURE__ */ new Date()).toISOString()}] ${n}
 `;
     l.appendFileSync(g, i), console.log(n);
-  } catch (o) {
-    console.error("Failed to write to log file:", o);
+  } catch (t) {
+    console.error("Failed to write to log file:", t);
   }
 }
 try {
@@ -24,9 +24,9 @@ try {
 } catch (n) {
   console.error("Failed to truncate log file:", n);
 }
-t(`[main] Log initialized: ${g}`);
-t(`[main] Version: ${c.getVersion()}`);
-t(`[main] App Root: ${process.env.APP_ROOT}`);
+o(`[main] Log initialized: ${g}`);
+o(`[main] Version: ${r.getVersion()}`);
+o(`[main] App Root: ${process.env.APP_ROOT}`);
 const F = "C:\\Users\\rajes\\hn-station-debug.log";
 function u(n) {
   try {
@@ -35,30 +35,30 @@ function u(n) {
   } catch {
   }
 }
-u(`Main process starting v0.9.0. __dirname=${S}`);
-u(`APP_PATH=${c.getAppPath()}`);
-process.platform === "win32" && c.setAppUserModelId("com.hnstation.app");
+u(`Main process starting v0.9.3. __dirname=${S}`);
+u(`APP_PATH=${r.getAppPath()}`);
+process.platform === "win32" && r.setAppUserModelId("com.hnstation.app");
 let e = null, d = null, h = null;
-c.setName("HN Station");
+r.setName("HN Station");
 const z = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-c.userAgentFallback = `${z} Electron/${process.versions.electron}`;
-function D() {
-  const n = process.platform === "win32" ? "hn-local.exe" : "hn-local", o = s.join(process.resourcesPath ?? "", n);
-  if (t(`[backend] Checking packaged path: ${o}`), l.existsSync(o)) return o;
+r.userAgentFallback = `${z} Electron/${process.versions.electron}`;
+function B() {
+  const n = process.platform === "win32" ? "hn-local.exe" : "hn-local", t = s.join(process.resourcesPath ?? "", n);
+  if (o(`[backend] Checking packaged path: ${t}`), l.existsSync(t)) return t;
   const i = s.join(process.env.APP_ROOT ?? s.join(S, ".."), "resources", n);
-  return t(`[backend] Checking dev path: ${i}`), l.existsSync(i) ? i : null;
+  return o(`[backend] Checking dev path: ${i}`), l.existsSync(i) ? i : null;
 }
-function M() {
-  return new Promise((n, o) => {
+function D() {
+  return new Promise((n, t) => {
     var b, w;
-    const i = D();
+    const i = B();
     if (!i) {
       const a = new Error("hn-local binary not found");
-      t(`[backend] ERROR: ${a.message}`), o(a);
+      o(`[backend] ERROR: ${a.message}`), t(a);
       return;
     }
-    const r = process.platform === "win32" ? s.join(process.env.PROGRAMDATA || "C:\\ProgramData", "HNStation", "hn.db") : s.join(C.homedir(), ".hn-station", "hn.db");
-    t(`[backend] Starting ${i} --db ${r}`), d = O(i, ["--port", "0", "--db", r], {
+    const c = process.platform === "win32" ? s.join(r.getPath("userData"), "hn.db") : s.join(C.homedir(), ".hn-station", "hn.db");
+    o(`[backend] Starting ${i} --db ${c}`), d = O(i, ["--port", "0", "--db", c], {
       stdio: ["ignore", "pipe", "pipe"],
       cwd: s.dirname(i)
     });
@@ -68,38 +68,38 @@ function M() {
       const p = P.split(`
 `);
       P = p.pop() ?? "";
-      for (const R of p) {
-        const y = R.trim();
-        y && t(`[backend][stdout] ${y}`);
-        const k = R.match(/^LISTENING:(\d+)/);
-        k && !m && (m = !0, h = parseInt(k[1], 10), t(`[backend] API on port ${h}`), n(h));
+      for (const y of p) {
+        const R = y.trim();
+        R && o(`[backend][stdout] ${R}`);
+        const k = y.match(/^LISTENING:(\d+)/);
+        k && !m && (m = !0, h = parseInt(k[1], 10), o(`[backend] API on port ${h}`), n(h));
       }
     }), (w = d.stderr) == null || w.on("data", (a) => {
       const p = a.toString().trim();
-      p && t(`[backend][stderr] ${p}`);
+      p && o(`[backend][stderr] ${p}`);
     }), d.on("error", (a) => {
-      t(`[backend] Spawn error: ${a.message}`), m || o(a);
+      o(`[backend] Spawn error: ${a.message}`), m || t(a);
     }), d.on("exit", (a, p) => {
-      t(`[backend] exited code=${a} signal=${p}`), d = null, h = null;
+      o(`[backend] exited code=${a} signal=${p}`), d = null, h = null;
     }), setTimeout(() => {
       if (!m) {
         const a = new Error("Timed out waiting for hn-local to start");
-        t(`[backend] ERROR: ${a.message}`), o(a);
+        o(`[backend] ERROR: ${a.message}`), t(a);
       }
     }, 6e4);
   });
 }
 function _() {
-  d && (t("[backend] Stopping..."), d.kill("SIGTERM"), d = null);
+  d && (o("[backend] Stopping..."), d.kill("SIGTERM"), d = null);
 }
 f.handle(
   "get-local-api-url",
   () => h ? `http://127.0.0.1:${h}` : null
 );
-f.on("open-external", (n, o) => {
-  x.openExternal(o);
+f.on("open-external", (n, t) => {
+  x.openExternal(t);
 });
-function A() {
+function v() {
   e = new I({
     width: 1440,
     height: 900,
@@ -110,8 +110,8 @@ function A() {
     webPreferences: {
       webviewTag: !0,
       preload: (() => {
-        const o = s.join(S, "preload.js"), i = s.join(S, "preload.mjs"), r = l.existsSync(o) ? o : i;
-        return u(`[preload] checking: js=${o} exists=${l.existsSync(o)}`), u(`[preload] checking: mjs=${i} exists=${l.existsSync(i)}`), u(`[preload] final choice: ${r} packaged=${c.isPackaged}`), r;
+        const t = s.join(S, "preload.js"), i = s.join(S, "preload.mjs"), c = l.existsSync(t) ? t : i;
+        return u(`[preload] checking: js=${t} exists=${l.existsSync(t)}`), u(`[preload] checking: mjs=${i} exists=${l.existsSync(i)}`), u(`[preload] final choice: ${c} packaged=${r.isPackaged}`), c;
       })(),
       contextIsolation: !0,
       nodeIntegration: !1,
@@ -127,48 +127,48 @@ function A() {
     }, 300));
   }), e.setMenu(null);
   const n = s.join(process.env.VITE_PUBLIC, "hn.ico");
-  if (t(`[main] Loading icon from: ${n}`), l.existsSync(n)) {
-    const o = v.createFromPath(n);
-    o.isEmpty() || e.setIcon(o);
+  if (o(`[main] Loading icon from: ${n}`), l.existsSync(n)) {
+    const t = j.createFromPath(n);
+    t.isEmpty() || e.setIcon(t);
   }
-  e.setTitle("HN Station"), e.webContents.on("page-title-updated", (o) => {
-    o.preventDefault(), e == null || e.setTitle("HN Station");
-  }), j.defaultSession.webRequest.onHeadersReceived((o, i) => {
-    const r = { ...o.responseHeaders };
-    delete r["x-frame-options"], delete r["X-Frame-Options"], delete r["content-security-policy"], delete r["Content-Security-Policy"], i({ cancel: !1, responseHeaders: r });
-  }), $ ? e.loadURL($) : e.loadFile(s.join(E, "index.html")), e.webContents.on("console-message", (o, i, r, m, P) => {
-    t(`[Renderer][${i}] ${r} (${P}:${m})`);
+  e.setTitle("HN Station"), e.webContents.on("page-title-updated", (t) => {
+    t.preventDefault(), e == null || e.setTitle("HN Station");
+  }), A.defaultSession.webRequest.onHeadersReceived((t, i) => {
+    const c = { ...t.responseHeaders };
+    delete c["x-frame-options"], delete c["X-Frame-Options"], delete c["content-security-policy"], delete c["Content-Security-Policy"], i({ cancel: !1, responseHeaders: c });
+  }), $ ? e.loadURL($) : e.loadFile(s.join(E, "index.html")), e.webContents.on("console-message", (t, i, c, m, P) => {
+    o(`[Renderer][${i}] ${c} (${P}:${m})`);
   });
   try {
     T.register("CommandOrControl+Shift+L", () => {
-      t("[main] Shortcut Ctrl+Shift+L triggered"), l.existsSync(g) && x.openPath(s.dirname(g));
+      o("[main] Shortcut Ctrl+Shift+L triggered"), l.existsSync(g) && x.openPath(s.dirname(g));
     });
-  } catch (o) {
-    t(`[main] Failed to register shortcut: ${o}`);
+  } catch (t) {
+    o(`[main] Failed to register shortcut: ${t}`);
   }
 }
-c.whenReady().then(async () => {
+r.whenReady().then(async () => {
   try {
-    await M(), t("[main] Local backend ready");
+    await D(), o("[main] Local backend ready");
   } catch (n) {
-    t(`[main] CRITICAL: Failed to start backend: ${n.message}`);
+    o(`[main] CRITICAL: Failed to start backend: ${n.message}`);
   }
-  A();
+  v();
 });
-c.on("will-quit", () => {
+r.on("will-quit", () => {
   T.unregisterAll();
 });
-c.on("before-quit", () => {
+r.on("before-quit", () => {
   _();
 });
-c.on("window-all-closed", () => {
-  process.platform !== "darwin" && (_(), c.quit(), e = null);
+r.on("window-all-closed", () => {
+  process.platform !== "darwin" && (_(), r.quit(), e = null);
 });
-c.on("activate", () => {
-  I.getAllWindows().length === 0 && A();
+r.on("activate", () => {
+  I.getAllWindows().length === 0 && v();
 });
 export {
-  q as MAIN_DIST,
+  G as MAIN_DIST,
   E as RENDERER_DIST,
   $ as VITE_DEV_SERVER_URL
 };

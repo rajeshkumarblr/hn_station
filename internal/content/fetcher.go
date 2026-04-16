@@ -43,24 +43,34 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 
 	// GitHub Handling: Direct README extraction
 	if strings.Contains(urlStr, "github.com") {
-		// If it's a repo root (no blob/tree/pull etc)
 		u, _ := url.Parse(urlStr)
 		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-		if len(parts) == 2 {
-			// Try master then main
-			for _, branch := range []string{"master", "main"} {
-				rawURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/README.md", parts[0], parts[1], branch)
-				req, _ = http.NewRequest("GET", rawURL, nil)
-				resp, err = client.Do(req)
-				if err == nil && resp.StatusCode == 200 {
-					defer resp.Body.Close()
-					bodyBytes, _ := io.ReadAll(resp.Body)
-					return &FetchResult{
-						Content:     string(bodyBytes),
-						Title:       fmt.Sprintf("GitHub README: %s/%s", parts[0], parts[1]),
-						CanIframe:   false,
-						ContentType: "markdown",
-					}, nil
+		
+		// 1. Repo root or close to it (e.g., github.com/user/repo)
+		if len(parts) >= 2 {
+			user, repo := parts[0], parts[1]
+			// Try to find README in common locations
+			branches := []string{"main", "master", "develop"}
+			for _, branch := range branches {
+				rawPaths := []string{
+					fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/README.md", user, repo, branch),
+					fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/readme.md", user, repo, branch),
+					fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/README.markdown", user, repo, branch),
+				}
+				
+				for _, rawURL := range rawPaths {
+					req, _ = http.NewRequest("GET", rawURL, nil)
+					resp2, err2 := client.Do(req)
+					if err2 == nil && resp2.StatusCode == 200 {
+						defer resp2.Body.Close()
+						bodyBytes, _ := io.ReadAll(resp2.Body)
+						return &FetchResult{
+							Content:     string(bodyBytes),
+							Title:       fmt.Sprintf("GitHub README: %s/%s", user, repo),
+							CanIframe:   false,
+							ContentType: "markdown",
+						}, nil
+					}
 				}
 			}
 		}
@@ -83,11 +93,24 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 	isPDF := strings.Contains(contentType, "application/pdf") || strings.HasSuffix(strings.ToLower(urlStr), ".pdf")
 
 	if isPDF {
-		log.Printf("Fetcher: Detected PDF content for %s. Returning as PDF type.", urlStr)
+		log.Printf("Fetcher: Attempting PDF text extraction for %s", urlStr)
+		// We need a new response body because resp.Body was already checked for headers but not ReadAll'd yet
+		// Actually FetchArticle already has the body.
+		text, err := extractTextFromPDF(resp.Body)
+		if err == nil && text != "" {
+			return &FetchResult{
+				Content:     text,
+				Title:       "PDF Extraction: " + urlStr,
+				CanIframe:   true,
+				ContentType: "text",
+			}, nil
+		}
+		
+		log.Printf("Fetcher: PDF extraction failed or returned no text for %s. Returning placeholder.", urlStr)
 		return &FetchResult{
-			Content:     "PDF content", // Placeholder, frontend will use the URL directly
+			Content:     "PDF content (text extraction unavailable)", 
 			Title:       "PDF Document: " + urlStr,
-			CanIframe:   true, // We pretend it can iframe so the frontend doesn't show the "might block embed" warning, but we'll use <object>
+			CanIframe:   true,
 			ContentType: "pdf",
 		}, nil
 	}

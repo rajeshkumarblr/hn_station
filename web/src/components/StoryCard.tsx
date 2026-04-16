@@ -153,34 +153,12 @@ export function StoryCard({
         >
             {/* Action Buttons Container - Top Right */}
             <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
-                {/* Direct Article icon */}
-                {story.url && onOpenInTab && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'article'); }}
-                        className="p-1 rounded-md text-blue-500/60 dark:text-blue-400/60 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-300/20 dark:hover:bg-blue-900/40 transition-all duration-150 flex items-center justify-center shrink-0 border border-blue-200/50 dark:border-blue-700/30"
-                        title="Open Article"
-                    >
-                        <FileText size={14} strokeWidth={2.5} />
-                    </button>
-                )}
-
-                {/* Direct Discussion icon */}
+                {/* Single Open button (defaults to Split View) */}
                 {onOpenInTab && (
                     <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'discussion'); }}
-                        className="p-1 rounded-md text-indigo-500/60 dark:text-indigo-400/60 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-300/20 dark:hover:bg-indigo-900/40 transition-all duration-150 flex items-center justify-center shrink-0 border border-indigo-200/50 dark:border-indigo-700/30"
-                        title="Open Discussion"
-                    >
-                        <MessageSquare size={14} strokeWidth={2.5} />
-                    </button>
-                )}
-
-                {/* Direct Split View icon */}
-                {story.url && onOpenInTab && (
-                    <button
                         onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); }}
-                        className="p-1 rounded-md text-purple-500/60 dark:text-purple-400/60 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-300/20 dark:hover:bg-purple-900/40 transition-all duration-150 flex items-center justify-center shrink-0 border border-purple-200/50 dark:border-purple-700/30"
-                        title="Open Split View"
+                        className="p-1 rounded-md text-blue-500/60 dark:text-blue-400/60 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-300/20 dark:hover:bg-blue-900/40 transition-all duration-150 flex items-center justify-center shrink-0 border border-blue-200/50 dark:border-blue-700/30"
+                        title="Open in Reader"
                     >
                         <Columns size={14} strokeWidth={2.5} />
                     </button>

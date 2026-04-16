@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { RefreshCw, Home, Settings, Shield, LogIn, LogOut, X } from 'lucide-react';
+import { RefreshCw, Home, Bookmark, Settings, Shield, LogIn, LogOut, X } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
@@ -25,7 +25,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         setCurrentView, setIsAdminModalOpen, setIsSettingsOpen,
         handleRefresh, handleRefreshTab, closeTab, handleHideStory,
         handleStorySelect, handleToggleSave,
-        readIds, setReadIds, setHighlightedStoryId
+        readIds, setReadIds, setHighlightedStoryId,
+        primaryTab, setPrimaryTab
     } = app;
     const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -92,16 +93,23 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 <div className="flex items-center h-full gap-4 shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                     <nav className="h-full flex items-center gap-4">
                         {MODES.map((m) => {
-                            const isActive = mode === m.key;
+                            const isActiveInPrimary = (primaryTab === 'feed' && m.key === mode) || (primaryTab === 'bookmarks' && m.key === 'saved');
+                            const isSelected = isActiveInPrimary;
+                            
                             return (
                                 <button
                                     key={m.key}
                                     onClick={() => {
-                                        if (mode === m.key) handleRefresh();
-                                        else { setMode(m.key as any); setOffset?.(0); }
+                                        if (m.key === 'saved') {
+                                            setPrimaryTab('bookmarks');
+                                        } else {
+                                            setPrimaryTab('feed');
+                                            if (mode === m.key && primaryTab === 'feed') handleRefresh();
+                                            else { setMode(m.key as any); setOffset?.(0); }
+                                        }
                                         setCurrentView('feed');
                                     }}
-                                    className={`text-xs font-bold transition-all outline-none py-1 border-b-2 ${isActive
+                                    className={`text-xs font-bold transition-all outline-none py-1 border-b-2 ${isSelected
                                         ? 'text-blue-600 border-blue-600'
                                         : 'text-slate-500 border-transparent hover:text-slate-800 dark:hover:text-white'
                                         }`}
@@ -119,60 +127,19 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
                 >
                     <span className="text-[11px] font-black tracking-widest text-[#ff6600] uppercase leading-none drop-shadow-sm">HN Station</span>
-                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v0.9.0</span>
+                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v0.9.7</span>
                 </div>
 
-                {/* Right Section: Controls & Auth */}
-                <div className="flex items-center gap-2 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-                    <button 
-                        onClick={() => setIsSettingsOpen(true)} 
-                        className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" 
-                        title="Settings"
-                    >
-                        <Settings size={16} />
-                    </button>
+                    {/* Right Section: Controls */}
+                    <div className="flex items-center gap-2 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
 
-                    {user && user.authenticated ? (
-                        <div className="flex items-center gap-2">
-                            {user.is_admin && (
-                                <button onClick={() => setIsAdminModalOpen(true)} className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
-                                    <Shield size={14} />
-                                </button>
-                            )}
-                            <img src={user.avatar_url} alt={user.name} className="w-6 h-6 rounded-full ring-1 ring-slate-300 dark:ring-slate-700" title={user.name} />
-                            <button
-                                onClick={() => {
-                                    const url = `${getApiBase()}/auth/logout`;
-                                    const electron = (window as any).electronAPI;
-                                    if (isElectron && electron) electron.openExternal(url);
-                                    else window.location.href = url;
-                                }}
-                                className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
-                            >
-                                <LogOut size={16} />
-                            </button>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => {
-                                const base = getApiBase();
-                                const port = base.split(':').pop() || '58090';
-                                const url = isElectron 
-                                    ? `https://hnstation.dev/auth/google?desktop_port=${port}`
-                                    : `${base}/auth/google`;
-                                
-                                const electron = (window as any).electronAPI;
-                                if (isElectron && electron) {
-                                    electron.openExternal(url);
-                                } else {
-                                    window.location.href = url;
-                                }
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold shadow-lg shadow-blue-500/20 transition-all uppercase"
+                        <button 
+                            onClick={() => setIsSettingsOpen(true)} 
+                            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors" 
+                            title="Settings"
                         >
-                            <LogIn size={12} /> Sign in
+                            <Settings size={16} />
                         </button>
-                    )}
 
                     {/* Window Controls - Tight Windows Style */}
                     {isElectron && (
@@ -204,18 +171,34 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             {tabs.length > 0 && (
                 <div className="flex bg-slate-100 dark:bg-slate-800 overflow-hidden border-b border-slate-200 dark:border-slate-700 shrink-0 gap-0">
                     <button
-                        onClick={() => { setCurrentView('feed'); }}
-                        className={`group flex items-center justify-center gap-2 px-6 py-2 rounded-t-lg border-x border-t transition-all h-[44px] relative -mb-[1px] ${currentView === 'feed'
+                        onClick={() => { setPrimaryTab('feed'); setCurrentView('feed'); }}
+                        className={`group flex items-center justify-center gap-2 px-6 py-2 rounded-t-lg border-x border-t transition-all h-[44px] relative -mb-[1px] ${currentView === 'feed' && primaryTab === 'feed'
                             ? 'bg-slate-50 dark:bg-slate-950 text-blue-600 dark:text-blue-400 border-x-slate-200 dark:border-x-slate-700 border-t-2 border-t-blue-500 border-b-slate-50 dark:border-b-slate-950 shadow-[0_-2px_8px_rgba(0,0,0,0.1)] z-10'
                             : 'bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold self-end border-b-0'}`}
                     >
                         <Home size={14} /> <span className="text-[12px] font-bold tracking-tight uppercase">Feed</span>
                         <div 
                             onClick={(e) => { e.stopPropagation(); handleRefreshTab('feed'); }}
-                            className={`ml-2 p-1 rounded-md transition-all ${currentView === 'feed' ? 'opacity-100 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                            className={`ml-2 p-1 rounded-md transition-all ${currentView === 'feed' && primaryTab === 'feed' ? 'opacity-100 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                             title="Refresh Feed"
                         >
-                            <RefreshCw size={12} className={loading && currentView === 'feed' ? "animate-spin" : ""} />
+                            <RefreshCw size={12} className={loading && currentView === 'feed' && primaryTab === 'feed' ? "animate-spin" : ""} />
+                        </div>
+                    </button>
+
+                    <button
+                        onClick={() => { setPrimaryTab('bookmarks'); setCurrentView('feed'); }}
+                        className={`group flex items-center justify-center gap-2 px-6 py-2 rounded-t-lg border-x border-t transition-all h-[44px] relative -mb-[1px] ${currentView === 'feed' && primaryTab === 'bookmarks'
+                            ? 'bg-slate-50 dark:bg-slate-950 text-blue-600 dark:text-blue-400 border-x-slate-200 dark:border-x-slate-700 border-t-2 border-t-blue-500 border-b-slate-50 dark:border-b-slate-950 shadow-[0_-2px_8px_rgba(0,0,0,0.1)] z-10'
+                            : 'bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold self-end border-b-0'}`}
+                    >
+                        <Bookmark size={14} /> <span className="text-[12px] font-bold tracking-tight uppercase">Bookmarks</span>
+                        <div 
+                            onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
+                            className={`ml-2 p-1 rounded-md transition-all ${currentView === 'feed' && primaryTab === 'bookmarks' ? 'opacity-100 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                            title="Refresh Bookmarks"
+                        >
+                            <RefreshCw size={12} className={loading && currentView === 'feed' && primaryTab === 'bookmarks' ? "animate-spin" : ""} />
                         </div>
                     </button>
                     {tabs.map(t => {
@@ -276,7 +259,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 <div className="flex-1 flex flex-col h-full w-full">
                                     <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Feed Content</span>
+                                            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                                {primaryTab === 'bookmarks' ? 'Your Bookmarks' : `Feed Content: ${MODES.find(m => m.key === mode)?.label || 'Top'}`}
+                                            </span>
                                             {loading && <RefreshCw size={12} className="animate-spin text-blue-500" />}
                                         </div>
                                         <button 
@@ -512,9 +497,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 <div className="flex-1 flex justify-center">
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${user?.authenticated ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-slate-400'}`}></div>
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
-                                Session: {user?.authenticated ? 'Cloud Sync active' : 'Local Only'}
+                            <div className={`w-1.5 h-1.5 rounded-full ${user?.authenticated ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-400'}`}></div>
+                            <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                Mode: {user?.authenticated ? 'Local Database' : 'Disconnected'}
                             </span>
                         </div>
                         <div className="w-[1px] h-3 bg-slate-200 dark:border-slate-800"></div>

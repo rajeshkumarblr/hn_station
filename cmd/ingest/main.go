@@ -200,21 +200,25 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 
 	// 1. Try Local Ollama if provider is "local" or "both"
 	if job.Provider == "local" || job.Provider == "both" {
-		responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Model, job.Title, textContent)
-		if err == nil {
-			// Success with local
-			summary, _ = parseOllamaResponse(responseStr)
+		if aiClient.CheckAvailability(workCtx, ollamaURL) {
+			responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Model, job.Title, textContent)
+			if err == nil {
+				// Success with local
+				summary, _ = parseOllamaResponse(responseStr)
+			} else {
+				summarizeErr = err
+				log.Printf("Worker: Ollama failed for story %d: %v", job.ID, err)
+			}
 		} else {
-			summarizeErr = err
-			log.Printf("Worker: Ollama failed for story %d: %v", job.ID, err)
+			log.Printf("Worker: Ollama unreachable at %s, skipping local summary for %d", ollamaURL, job.ID)
 		}
 	}
 
 	// 2. Fallback to Gemini if:
-	// - Local failed OR provider is "gemini"
-	// - AND provider is "gemini" or "both"
-	// - AND we have a system gemini key (ingest works with system keys)
-	if summary == "" && (job.Provider == "gemini" || job.Provider == "both") {
+	// - Local failed/unreachable OR provider is "gemini"
+	// - AND (provider is "gemini" OR provider is "both" OR (provider is "local" AND Ollama was unreachable))
+	canFallback := job.Provider == "gemini" || job.Provider == "both" || (job.Provider == "local" && summary == "")
+	if summary == "" && canFallback {
 		geminiKey := os.Getenv("GEMINI_API_KEY")
 		if geminiKey != "" {
 			log.Printf("Worker: Attempting fallback/primary Gemini summarization for story %d", job.ID)

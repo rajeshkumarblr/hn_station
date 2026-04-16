@@ -176,41 +176,62 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 
 func defaultDBPath() string {
 	newDir, _ := os.UserConfigDir()
-	// Match Electron's app.setName('HN Station')
 	newPath := filepath.Join(newDir, "HN Station", "hn.db")
+	markerPath := filepath.Join(newDir, "HN Station", ".migrated_v0.9.2")
 
-	// 1. If the new standard path already has a database, use it.
-	if _, err := os.Stat(newPath); err == nil {
+	// 1. If migration marker exists, we are already using the new path and have migrated.
+	if _, err := os.Stat(markerPath); err == nil {
 		return newPath
 	}
 
-	// 2. Check for intermediate "no-space" version (from last update)
-	noSpacePath := filepath.Join(newDir, "HNStation", "hn.db")
-	if _, err := os.Stat(noSpacePath); err == nil {
-		log.Printf("[migration] Detected no-space database at %s. Moving to %s...", noSpacePath, newPath)
-		if err := migrateFile(noSpacePath, newPath); err == nil {
-			return newPath
-		}
-	}
-
-	// 2. New file doesn't exist. Check for legacy ProgramData database.
+	// 2. Check for legacy ProgramData database.
 	pd := os.Getenv("PROGRAMDATA")
 	if pd == "" {
 		pd = "C:\\ProgramData"
 	}
-	legacyPath := filepath.Join(pd, "HNStation", "hn.db")
-	if info, err := os.Stat(legacyPath); err == nil && !info.IsDir() {
-		// Attempt migration (copy)
-		log.Printf("[migration] Detected legacy database at %s. Moving to %s...", legacyPath, newPath)
-		if err := migrateFile(legacyPath, newPath); err == nil {
-			log.Println("[migration] Successfully migrated database to new location.")
+	legacyBase := filepath.Join(pd, "HNStation", "hn.db")
+	if _, err := os.Stat(legacyBase); err == nil {
+		log.Printf("[migration] Detected legacy database at %s. Moving all DB files to %s...", legacyBase, newPath)
+		
+		// Migrate main DB and sidecar files (WAL, SHM)
+		files := []string{"", "-wal", "-shm"}
+		success := true
+		for _, suffix := range files {
+			src := legacyBase + suffix
+			dst := newPath + suffix
+			if _, err := os.Stat(src); err == nil {
+				if err := migrateFile(src, dst); err != nil {
+					log.Printf("[migration] Failed to migrate %s: %v", src, err)
+					success = false
+				}
+			}
+		}
+
+		if success {
+			log.Println("[migration] Successfully migrated all database files to new location.")
+			// Create marker file to prevent repeated migrations
+			_ = os.WriteFile(markerPath, []byte(time.Now().Format(time.RFC3339)), 0644)
 			return newPath
 		}
-		log.Printf("[migration] WARNING: Copy failed: %v. Using legacy path for now.", err)
-		return legacyPath
+		log.Printf("[migration] WARNING: Migration partially failed. Using new path anyway.")
 	}
 
-	// 3. Brand new installation, use standard Electron path.
+	// 3. Mark as "migrated" (or fresh) if the new path already exists to avoid accidental overwrites later
+	if _, err := os.Stat(newPath); err == nil {
+		_ = os.WriteFile(markerPath, []byte("existing"), 0644)
+		return newPath
+	}
+
+	// 4. Handle intermediate "no-space" version (from previous update attempts)
+	noSpacePath := filepath.Join(newDir, "HNStation", "hn.db")
+	if _, err := os.Stat(noSpacePath); err == nil {
+		log.Printf("[migration] Detected no-space database at %s. Moving to %s...", noSpacePath, newPath)
+		if err := migrateFile(noSpacePath, newPath); err == nil {
+			_ = os.WriteFile(markerPath, []byte("no-space"), 0644)
+			return newPath
+		}
+	}
+
 	return newPath
 }
 
@@ -283,18 +304,24 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 
 	// 1. Try Local Ollama if provider is "local" or "both"
 	if provider == "local" || provider == "both" {
-		model, _ := store.GetSetting(workCtx, "ollama_model")
-		responseStr, err = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
-		if err != nil {
-			summarizeErr = err
-			log.Printf("[ingest] Ollama error for story %d: %v", job.ID, err)
+		if aiClient.CheckAvailability(workCtx, ollamaURL) {
+			model, _ := store.GetSetting(workCtx, "ollama_model")
+			responseStr, err = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
+			if err != nil {
+				summarizeErr = err
+				log.Printf("[ingest] Ollama error for story %d: %v", job.ID, err)
+			}
+		} else {
+			log.Printf("[ingest] Ollama unreachable at %s, skipping local summary for %d", ollamaURL, job.ID)
 		}
 	}
 
 	// 2. Fallback to Gemini if:
-	// - Local failed OR provider is "gemini"
-	// - AND provider is "gemini" or "both"
-	if responseStr == "" && (provider == "gemini" || provider == "both") {
+	// - Local failed/unreachable OR provider is "gemini"
+	// - AND (provider is "gemini" OR provider is "both" OR (provider is "local" AND Ollama was unreachable))
+	// We allow "local" -> Gemini fallback IF Ollama is down to ensure user gets summaries.
+	canFallback := provider == "gemini" || provider == "both" || (provider == "local" && responseStr == "")
+	if responseStr == "" && canFallback {
 		geminiKey, _ := store.GetSetting(workCtx, "gemini_api_key")
 		if geminiKey == "" {
 			geminiKey = os.Getenv("GEMINI_API_KEY")

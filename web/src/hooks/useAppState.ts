@@ -134,6 +134,16 @@ export function useAppState() {
     const [user, setUser] = useState<User | null>(null);
     const [globalWarning, setGlobalWarning] = useState<string | null>(null);
 
+    // Primary Tab Management
+    const [primaryTab, setPrimaryTab] = useState<'feed' | 'bookmarks'>(() => {
+        const saved = localStorage.getItem('hn_desktop_primary_tab');
+        return (saved === 'feed' || saved === 'bookmarks') ? saved : 'feed';
+    });
+    const [lastFeedMode, setLastFeedMode] = useState<ModeKey>(() => {
+        const saved = localStorage.getItem('hn_desktop_last_feed_mode');
+        return (saved && saved !== 'saved') ? (saved as ModeKey) : 'default';
+    });
+
     const handleRefresh = () => setRefreshKey(prev => prev + 1);
     const handleRefreshTab = useCallback((tabId?: string) => {
         if (!tabId || tabId === 'feed') {
@@ -236,6 +246,10 @@ export function useAppState() {
                         if (data.jwt_token) {
                             localStorage.setItem('hn_jwt_token', data.jwt_token);
                         }
+                        // Initialize topics from backend if available
+                        if (data.topics && Array.isArray(data.topics) && data.topics.length > 0) {
+                            setActiveTopics(data.topics);
+                        }
                     } else {
                         setUser(null);
                     }
@@ -247,16 +261,9 @@ export function useAppState() {
 
         fetchMe();
 
-        // If not logged in on desktop, poll every 2 seconds to "claim" the proxy token
-        let interval: any;
-        if (isElectron() && !user?.authenticated) {
-            interval = setInterval(fetchMe, 2000);
-        }
-
-        return () => {
-            if (interval) clearInterval(interval);
-        };
-    }, [apiBase, user?.authenticated]);
+        // No polling needed in local mode anymore since we are always authenticated
+        return () => { };
+    }, [apiBase]);
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -265,7 +272,20 @@ export function useAppState() {
         localStorage.setItem('theme', theme);
     }, [theme]);
 
-    useEffect(() => { saveTopicChips(activeTopics); }, [activeTopics]);
+    useEffect(() => { 
+        saveTopicChips(activeTopics); 
+        
+        // Sync to backend if authenticated
+        if (user && user.authenticated && apiBase) {
+            const url = `${apiBase}/api/user/topics`;
+            fetchWithAuth(url, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topics: activeTopics }),
+            }).catch(err => console.error('Failed to sync topics to backend:', err));
+        }
+    }, [activeTopics, user?.authenticated, apiBase]);
     useEffect(() => {
         try {
             localStorage.setItem('hn_disabled_topics', JSON.stringify(disabledTopics));
@@ -298,6 +318,22 @@ export function useAppState() {
     useEffect(() => {
         localStorage.setItem('hn_desktop_current_view', currentView);
     }, [currentView]);
+
+    useEffect(() => {
+        localStorage.setItem('hn_desktop_primary_tab', primaryTab);
+        if (primaryTab === 'bookmarks') {
+            setMode('saved');
+        } else {
+            setMode(lastFeedMode);
+        }
+    }, [primaryTab, lastFeedMode]);
+
+    useEffect(() => {
+        if (mode !== 'saved') {
+            setLastFeedMode(mode);
+            localStorage.setItem('hn_desktop_last_feed_mode', mode);
+        }
+    }, [mode]);
 
     const handleHideStory = useCallback((id: number) => {
         setStoryBuffer(prev => prev.filter(s => s.id !== id));
@@ -555,8 +591,12 @@ export function useAppState() {
             .then(data => {
                 // We still want to update the tab's injected story object (with URL etc.)
                 // so that the webview can load the actual URL if the feed only had partial data.
-                if (data && data.story && activeTabId) {
-                    setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, story: data.story } : t));
+                if (data && data.story) {
+                    if (activeTabId) {
+                        setTabs(prev => prev.map(t => t.id === activeTabId ? { ...t, story: data.story } : t));
+                    }
+                    // Sync the main story buffer so sidebar summary updates
+                    setStoryBuffer(prev => prev.map(s => s.id === data.story.id ? data.story : s));
                 }
             })
             .catch(() => { });
@@ -573,14 +613,14 @@ export function useAppState() {
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
         tabs, activeTabId, showHidden,
         isSettingsOpen, currentView, isAdminModalOpen, user,
-        hiddenStories, offset, globalWarning, backendStats,
+        hiddenStories, offset, globalWarning, backendStats, primaryTab,
         // Derived
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         isWebMode,
         // Setters
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
-        setDisabledTopics, setGlobalWarning,
+        setDisabledTopics, setGlobalWarning, setPrimaryTab,
         // Handlers
         handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, handleHideStory,
         handleStorySelect, handleToggleSave, handleBack, handleHome,

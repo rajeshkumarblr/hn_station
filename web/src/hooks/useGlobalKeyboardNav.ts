@@ -141,6 +141,37 @@ export function useGlobalKeyboardNav(
                 app.handleStorySelect(tab.storyId, order[nextIndex]);
                 return;
             }
+
+            // --- Ctrl + 0 to switch to feed ---
+            if (e.ctrlKey && e.key === '0') {
+                e.preventDefault();
+                app.setCurrentView('feed');
+                return;
+            }
+
+            // --- Ctrl + W to close tab or exit ---
+            if (e.ctrlKey && e.key === 'w') {
+                e.preventDefault();
+                if (app.currentView === 'reader' && app.activeTabId) {
+                    app.closeTab(app.activeTabId);
+                } else if (app.currentView === 'feed') {
+                    (window as any).electronAPI?.close();
+                }
+                return;
+            }
+
+            // --- Ctrl + D to Bookmark ---
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                const targetId = app.currentView === 'reader' ? app.selectedStoryId : app.highlightedStoryId;
+                if (!targetId) return;
+
+                const story = app.stories.find(s => s.id === targetId) || (app.currentView === 'reader' ? app.selectedStory : null);
+                if (story) {
+                    app.handleToggleSave(targetId, !story.is_saved);
+                }
+                return;
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);

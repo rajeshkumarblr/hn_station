@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/rajeshkumarblr/hn_station/internal/ai"
 	"github.com/rajeshkumarblr/hn_station/internal/auth"
+	"github.com/rajeshkumarblr/hn_station/internal/hn"
 	"github.com/rajeshkumarblr/hn_station/internal/storage"
 	"golang.org/x/oauth2"
 )
@@ -26,6 +27,7 @@ type Server struct {
 	auth         *auth.Config
 	aiClient     *ai.OllamaClient
 	geminiClient *ai.GeminiClient
+	hnClient     *hn.Client
 	localMode    bool // true = SQLite local mode, auth disabled
 	pendingAuthToken string
 }
@@ -37,6 +39,7 @@ func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient
 		auth:         authCfg,
 		aiClient:     aiClient,
 		geminiClient: geminiClient,
+		hnClient:     hn.NewClient(),
 		localMode:    localMode,
 	}
 
@@ -477,21 +480,27 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 		ollamaModels, _ = s.aiClient.ListModels(r.Context(), ollamaURL)
 	}
 
-	// In local mode, if not authenticated, return a default mock user with authenticated: false
+	// In local mode, if not authenticated, return a default mock user with authenticated: true
 	if userID == "" && s.localMode {
+		topics, _ := s.store.GetActiveTopics(r.Context())
+		if topics == nil {
+			topics = []string{}
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":                   "local_user",
+			"id":                   "local-user",
 			"email":                "local@hnstation.app",
 			"name":                 "Local User",
 			"avatar_url":           "",
 			"is_admin":             true,
-			"authenticated":        false, // Explicitly marked as not cloud-authenticated
+			"authenticated":        true, // Local-first: always authenticated
+			"topics":               topics,
 			"ai_summaries_enabled": aiEnabled,
 			"ollama_available":     ollamaAvailable,
 			"ollama_model":         ollamaModel,
 			"ollama_models":        ollamaModels,
-			"jwt_token":            claimedToken, // Might be empty if nothing claimed
+			"jwt_token":            claimedToken,
 		})
 		return
 	}
@@ -672,7 +681,36 @@ func (s *Server) handleInteract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[interact] Story %d: saved=%v, read=%v, hidden=%v", storyID, body.Saved, body.Read, body.Hidden)
+
 	if err := s.store.UpsertInteraction(r.Context(), userID, storyID, body.Read, body.Saved, body.Hidden); err != nil {
+		// If story not found and we are in local mode, try to fetch it from HN and save it first
+		if s.localMode && strings.Contains(err.Error(), "not found in database") {
+			item, fetchErr := s.hnClient.GetItem(r.Context(), storyID)
+			if fetchErr == nil && item != nil {
+				// Convert HN item to storage.Story
+				story := storage.Story{
+					ID:          int64(item.ID),
+					Title:       item.Title,
+					URL:         item.URL,
+					Score:       item.Score,
+					By:          item.By,
+					Descendants: item.Descendants,
+					PostedAt:    time.Unix(item.Time, 0),
+					CreatedAt:   time.Now(),
+				}
+				// Save story to DB
+				if upsertErr := s.store.UpsertStory(r.Context(), story); upsertErr == nil {
+					// Retry interaction
+					if retryErr := s.store.UpsertInteraction(r.Context(), userID, storyID, body.Read, body.Saved, body.Hidden); retryErr == nil {
+						w.Header().Set("Content-Type", "application/json")
+						json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+						return
+					}
+				}
+			}
+		}
+
 		log.Printf("Error upserting interaction: %v", err)
 		http.Error(w, "Failed to update interaction", http.StatusInternalServerError)
 		return

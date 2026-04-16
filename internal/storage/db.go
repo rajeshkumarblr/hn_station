@@ -34,6 +34,7 @@ type DB interface {
 	GetAuthUser(ctx context.Context, userID string) (*AuthUser, error)
 	UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error
 	UpdateUserTopics(ctx context.Context, userID string, topics []string) error
+	GetActiveTopics(ctx context.Context) ([]string, error)
 	GetAllUsers(ctx context.Context) ([]*AuthUser, error)
 	GetAnyAdminAPIKey(ctx context.Context) (string, error)
 	GetAppStats(ctx context.Context) (*AppStats, error)

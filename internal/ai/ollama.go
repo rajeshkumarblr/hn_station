@@ -22,7 +22,7 @@ func NewOllamaClient() *OllamaClient {
 
 // CheckAvailability verifies if the Ollama server is reachable.
 func (c *OllamaClient) CheckAvailability(ctx context.Context, apiURL string) bool {
-	client := &http.Client{Timeout: 2 * time.Second}
+	client := &http.Client{Timeout: 500 * time.Millisecond}
 	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return false
@@ -38,7 +38,7 @@ func (c *OllamaClient) CheckAvailability(ctx context.Context, apiURL string) boo
 // GenerateSummary generates a concise summary and tags using the provided local Ollama server URL and model.
 func (c *OllamaClient) GenerateSummary(ctx context.Context, apiURL string, model string, title string, text string) (string, error) {
 	if model == "" {
-		model = "llama3:latest"
+		model = "qwen2.5-coder:latest"
 	}
 	log.Printf("OllamaClient: Starting summarization for %q using model %q. Input text length: %d", title, model, len(text))
 

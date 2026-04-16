@@ -355,7 +355,7 @@ func (s *SQLiteStore) UpdateRanks(ctx context.Context, rankMap map[int]int) erro
 
 func (s *SQLiteStore) PruneStories(ctx context.Context, daysToKeep int) error {
 	_, err := s.db.ExecContext(ctx,
-		`DELETE FROM stories WHERE created_at < datetime('now', ? || ' days')`,
+		`DELETE FROM stories WHERE created_at < datetime('now', ? || ' days') AND is_saved = 0`,
 		fmt.Sprintf("-%d", daysToKeep))
 	return err
 }
@@ -463,10 +463,18 @@ func (s *SQLiteStore) UpdateUserGeminiKey(_ context.Context, _, _ string) error 
 
 func (s *SQLiteStore) UpdateUserTopics(ctx context.Context, userID string, topics []string) error {
 	// For local mode, we save topics to the settings table if it's the local user
-	if userID == "local-user" {
+	if userID == "local-user" || userID == "local_user" {
 		return s.SetSetting(ctx, "active_topics", topicsToJSON(topics))
 	}
 	return nil
+}
+
+func (s *SQLiteStore) GetActiveTopics(ctx context.Context) ([]string, error) {
+	val, err := s.GetSetting(ctx, "active_topics")
+	if err != nil {
+		return nil, err
+	}
+	return jsonToTopics(val), nil
 }
 
 func (s *SQLiteStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
@@ -528,8 +536,16 @@ func (s *SQLiteStore) UpsertInteraction(ctx context.Context, _ string, storyID i
 	query += strings.Join(updates, ", ") + " WHERE id = ?"
 	args = append(args, storyID)
 
-	_, err := s.db.ExecContext(ctx, query, args...)
-	return err
+	res, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("story %d not found in database", storyID)
+	}
+	return nil
 }
 
 func (s *SQLiteStore) GetSavedStories(ctx context.Context, _ string, limit, offset int) ([]Story, int, error) {

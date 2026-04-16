@@ -52,7 +52,7 @@ function debug(msg: string) {
         fs.appendFileSync(debugLog, `[DEBUG ${new Date().toISOString()}] ${msg}\n`);
     } catch(e) {}
 }
-debug(`Main process starting v0.9.0. __dirname=${__dirname}`);
+debug(`Main process starting v0.9.3. __dirname=${__dirname}`);
 debug(`APP_PATH=${app.getAppPath()}`);
 
 // Set App User Model ID early for correct Windows Taskbar grouping/pinning
@@ -99,7 +99,7 @@ function startLocalBackend(): Promise<number> {
         }
 
         const dbPath = process.platform === 'win32'
-            ? path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'HNStation', 'hn.db')
+            ? path.join(app.getPath('userData'), 'hn.db')
             : path.join(os.homedir(), '.hn-station', 'hn.db');
         logToFile(`[backend] Starting ${binaryPath} --db ${dbPath}`);
 
