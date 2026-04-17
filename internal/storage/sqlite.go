@@ -85,8 +85,19 @@ func (s *SQLiteStore) migrate() error {
 		is_admin   BOOLEAN NOT NULL DEFAULT 0,
 		summaries_enabled BOOLEAN NOT NULL DEFAULT 1,
 		topics     TEXT NOT NULL DEFAULT '[]',
+		gemini_url TEXT,
 		created_at DATETIME NOT NULL DEFAULT (datetime('now'))
 	);
+
+	CREATE TABLE IF NOT EXISTS chat_messages (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id     TEXT NOT NULL,
+		story_id    INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+		role        TEXT NOT NULL,
+		content     TEXT NOT NULL,
+		created_at  DATETIME NOT NULL DEFAULT (datetime('now'))
+	);
+	CREATE INDEX IF NOT EXISTS idx_chat_messages_story_user ON chat_messages(story_id, user_id);
 	`
 	_, err := s.db.Exec(schema)
 	if err != nil {
@@ -99,8 +110,10 @@ func (s *SQLiteStore) migrate() error {
 		"ALTER TABLE stories ADD COLUMN is_saved BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN iframe_blocked BOOLEAN NOT NULL DEFAULT 0",
+		"ALTER TABLE stories ADD COLUMN gemini_url TEXT",
 		"ALTER TABLE auth_users ADD COLUMN summaries_enabled BOOLEAN NOT NULL DEFAULT 1",
 		"ALTER TABLE auth_users ADD COLUMN topics TEXT NOT NULL DEFAULT '[]'",
+		"ALTER TABLE auth_users ADD COLUMN gemini_url TEXT",
 	}
 	for _, sql := range cols {
 		_, _ = s.db.Exec(sql)
@@ -149,7 +162,7 @@ func scanStory(row interface{ Scan(...any) error }) (Story, error) {
 	var story Story
 	var topicsJSON string
 	var hnRank sql.NullInt64
-	var summary sql.NullString
+	var summary, geminiURL sql.NullString
 	var postedAt, createdAt string
 
 	if err := row.Scan(
@@ -157,6 +170,7 @@ func scanStory(row interface{ Scan(...any) error }) (Story, error) {
 		&story.By, &story.Descendants, &postedAt, &createdAt,
 		&hnRank, &summary, &topicsJSON,
 		&story.IsRead, &story.IsSaved, &story.IsHidden, &story.IframeBlocked,
+		&geminiURL,
 	); err != nil {
 		return story, err
 	}
@@ -167,6 +181,9 @@ func scanStory(row interface{ Scan(...any) error }) (Story, error) {
 	}
 	if summary.Valid && summary.String != "" {
 		story.Summary = &summary.String
+	}
+	if geminiURL.Valid && geminiURL.String != "" {
+		story.GeminiURL = &geminiURL.String
 	}
 	story.Topics = jsonToTopics(topicsJSON)
 
@@ -208,7 +225,7 @@ func (s *SQLiteStore) UpsertStory(ctx context.Context, story Story) error {
 
 func (s *SQLiteStore) GetStory(ctx context.Context, id int) (*Story, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked
+		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
 		 FROM stories WHERE id = ?`, id)
 	story, err := scanStory(row)
 	if err != nil {
@@ -258,7 +275,7 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 	}
 
 	// Get stories
-	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked
+	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
 	          FROM stories ` + whereClause + ` ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
 	finalArgs := append(args, limit, offset)
 
@@ -314,8 +331,12 @@ func (s *SQLiteStore) UpdateStorySummary(ctx context.Context, id int, summary st
 }
 
 func (s *SQLiteStore) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE stories SET summary = ?, topics = ? WHERE id = ?`,
-		summary, topicsToJSON(topics), id)
+	_, err := s.db.ExecContext(ctx, "UPDATE stories SET summary = ?, topics = ? WHERE id = ?", summary, topicsToJSON(topics), id)
+	return err
+}
+
+func (s *SQLiteStore) UpdateStoryGeminiURL(ctx context.Context, id int64, url string) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE stories SET gemini_url = ? WHERE id = ?", url, id)
 	return err
 }
 
@@ -555,7 +576,7 @@ func (s *SQLiteStore) GetSavedStories(ctx context.Context, _ string, limit, offs
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked
+		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
 		 FROM stories WHERE is_saved = 1 ORDER BY posted_at DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -573,12 +594,42 @@ func (s *SQLiteStore) GetSavedStories(ctx context.Context, _ string, limit, offs
 	return stories, total, nil
 }
 
-// ─── Chat stubs ───
+// ─── Chat methods ───
 
-func (s *SQLiteStore) SaveChatMessage(_ context.Context, _ string, _ int, _, _ string) error {
-	return nil
+func (s *SQLiteStore) SaveChatMessage(ctx context.Context, userID string, storyID int, role, content string) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO chat_messages (user_id, story_id, role, content)
+		VALUES (?, ?, ?, ?)
+	`, userID, storyID, role, content)
+	return err
 }
 
-func (s *SQLiteStore) GetChatHistory(_ context.Context, _ string, _ int) ([]ChatMessage, error) {
-	return nil, nil
+func (s *SQLiteStore) GetChatHistory(ctx context.Context, userID string, storyID int) ([]ChatMessage, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, user_id, story_id, role, content, created_at
+		FROM chat_messages
+		WHERE user_id = ? AND story_id = ?
+		ORDER BY created_at ASC
+	`, userID, storyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var history []ChatMessage
+	for rows.Next() {
+		var m ChatMessage
+		var createdAt string
+		if err := rows.Scan(&m.ID, &m.UserID, &m.StoryID, &m.Role, &m.Content, &createdAt); err != nil {
+			return nil, err
+		}
+		// Parse time
+		if t, err := time.Parse("2006-01-02T15:04:05Z", createdAt); err == nil {
+			m.CreatedAt = t
+		} else if t, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
+			m.CreatedAt = t
+		}
+		history = append(history, m)
+	}
+	return history, nil
 }

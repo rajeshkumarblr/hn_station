@@ -17,7 +17,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v0.9.7)
+## 🖥️ Electron Desktop App (v1.0.0-rc15)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
@@ -27,17 +27,23 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
     - **PDF Support**: AI summaries can now "read" PDF documents (up to 20 pages).
     - **GitHub README Integration**: Show HN projects automatically fetch repository documentation for context-aware summaries.
 - **Zero-Login Reader**: Local SQLite persistence for your bookmarks, read history, and topic filters—no account required.
-- **Simplified Story Cards**: Consolidated reader access with a single "Split View" default.
-- **Rich Sidebar Summaries**: AI-powered takeaways from Ollama (local) or Gemini Pro (cloud).
+- **Integrated AI Sidebar**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view.
+- **Resizable Layout**: Dynamically adjust the width of the sidebar to balance article reading and conversation.
+- **Rich Sidebar Summaries**: AI-powered takeaways from Gemini Pro (cloud) or local models.
 
 ### ⌨️ Keyboard Shortcuts
 | Shortcut | Action |
 | :--- | :--- |
+| `Ctrl + Q` | **Article View** (Hide Sidebar) |
+| `Ctrl + G` | **Gemini Chat** Tab |
+| `Ctrl + H` | **Discussion** Tab |
+| `Ctrl + K` | **AI Summary** Tab |
+| `Ctrl + D` | Switch to **Bookmarks Tab** |
+| `Ctrl + Home` | Switch to **Feed Tab** |
 | `Ctrl + W` | Close current reader tab (Reader view) |
 | `Ctrl + W` | **Exit Application** (Feed view) |
-| `Ctrl + D` | Toggle Bookmark for active story |
 | `Ctrl + 0` | Switch to Feed view |
-| `Ctrl + Space` | Cycle reader view: Article → Discussion → Split |
+| `Ctrl + Space` | Cycle reader mode: Article → Discussion → Split |
 | `j` / `k` | Navigate stories in the feed |
 | `Enter` | Open story in Reader |
 

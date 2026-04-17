@@ -17,6 +17,7 @@ type DB interface {
 	GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, error)
 	UpdateStorySummary(ctx context.Context, id int, summary string) error
 	UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error
+	UpdateStoryGeminiURL(ctx context.Context, id int64, url string) error
 	UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error
 	ClearRanksNotIn(ctx context.Context, ids []int) error
 	UpdateRanks(ctx context.Context, rankMap map[int]int) error
@@ -70,6 +71,7 @@ type Story struct {
 	Summary       *string          `json:"summary,omitempty"`
 	Topics        []string         `json:"topics,omitempty"`
 	IframeBlocked *bool            `json:"iframe_blocked,omitempty"`
+	GeminiURL     *string          `json:"gemini_url,omitempty"`
 	Embedding     *pgvector.Vector `json:"-"`
 	Similarity    *float64         `json:"similarity,omitempty"`
 }

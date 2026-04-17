@@ -87,6 +87,7 @@ func (s *Server) routes() {
 	s.router.Post("/api/settings", s.handleUpdateSettings)
 	s.router.Get("/api/stats", s.handleGetStats)
 	s.router.Get("/api/download/latest", s.handleDownloadLatest)
+	s.router.Patch("/api/stories/{id}/gemini_url", s.handleUpdateStoryGeminiURL)
 
 	// Auth routes
 	s.router.Get("/auth/google", s.handleGoogleLogin)
@@ -98,6 +99,8 @@ func (s *Server) routes() {
 	s.router.Get("/api/models/ollama", s.handleListOllamaModels)
 	s.router.Post("/api/stories/{id}/summarize", s.handleSummarizeStory)
 	s.router.Post("/api/stories/{id}/summarize_article", s.handleSummarizeArticle)
+	s.router.Post("/api/stories/{id}/chat", s.handleChat)
+	s.router.Get("/api/stories/{id}/chat", s.handleGetChatHistory)
 
 	// Admin routes
 	s.router.Group(func(r chi.Router) {
@@ -764,6 +767,26 @@ func (s *Server) handleGetSavedStories(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleUpdateStoryGeminiURL(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, _ := strconv.ParseInt(idStr, 10, 64)
+
+	var payload struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.UpdateStoryGeminiURL(r.Context(), id, payload.URL); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
@@ -915,6 +938,141 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		"summary": result.Summary,
 		"topics":  result.Topics,
 	})
+}
+
+func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
+	storyIDStr := chi.URLParam(r, "id")
+	storyID, err := strconv.Atoi(storyIDStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		if s.localMode {
+			userID = "local-user"
+		} else {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+	}
+
+	var req struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Get Story Context
+	story, err := s.store.GetStory(r.Context(), storyID)
+	if err != nil {
+		http.Error(w, "Story not found", http.StatusNotFound)
+		return
+	}
+
+	comments, _ := s.store.GetComments(r.Context(), storyID)
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Title: %s\nURL: %s\n\nDiscussion:\n", story.Title, story.URL))
+	for i, c := range comments {
+		if i > 50 { // Limit to top 50 comments for context
+			break
+		}
+		sb.WriteString(fmt.Sprintf("- %s: %s\n", c.By, c.Text))
+	}
+	if story.Summary != nil {
+		sb.WriteString(fmt.Sprintf("\nSummary: %s\n", *story.Summary))
+	}
+
+	// 2. Get History
+	history, _ := s.store.GetChatHistory(r.Context(), userID, storyID)
+	aiHistory := make([]ai.ChatMessage, len(history))
+	for i, m := range history {
+		aiHistory[i] = ai.ChatMessage{Role: m.Role, Content: m.Content}
+	}
+
+	// 3. Generate AI Response
+	provider, _ := s.store.GetSetting(r.Context(), "ai_provider")
+	if provider == "" {
+		provider = "local"
+	}
+
+	var response string
+	var chatErr error
+
+	if provider == "local" || provider == "both" {
+		ollamaURL := os.Getenv("OLLAMA_URL")
+		if ollamaURL == "" {
+			ollamaURL = "http://localhost:11434"
+		}
+		model, _ := s.store.GetSetting(r.Context(), "ollama_model")
+		response, chatErr = s.aiClient.GenerateChatResponse(r.Context(), ollamaURL, model, sb.String(), aiHistory, req.Message)
+	}
+
+	if response == "" && (provider == "gemini" || provider == "both") {
+		var geminiKey string
+		if s.localMode {
+			geminiKey = os.Getenv("GEMINI_API_KEY")
+		}
+		if u, err := s.store.GetAuthUser(r.Context(), userID); err == nil && u.GeminiAPIKey != "" {
+			geminiKey = u.GeminiAPIKey
+		}
+
+		if geminiKey != "" {
+			response, chatErr = s.geminiClient.GenerateChatResponse(r.Context(), geminiKey, sb.String(), aiHistory, req.Message)
+		}
+	}
+
+	if chatErr != nil {
+		log.Printf("Chat generation failed: %v", chatErr)
+		http.Error(w, "Failed to generate AI response", http.StatusInternalServerError)
+		return
+	}
+
+	// 4. Save to History
+	if err := s.store.SaveChatMessage(r.Context(), userID, storyID, "user", req.Message); err != nil {
+		log.Printf("Failed to save user message: %v", err)
+	}
+	if err := s.store.SaveChatMessage(r.Context(), userID, storyID, "model", response); err != nil {
+		log.Printf("Failed to save AI response: %v", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"response": response})
+}
+
+func (s *Server) handleGetChatHistory(w http.ResponseWriter, r *http.Request) {
+	storyIDStr := chi.URLParam(r, "id")
+	storyID, err := strconv.Atoi(storyIDStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		if s.localMode {
+			userID = "local-user"
+		} else {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+	}
+
+	history, err := s.store.GetChatHistory(r.Context(), userID, storyID)
+	if err != nil {
+		http.Error(w, "Failed to fetch chat history", http.StatusInternalServerError)
+		return
+	}
+
+	if history == nil {
+		history = []storage.ChatMessage{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(history)
 }
 
 func (s *Server) handleUpdateUserTopics(w http.ResponseWriter, r *http.Request) {

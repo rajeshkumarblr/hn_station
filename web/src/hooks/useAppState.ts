@@ -214,6 +214,10 @@ export function useAppState() {
         setTabs(prev => prev.map(t => t.storyId === storyId ? { ...t, story: { ...t.story, iframe_blocked: blocked } } : t));
     }, []);
 
+    const toggleAISidebar = useCallback((tabId: string, open: boolean) => {
+        setTabs(prev => prev.map(t => t.id === tabId ? { ...t, isAISidebarOpen: open } : t));
+    }, []);
+
     const stories = storyBuffer; // Backend already paginates this buffer
 
     useEffect(() => {
@@ -623,6 +627,7 @@ export function useAppState() {
         setDisabledTopics, setGlobalWarning, setPrimaryTab,
         // Handlers
         handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, handleHideStory,
+        toggleAISidebar,
         handleStorySelect, handleToggleSave, handleBack, handleHome,
     };
 

@@ -30,6 +30,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     } = app;
     const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
+    const VERSION = "1.0.0-rc14";
     const PAGE_SIZE = 10;
     const isElectron = getIsElectron();
 
@@ -127,7 +128,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
                 >
                     <span className="text-[11px] font-black tracking-widest text-[#ff6600] uppercase leading-none drop-shadow-sm">HN Station</span>
-                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v0.9.7</span>
+                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v1.0.0-rc15</span>
                 </div>
 
                     {/* Right Section: Controls */}
@@ -193,12 +194,21 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             : 'bg-transparent border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold self-end border-b-0'}`}
                     >
                         <Bookmark size={14} /> <span className="text-[12px] font-bold tracking-tight uppercase">Bookmarks</span>
-                        <div 
-                            onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
-                            className={`ml-2 p-1 rounded-md transition-all ${currentView === 'feed' && primaryTab === 'bookmarks' ? 'opacity-100 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                            title="Refresh Bookmarks"
-                        >
-                            <RefreshCw size={12} className={loading && currentView === 'feed' && primaryTab === 'bookmarks' ? "animate-spin" : ""} />
+                        <div className="flex items-center gap-1 ml-2">
+                            <div 
+                                onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
+                                className={`p-1 rounded-md transition-all ${currentView === 'feed' && primaryTab === 'bookmarks' ? 'opacity-100 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                title="Refresh Bookmarks"
+                            >
+                                <RefreshCw size={12} className={loading && currentView === 'feed' && primaryTab === 'bookmarks' ? "animate-spin" : ""} />
+                            </div>
+                            <div 
+                                onClick={(e) => { e.stopPropagation(); setCurrentView('feed'); setPrimaryTab('feed'); }}
+                                className={`p-1 rounded-md transition-all ${currentView === 'feed' && primaryTab === 'bookmarks' ? 'opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                title="Close Bookmarks"
+                            >
+                                <X size={12} />
+                            </div>
                         </div>
                     </button>
                     {tabs.map(t => {
@@ -224,7 +234,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     title={`Click to switch tab: ${t.story.title}`}
                                 >
                                     <img src={faviconUrl} alt="" className="w-3 h-3 rounded-sm flex-shrink-0" />
-                                    <span className={`truncate text-[10px] font-bold select-none ${isActive ? 'opacity-100 text-blue-600 dark:text-blue-400' : 'opacity-80 text-slate-500 dark:text-slate-400'}`}>
+                                    <span className={`truncate text-[12px] font-black tracking-tight select-none ${isActive ? 'opacity-100 text-blue-600 dark:text-blue-400' : 'opacity-80 text-slate-500 dark:text-slate-400'}`}>
                                         {t.story.title}
                                     </span>
                                 </button>
@@ -252,10 +262,14 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden relative">
-                {currentView === 'feed' ? (
-                    <main className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-950 flex focus:outline-none" tabIndex={-1}>
-                        <div className="flex w-full h-full relative">
-                            <div className="flex-1 flex flex-col h-full overflow-hidden">
+                {/* Feed View Container - Persistent Mount */}
+                <main 
+                    className="flex-1 overflow-hidden bg-slate-50 dark:bg-slate-950 flex focus:outline-none" 
+                    tabIndex={-1}
+                    style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
+                >
+                    <div className="flex w-full h-full relative">
+                        <div className="flex-1 flex flex-col h-full overflow-hidden">
                                 <div className="flex-1 flex flex-col h-full w-full">
                                     <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
                                         <div className="flex items-center gap-2">
@@ -437,25 +451,31 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             />
                         </div>
                     </main>
-                ) : (
-                    // Reader view: render ALL tabs simultaneously, show only the active one
-                    <div className="flex-1 w-full bg-[#111d2e] flex flex-col relative">
+
+                    {/* Reader View Container - Persistent Mount */}
+                    <div 
+                        className="flex-1 w-full bg-[#111d2e] flex flex-col relative"
+                        style={{ display: currentView === 'reader' ? 'flex' : 'none' }}
+                    >
                         {tabs.map(tab => {
-                            const isActive = currentView === 'reader' && activeTabId === tab.id;
+                            const isActiveTab = activeTabId === tab.id;
+                            const isShowing = isActiveTab && currentView === 'reader';
                             const activeMode = tab.mode || 'split';
                             return (
                                 <div
                                     key={tab.id}
                                     className="absolute inset-0"
-                                    style={{ display: isActive ? 'flex' : 'none', flexDirection: 'column', overflow: 'hidden' }}
+                                    style={{ display: isActiveTab ? 'flex' : 'none', flexDirection: 'column', overflow: 'hidden' }}
                                 >
                                     <ReaderPane
                                         story={tab.story}
-                                        isActive={isActive}
+                                        isActive={isShowing}
                                         activeTab={activeMode as any}
                                         onTabChange={(m) => {
                                             app.handleStorySelect?.(tab.storyId, m);
                                         }}
+                                        isAISidebarOpen={tab.isAISidebarOpen || false}
+                                        onToggleAISidebar={(open) => app.toggleAISidebar(tab.id, open)}
                                         onBack={app.handleBack}
                                         onHome={app.handleHome}
                                         onTakeFocus={() => { }}
@@ -473,7 +493,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <div className="h-full flex items-center justify-center text-slate-500">Select a story</div>
                         )}
                     </div>
-                )}
                 {isAdminModalOpen && <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />}
                 {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} user={user} />}
                 <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />

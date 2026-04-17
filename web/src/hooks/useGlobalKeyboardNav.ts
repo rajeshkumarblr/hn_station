@@ -72,11 +72,15 @@ export function useGlobalKeyboardNav(
             // --- Ctrl + Tab / Ctrl + Shift + Tab to Cycle Tabs & Feed ---
             if (e.ctrlKey && e.code === 'Tab') {
                 e.preventDefault();
+                const totalTabs = app.tabs.length;
+                
                 if (e.shiftKey) {
                     // Cycle Left (Backwards)
                     if (app.currentView === 'feed') {
-                        if (app.tabs.length > 0) {
-                            app.handleStorySelect(app.tabs[app.tabs.length - 1].storyId);
+                        if (app.primaryTab === 'bookmarks') {
+                            app.setPrimaryTab('feed');
+                        } else if (totalTabs > 0) {
+                            app.handleStorySelect(app.tabs[totalTabs - 1].storyId);
                         }
                     } else {
                         const idx = app.tabs.findIndex((t: ReaderTab) => t.id === app.activeTabId);
@@ -84,22 +88,40 @@ export function useGlobalKeyboardNav(
                             app.handleStorySelect(app.tabs[idx - 1].storyId);
                         } else {
                             app.setCurrentView('feed');
+                            app.setPrimaryTab('bookmarks');
                         }
                     }
                 } else {
                     // Cycle Right (Forwards)
                     if (app.currentView === 'feed') {
-                        if (app.tabs.length > 0) {
+                        if (app.primaryTab === 'feed') {
+                            app.setPrimaryTab('bookmarks');
+                        } else if (totalTabs > 0) {
                             app.handleStorySelect(app.tabs[0].storyId);
+                        } else {
+                            app.setPrimaryTab('feed');
                         }
                     } else {
                         const idx = app.tabs.findIndex((t: ReaderTab) => t.id === app.activeTabId);
-                        if (idx !== -1 && idx < app.tabs.length - 1) {
+                        if (idx !== -1 && idx < totalTabs - 1) {
                             app.handleStorySelect(app.tabs[idx + 1].storyId);
                         } else {
                             app.setCurrentView('feed');
+                            app.setPrimaryTab('feed');
                         }
                     }
+                }
+                return;
+            }
+
+            // --- F5 to Refresh ---
+            if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+                // In electron, Ctrl+R is usually handled by the menu, but we map F5 here.
+                e.preventDefault();
+                if (app.currentView === 'feed') {
+                    app.handleRefresh();
+                } else if (app.activeTabId) {
+                    app.handleRefreshTab(app.activeTabId);
                 }
                 return;
             }
@@ -160,17 +182,23 @@ export function useGlobalKeyboardNav(
                 return;
             }
 
-            // --- Ctrl + D to Bookmark ---
-            if (e.ctrlKey && e.key === 'd') {
+            // --- Ctrl + D to Bookmarks View ---
+            if (e.ctrlKey && e.key.toLowerCase() === 'd') {
                 e.preventDefault();
-                const targetId = app.currentView === 'reader' ? app.selectedStoryId : app.highlightedStoryId;
-                if (!targetId) return;
-
-                const story = app.stories.find(s => s.id === targetId) || (app.currentView === 'reader' ? app.selectedStory : null);
-                if (story) {
-                    app.handleToggleSave(targetId, !story.is_saved);
-                }
+                app.setCurrentView('feed');
+                app.setPrimaryTab('bookmarks');
                 return;
+            }
+
+            // --- Ctrl + Home to Feed View ---
+            if (e.ctrlKey && e.key === 'Home') {
+                if (app.currentView === 'reader') {
+                    e.preventDefault();
+                    app.setCurrentView('feed');
+                    app.setPrimaryTab('feed');
+                    return;
+                }
+                // If already on feed, let existing offset-0 logic handle it
             }
         };
 

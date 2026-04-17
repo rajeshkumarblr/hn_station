@@ -33,6 +33,7 @@ export interface Story {
     summary?: string;
     topics?: string[];
     iframe_blocked?: boolean;
+    gemini_url?: string;
 }
 
 export interface ReaderTab {
@@ -41,6 +42,7 @@ export interface ReaderTab {
     story: Story;
     mode: 'article' | 'discussion' | 'split';
     parentTabId?: string;
+    isAISidebarOpen?: boolean;
 }
 
 export const MODES = [
@@ -55,3 +57,12 @@ export type ModeKey = typeof MODES[number]['key'];
 
 export const PAGE_SIZE = 10;
 export const MAX_READ_IDS = 500;
+
+export interface ChatMessage {
+    id: number;
+    user_id: string;
+    story_id: number;
+    role: 'user' | 'model' | 'assistant';
+    content: string;
+    created_at: string;
+}

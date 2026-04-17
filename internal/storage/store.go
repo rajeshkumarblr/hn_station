@@ -340,6 +340,12 @@ func (s *PostgresStore) UpdateStorySummaryAndTopics(ctx context.Context, id int,
 	return err
 }
 
+func (s *PostgresStore) UpdateStoryGeminiURL(ctx context.Context, id int64, url string) error {
+	query := `UPDATE stories SET gemini_url = $1 WHERE id = $2`
+	_, err := s.db.Exec(ctx, query, url, id)
+	return err
+}
+
 func (s *PostgresStore) UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error {
 	query := `UPDATE stories SET iframe_blocked = $1 WHERE id = $2`
 	_, err := s.db.Exec(ctx, query, blocked, id)
