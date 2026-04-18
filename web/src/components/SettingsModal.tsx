@@ -132,13 +132,26 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                         <form id="settings-form" onSubmit={handleSave} className="space-y-8">
                             {activeTab === 'ai' && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                    <div className="space-y-1">
-                                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">AI Intelligence</h3>
-                                        <p className="text-xs text-slate-500">Configure how HN Station summarizes and analyzes content.</p>
-                                    </div>
+                                    <div className="space-y-6">
+                                        <div className="flex items-center justify-between p-5 bg-orange-500/5 dark:bg-orange-500/10 rounded-2xl border border-orange-200 dark:border-orange-500/20">
+                                            <div className="space-y-1">
+                                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                                    <Zap size={16} className="text-orange-500" />
+                                                    Global AI Intelligence
+                                                </h4>
+                                                <p className="text-[11px] text-slate-500 leading-tight">Master toggle for all background AI features (Summaries, Topics, Analysis).</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setAiEnabled(!aiEnabled)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ${aiEnabled ? 'bg-orange-500 shadow-md shadow-orange-500/20' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${aiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
 
-                                    {/* Provider Selection */}
-                                    <div className="space-y-3">
+                                        {/* Provider Selection */}
+                                        <div className="space-y-3">
                                         <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">AI Provider</label>
                                         <div className="grid grid-cols-3 gap-3">
                                             {[
@@ -165,18 +178,11 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                                        Ollama Integration
+                                                        Ollama Status
                                                         <div className={`w-1.5 h-1.5 rounded-full ${user?.ollama_available ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
                                                     </h4>
                                                     <p className="text-[11px] text-slate-500">{user?.ollama_available ? 'Connected and ready' : 'Not detected on localhost:11434'}</p>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setAiEnabled(!aiEnabled)}
-                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${aiEnabled ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'}`}
-                                                >
-                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${aiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                                                </button>
                                             </div>
 
                                             {aiEnabled && user?.ollama_available && (
