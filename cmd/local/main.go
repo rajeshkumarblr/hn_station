@@ -466,12 +466,23 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 		}
 
 		if aiEnabled {
+			rankVal := 999
+			if rank != nil {
+				rankVal = *rank
+			}
+
+			if rankVal > 10 {
+				// Don't log every single one to avoid log spam, just known background runs
+				return nil
+			}
+
 			existing, err := store.GetStory(ctx, id)
 			needsSummary := err != nil || existing.Summary == nil || *existing.Summary == ""
 			needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0
 			if needsSummary || needsTopics {
 				select {
 				case summaryQueue <- summaryJob{ID: id, URL: item.URL, Title: item.Title}:
+					log.Printf("[ingest] Queued summary for story %d (Rank: %d)", id, rankVal)
 				default:
 					log.Printf("[ingest] Summary queue full, skipping story %d", id)
 				}

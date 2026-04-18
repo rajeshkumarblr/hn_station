@@ -128,7 +128,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
                 >
                     <span className="text-[11px] font-black tracking-widest text-[#ff6600] uppercase leading-none drop-shadow-sm">HN Station</span>
-                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v1.0.0-rc15</span>
+                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 opacity-50 leading-tight">v1.0.0-rc16</span>
                 </div>
 
                     {/* Right Section: Controls */}

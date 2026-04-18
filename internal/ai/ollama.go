@@ -156,6 +156,13 @@ func (c *OllamaClient) generateWithRetry(ctx context.Context, apiURL string, mod
 		}
 
 		lastErr = err
+		
+		// If the error was a timeout, don't waste more minutes retrying. 
+		// Fail fast so the worker can fall back to Gemini or move to next job.
+		if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "Client.Timeout exceeded") {
+			return "", fmt.Errorf("ollama timed out: %w", err)
+		}
+
 		log.Printf("OllamaClient: Request failed (attempt %d/%d), retrying in %v (Error: %v)...", retries+1, maxRetries, backoff, err)
 
 		select {
@@ -176,7 +183,7 @@ func (c *OllamaClient) doOllamaRequest(ctx context.Context, endpoint string, req
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 2 * time.Minute}
+	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("http request failed: %w", err)

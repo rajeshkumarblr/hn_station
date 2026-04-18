@@ -490,6 +490,8 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 			topics = []string{}
 		}
 
+		geminiKey, _ := s.store.GetSetting(r.Context(), "gemini_api_key")
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"id":                   "local-user",
@@ -500,6 +502,8 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 			"authenticated":        true, // Local-first: always authenticated
 			"topics":               topics,
 			"ai_summaries_enabled": aiEnabled,
+			"ai_provider":          aiProvider,
+			"gemini_api_key":       geminiKey,
 			"ollama_available":     ollamaAvailable,
 			"ollama_model":         ollamaModel,
 			"ollama_models":        ollamaModels,
@@ -1104,9 +1108,13 @@ func (s *Server) handleUpdateUserTopics(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)
-	if userID == "" && !s.localMode {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
+	if userID == "" {
+		if s.localMode {
+			userID = "local-user"
+		} else {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
 	}
 
 	var body struct {

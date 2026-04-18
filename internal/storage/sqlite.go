@@ -478,8 +478,14 @@ func (s *SQLiteStore) GetAuthUser(ctx context.Context, id string) (*AuthUser, er
 	return &user, nil
 }
 
-func (s *SQLiteStore) UpdateUserGeminiKey(_ context.Context, _, _ string) error {
-	return nil
+func (s *SQLiteStore) UpdateUserGeminiKey(ctx context.Context, userID, key string) error {
+	// For local mode, we save the key to the settings table
+	if userID == "" || userID == "local-user" || userID == "local_user" {
+		return s.SetSetting(ctx, "gemini_api_key", key)
+	}
+	// For non-local users (cloud sync), we update the auth_users table
+	_, err := s.db.ExecContext(ctx, "UPDATE auth_users SET gemini_url = ? WHERE id = ?", key, userID)
+	return err
 }
 
 func (s *SQLiteStore) UpdateUserTopics(ctx context.Context, userID string, topics []string) error {
