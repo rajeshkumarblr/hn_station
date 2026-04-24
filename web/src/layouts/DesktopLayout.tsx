@@ -224,36 +224,58 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         ))}
                                     </div>
                                     
-                                    {activeTopics.length > 0 && (
-                                        <>
-                                            <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />
-                                            <button 
-                                                onClick={() => { setActiveTopics([]); setDisabledTopics([]); }}
-                                                className="text-[10px] font-black uppercase text-red-500 hover:text-red-600 transition-colors shrink-0"
-                                            >
-                                                Clear All
-                                            </button>
-                                        </>
-                                    )}
                                 </div>
 
-                                <div className="flex items-center bg-slate-100 dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 group focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-                                    <Search size={12} className="text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                                    <input
-                                        type="text"
-                                        placeholder="Add filter..."
-                                        className="bg-transparent border-none outline-none text-[11px] font-bold ml-2 w-24 focus:w-40 transition-all placeholder:text-slate-400"
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                const val = e.currentTarget.value.trim();
-                                                if (val) {
-                                                    setActiveTopics(prev => prev.includes(val) ? prev : [...prev, val]);
-                                                    setDisabledTopics(prev => prev.filter(x => x !== val));
-                                                    e.currentTarget.value = '';
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {activeTopics.length > 0 && (
+                                        <div className="flex items-center gap-2 mr-2">
+                                            <button 
+                                                onClick={() => {
+                                                    const allActive = activeTopics.filter(t => !disabledTopics.includes(t));
+                                                    if (allActive.length > 0) {
+                                                        setDisabledTopics([...new Set([...disabledTopics, ...allActive])]);
+                                                    } else {
+                                                        setDisabledTopics([]); // If all are disabled, enable all? No, requester said "disable all"
+                                                    }
+                                                }}
+                                                className="text-[9px] font-black uppercase px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                                            >
+                                                Disable All
+                                            </button>
+                                            <button 
+                                                onClick={() => { setActiveTopics([]); setDisabledTopics([]); }}
+                                                className="text-[9px] font-black uppercase px-2 py-1.5 rounded-lg border border-red-100 dark:border-red-900/30 text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-all"
+                                            >
+                                                Remove All
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center bg-slate-100 dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 group focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+                                        <Search size={12} className="text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                                        <input
+                                            type="text"
+                                            placeholder="Add filter..."
+                                            className="bg-transparent border-none outline-none text-[11px] font-bold ml-2 w-24 focus:w-40 transition-all placeholder:text-slate-400"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const val = e.currentTarget.value.trim();
+                                                    if (val) {
+                                                        setActiveTopics(prev => prev.includes(val) ? prev : [...prev, val]);
+                                                        setDisabledTopics(prev => prev.filter(x => x !== val));
+                                                        e.currentTarget.value = '';
+                                                    }
                                                 }
-                                            }
-                                        }}
-                                    />
+                                            }}
+                                        />
+                                    </div>
+                                    
+                                    <button
+                                        onClick={handleRefresh}
+                                        className={`p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-blue-500 transition-all ${loading ? 'animate-spin' : ''}`}
+                                    >
+                                        <RefreshCw size={12} />
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -289,10 +311,64 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                             {/* Pagination */}
                             {totalStories > PAGE_SIZE && !loading && (
-                                <div className="p-6 border-t border-slate-200 dark:border-slate-800 flex justify-center gap-2">
-                                    <button onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0} className="px-3 py-1 bg-slate-200 dark:bg-slate-800 rounded disabled:opacity-50">Prev</button>
-                                    <span className="px-4 py-1 font-bold">Page {Math.floor(offset / PAGE_SIZE) + 1}</span>
-                                    <button onClick={() => setOffset?.(offset + PAGE_SIZE)} disabled={!hasMore} className="px-3 py-1 bg-slate-200 dark:bg-slate-800 rounded disabled:opacity-50">Next</button>
+                                <div className="py-3 px-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1 shrink-0 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm">
+                                    <button 
+                                        onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))} 
+                                        disabled={offset === 0} 
+                                        className="px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md disabled:opacity-30 transition-all"
+                                    >
+                                        &lt; Prev
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1 mx-2">
+                                        {(() => {
+                                            const totalPages = Math.ceil(totalStories / PAGE_SIZE);
+                                            const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+                                            const pages = [];
+                                            
+                                            // Simple range: current, surrounding, and first/last
+                                            const maxButtons = 5;
+                                            let start = Math.max(1, currentPage - 2);
+                                            let end = Math.min(totalPages, start + maxButtons - 1);
+                                            if (end === totalPages) start = Math.max(1, end - maxButtons + 1);
+
+                                            if (start > 1) {
+                                                pages.push(1);
+                                                if (start > 2) pages.push('...');
+                                            }
+
+                                            for (let i = start; i <= end; i++) pages.push(i);
+
+                                            if (end < totalPages) {
+                                                if (end < totalPages - 1) pages.push('...');
+                                                pages.push(totalPages);
+                                            }
+
+                                            return pages.map((p, idx) => {
+                                                if (p === '...') return <span key={`dots-${idx}`} className="px-1 text-slate-400 text-xs">...</span>;
+                                                const isActive = p === currentPage;
+                                                return (
+                                                    <button
+                                                        key={`page-${p}`}
+                                                        onClick={() => setOffset?.((Number(p) - 1) * PAGE_SIZE)}
+                                                        className={`w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all ${isActive 
+                                                            ? 'bg-blue-500 text-white shadow-sm' 
+                                                            : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                                    >
+                                                        {p}
+                                                    </button>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
+
+                                    <button 
+                                        onClick={() => setOffset?.(offset + PAGE_SIZE)} 
+                                        disabled={!hasMore} 
+                                        className="px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md disabled:opacity-30 transition-all"
+                                    >
+                                        Next &gt;
+                                    </button>
                                 </div>
                             )}
                         </div>
