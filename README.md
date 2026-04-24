@@ -17,19 +17,17 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v1.0.0-rc15)
+## 🖥️ Electron Desktop App (v1.0.0-rc35)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
-- **Dedicated Primary Tabs**: Split view between **FEED** (Top/New stories) and **BOOKMARKS** (Your saved stories).
-- **Advanced Content Extraction**: 
-    - **PDF Support**: AI summaries can now "read" PDF documents (up to 20 pages).
-    - **GitHub README Integration**: Show HN projects automatically fetch repository documentation for context-aware summaries.
+- **Page-Specific Filtering**: Integrated topic filters directly into the Feed tab toolbar for a more contextual search experience.
+- **Unified Analysis Sidebar**: Consolidated AI-powered summaries and suggested article topics in a single, high-performance side panel.
 - **Zero-Login Reader**: Local SQLite persistence for your bookmarks, read history, and topic filters—no account required.
-- **Integrated AI Sidebar**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view.
+- **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view.
 - **Resizable Layout**: Dynamically adjust the width of the sidebar to balance article reading and conversation.
-- **Rich Sidebar Summaries**: AI-powered takeaways from Gemini Pro (cloud) or local models.
+- **Rich Sidebar Summaries**: AI-powered takeaways from Gemini Pro (cloud) or local models (Ollama).
 
 ### ⌨️ Keyboard Shortcuts
 | Shortcut | Action |

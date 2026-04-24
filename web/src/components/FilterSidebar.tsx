@@ -148,7 +148,45 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                         })}
                                     </ul>
                                 </div>
-
+                                
+                                {/* Article Specific Topics (Suggested) - Moved from Header */}
+                                {highlightedStory?.topics && highlightedStory.topics.length > 0 && (
+                                    <div className="mt-6 border-t border-slate-100 dark:border-slate-800/50 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                            <Zap size={11} className="text-amber-500" />
+                                            <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Article Topics</h4>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {highlightedStory.topics.map(topic => {
+                                                const isActive = activeTopics.includes(topic);
+                                                const style = getTagStyle(topic);
+                                                return (
+                                                    <button
+                                                        key={`article-topic-${topic}`}
+                                                        onClick={() => {
+                                                            if (isActive) {
+                                                                setActiveTopics(prev => prev.filter(x => x !== topic));
+                                                            } else {
+                                                                setActiveTopics(prev => [...new Set([...prev, topic])]);
+                                                                setDisabledTopics(prev => prev.filter(x => x !== topic));
+                                                            }
+                                                        }}
+                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${isActive 
+                                                            ? 'scale-105 brightness-100' 
+                                                            : 'opacity-60 hover:opacity-100'}`}
+                                                        style={{ 
+                                                            backgroundColor: isActive ? style.bg : 'transparent', 
+                                                            color: isActive ? style.color : '', 
+                                                            borderColor: isActive ? style.border : style.border + '40'
+                                                        }}
+                                                    >
+                                                        {isActive ? '✓ ' : '#'}{topic}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         ) : aiEnabled ? (
                             <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-8 opacity-60">
@@ -180,81 +218,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                 </div>
             )}
 
-            <div className="flex-1 border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-slate-900/10">
-                <div className="p-4 flex flex-col h-full">
-                    <div className="flex items-center gap-1.5 mb-3">
-                        <Zap size={11} className="text-amber-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Story Topics</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                        <div className="flex flex-wrap gap-2 pb-4">
-                            {highlightedStory?.topics && highlightedStory.topics.length > 0 ? (
-                                highlightedStory.topics.map(topic => {
-                                    const style = getTagStyle(topic);
-                                    const isActive = activeTopics.includes(topic);
-                                    const isDisabled = disabledTopics.includes(topic);
-                                    const isActuallyActive = isActive && !isDisabled;
-                                    
-                                    return (
-                                        <button
-                                            key={`sidebar-bottom-topic-${topic}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (isActive) {
-                                                    setDisabledTopics(prev => prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]);
-                                                } else {
-                                                    setActiveTopics(prev => [...new Set([...prev, topic])]);
-                                                    setDisabledTopics(prev => prev.filter(x => x !== topic));
-                                                }
-                                            }}
-                                            className={`px-2.5 py-1 rounded text-[10px] font-black uppercase border transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-sm ${isActuallyActive ? 'ring-1 ring-offset-1 ring-slate-400 dark:ring-slate-500 brightness-110' : 'opacity-90 hover:opacity-100'}`}
-                                            style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
-                                        >
-                                            #{topic}
-                                        </button>
-                                    );
-                                })
-                            ) : (
-                                <p className="text-[10px] text-slate-400 italic">No topics extracted for this story</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex-shrink-0 p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-end">
-                {isWebMode && (
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setIsFeaturesModalOpen(true)}
-                            className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors"
-                            title="Desktop Features"
-                        >
-                            <Info size={16} />
-                        </button>
-                        <a
-                            href="/api/download/latest"
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold transition-all shadow-sm"
-                        >
-                            <Download size={12} />
-                            Download
-                        </a>
-                    </div>
-                )}
-            </div>
-
-            {isWebMode && (
-                <div className="px-4 pb-4 bg-slate-50/50 dark:bg-slate-900/30">
-                    <button
-                        onClick={() => setIsFeaturesModalOpen(true)}
-                        className="text-[10px] text-slate-400 hover:text-blue-500 transition-colors flex items-center gap-1"
-                    >
-                        <span>Download For Desktop</span>
-                        <span className="opacity-60">•</span>
-                        <span className="underline decoration-slate-300 dark:decoration-slate-700">link to features</span>
-                    </button>
-                </div>
-            )}
+            {/* Removed bottom pane for deskop-cleanliness */}
 
             {/* Features Modal */}
             {isFeaturesModalOpen && (
