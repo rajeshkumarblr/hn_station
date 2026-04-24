@@ -17,12 +17,14 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v1.0.0-rc35)
+## 🖥️ Electron Desktop App (v1.0.0-rc36)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
-- **Page-Specific Filtering**: Integrated topic filters directly into the Feed tab toolbar for a more contextual search experience.
+- **Pinned Numbered Pagination**: A compact `< Prev 1 2 3 ... N Next >` navigation bar pinned to the bottom of the feed for one-click access to the full story archive.
+- **Maximized Feed Real Estate**: Article cards dynamically stretch to occupy the full height of the feed pane, eliminating dead space and providing a balanced, high-density reading experience.
+- **Contextual Feed Toolbar**: Integrated topic filters, "Disable All", "Remove All", and "Refresh" controls directly into the Feed tab for rapid content curation.
 - **Unified Analysis Sidebar**: Consolidated AI-powered summaries and suggested article topics in a single, high-performance side panel.
 - **Zero-Login Reader**: Local SQLite persistence for your bookmarks, read history, and topic filters—no account required.
 - **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view.
