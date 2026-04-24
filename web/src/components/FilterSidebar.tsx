@@ -90,7 +90,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
             {/* ── AI Summary & Suggested Tags (Top 70%) ─────────────────────────────────── */}
             {(aiEnabled || hasSummary) ? (
-                <div className="h-[70%] min-h-[70%] flex-shrink-0 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="flex-1 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800/50">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-1.5 mb-0.5">
@@ -210,13 +210,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         ) : null}
                     </div>
                 </div>
-            ) : (
-                <div className="h-32 flex-shrink-0 flex flex-col items-center justify-center text-center p-6 border-b border-slate-100 dark:border-slate-800/50 opacity-40 grayscale scale-95 transition-all">
-                    <Sparkles size={24} className="text-slate-300 dark:text-slate-600 mb-2" />
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Features</h3>
-                    <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-tighter">Powered by Desktop App</p>
-                </div>
-            )}
+            ) : null}
 
             {/* Removed bottom pane for deskop-cleanliness */}
 
