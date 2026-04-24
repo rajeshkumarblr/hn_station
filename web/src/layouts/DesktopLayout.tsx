@@ -307,71 +307,70 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         })
                                     )}
                                 </div>
-                            )}
-
-                            {/* Pagination */}
-                            {totalStories > PAGE_SIZE && !loading && (
-                                <div className="py-3 px-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1 shrink-0 bg-white/50 dark:bg-slate-950/50 backdrop-blur-sm">
-                                    <button 
-                                        onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))} 
-                                        disabled={offset === 0} 
-                                        className="px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md disabled:opacity-30 transition-all"
-                                    >
-                                        &lt; Prev
-                                    </button>
-                                    
-                                    <div className="flex items-center gap-1 mx-2">
-                                        {(() => {
-                                            const totalPages = Math.ceil(totalStories / PAGE_SIZE);
-                                            const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
-                                            const pages = [];
-                                            
-                                            // Simple range: current, surrounding, and first/last
-                                            const maxButtons = 5;
-                                            let start = Math.max(1, currentPage - 2);
-                                            let end = Math.min(totalPages, start + maxButtons - 1);
-                                            if (end === totalPages) start = Math.max(1, end - maxButtons + 1);
-
-                                            if (start > 1) {
-                                                pages.push(1);
-                                                if (start > 2) pages.push('...');
-                                            }
-
-                                            for (let i = start; i <= end; i++) pages.push(i);
-
-                                            if (end < totalPages) {
-                                                if (end < totalPages - 1) pages.push('...');
-                                                pages.push(totalPages);
-                                            }
-
-                                            return pages.map((p, idx) => {
-                                                if (p === '...') return <span key={`dots-${idx}`} className="px-1 text-slate-400 text-xs">...</span>;
-                                                const isActive = p === currentPage;
-                                                return (
-                                                    <button
-                                                        key={`page-${p}`}
-                                                        onClick={() => setOffset?.((Number(p) - 1) * PAGE_SIZE)}
-                                                        className={`w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all ${isActive 
-                                                            ? 'bg-blue-500 text-white shadow-sm' 
-                                                            : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                                                    >
-                                                        {p}
-                                                    </button>
-                                                );
-                                            });
-                                        })()}
-                                    </div>
-
-                                    <button 
-                                        onClick={() => setOffset?.(offset + PAGE_SIZE)} 
-                                        disabled={!hasMore} 
-                                        className="px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md disabled:opacity-30 transition-all"
-                                    >
-                                        Next &gt;
-                                    </button>
-                                </div>
-                            )}
+                                            )}
                         </div>
+
+                        {/* Pagination - Pinned to bottom, outside scroll area */}
+                        {totalStories > PAGE_SIZE && !loading && (
+                            <div className="py-1.5 px-6 border-t border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1 shrink-0 bg-white dark:bg-[#0f172a] shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-20">
+                                <button 
+                                    onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))} 
+                                    disabled={offset === 0} 
+                                    className="px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md disabled:opacity-30 transition-all font-sans"
+                                >
+                                    &lt; Prev
+                                </button>
+                                
+                                <div className="flex items-center gap-1 mx-2">
+                                    {(() => {
+                                        const totalPages = Math.ceil(totalStories / PAGE_SIZE);
+                                        const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+                                        const pages = [];
+                                        
+                                        const maxButtons = 5;
+                                        let start = Math.max(1, currentPage - 2);
+                                        let end = Math.min(totalPages, start + maxButtons - 1);
+                                        if (end === totalPages) start = Math.max(1, end - maxButtons + 1);
+
+                                        if (start > 1) {
+                                            pages.push(1);
+                                            if (start > 2) pages.push('...');
+                                        }
+
+                                        for (let i = start; i <= end; i++) pages.push(i);
+
+                                        if (end < totalPages) {
+                                            if (end < totalPages - 1) pages.push('...');
+                                            pages.push(totalPages);
+                                        }
+
+                                        return pages.map((p, idx) => {
+                                            if (p === '...') return <span key={`dots-${idx}`} className="px-1 text-slate-400 text-xs">...</span>;
+                                            const isActive = p === currentPage;
+                                            return (
+                                                <button
+                                                    key={`page-${p}`}
+                                                    onClick={() => setOffset?.((Number(p) - 1) * PAGE_SIZE)}
+                                                    className={`w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all ${isActive 
+                                                        ? 'bg-blue-500 text-white shadow-sm' 
+                                                        : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                                >
+                                                    {p}
+                                                </button>
+                                            );
+                                        });
+                                    })()}
+                                </div>
+
+                                <button 
+                                    onClick={() => setOffset?.(offset + PAGE_SIZE)} 
+                                    disabled={!hasMore} 
+                                    className="px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md disabled:opacity-30 transition-all font-sans"
+                                >
+                                    Next &gt;
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </main>
 
