@@ -279,10 +279,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </div>
                             </div>
                         )}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col">
                             {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-blue-500 mx-auto" /></div>}
                             {!loading && (
-                                <div className="flex flex-col">
+                                <div className="flex-1 flex flex-col min-h-full">
                                     {stories.length === 0 ? (
                                         <div className="flex-1 flex items-center justify-center p-20 text-slate-500">No stories found.</div>
                                     ) : (
@@ -292,6 +292,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             const isRead = readIds.has(story.id) || !!story.is_read;
                                             return (
                                                 <div key={story.id} ref={el => storyRefs.current[index] = el}
+                                                    className="flex-1 flex flex-col min-h-[60px]"
                                                     onClick={() => setHighlightedStoryId(story.id)}
                                                     onDoubleClick={() => handleStorySelect(story.id, 'split')}
                                                 >
