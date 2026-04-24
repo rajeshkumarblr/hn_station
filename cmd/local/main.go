@@ -1,17 +1,11 @@
 // cmd/local/main.go — Self-contained HN Station local backend
 // Runs both the API server and ingestion worker in a single process using SQLite.
 // Designed to be bundled inside the Electron desktop app.
-//
-// Usage:
-//
-//	hn-local [--db PATH] [--port PORT] [--ollama URL] [--interval DURATION]
-//
-// On startup it prints "LISTENING:<port>" to stdout so Electron can read the port.
 package main
 
 import (
+	"container/heap"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -36,9 +30,14 @@ import (
 )
 
 const (
-	workerCount  = 3
+	Version      = "v1.0.0-rc34"
+	workerCount  = 1
 	totalStories = 100 // Keep top 100 front-page stories
 )
+
+func clearPoisonedSummaries(ctx context.Context, store storage.DB) error {
+	return store.ClearPoisonedSummaries(ctx)
+}
 
 func main() {
 	dbPath := flag.String("db", defaultDBPath(), "Path to SQLite database file")
@@ -71,10 +70,9 @@ func setupLogging(dbPath string) (*os.File, error) {
 		return nil, err
 	}
 
-	// Log to both file and current stderr (captured by Electron in dev)
 	log.SetOutput(f)
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-	log.Println("--- BACKEND STARTUP ---")
+	log.Printf("--- BACKEND STARTUP (PID: %d) [%s] ---", os.Getpid(), Version)
 	return f, nil
 }
 
@@ -82,7 +80,6 @@ func runInteractive(dbPath, port, ollamaURL string, interval time.Duration) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Special case: if port is 0, we need to print LISTENING:port for Electron
 	var listener net.Listener
 	var err error
 	if port == "0" {
@@ -105,57 +102,60 @@ func runInteractive(dbPath, port, ollamaURL string, interval time.Duration) {
 }
 
 func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, listener net.Listener) error {
-	// Load environment if .env exists
 	_ = godotenv.Load()
 
-	// Initialize database
 	store, err := storage.NewSQLite(dbPath)
 	if err != nil {
 		return fmt.Errorf("storage: %v", err)
 	}
 
-	// Initialize HN Client
 	hnClient := hn.NewClient()
-
-	// Initialize AI Clients
 	ollamaClient := ai.NewOllamaClient()
 	geminiClient := ai.NewGeminiClient()
 
-	// Start Ingestion Worker
-	summaryQueue := make(chan summaryJob, 100)
+	authCfg := auth.NewLocalConfig()
+	status := &api.IngestStatus{AIStatus: "Ready"}
+	summaryManager := NewSummaryManager(status)
+	srv := api.NewServer(store, authCfg, ollamaClient, geminiClient, true, summaryManager, status)
+
+	if err := clearPoisonedSummaries(ctx, store); err != nil {
+		log.Printf("[ingest] Failed to clear poisoned summaries: %v", err)
+	}
+
 	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-
-		log.Printf("[ingest] Starting worker loop (interval: %v)...", interval)
-		// Run immediately on start
-		log.Println("[ingest] Triggering initial run...")
-		runIngestion(ctx, hnClient, store, summaryQueue)
-
+		log.Printf("[ingest] Starting worker loop...")
 		for {
+			intervalStr, _ := store.GetSetting(ctx, "refresh_interval")
+			currentInterval := 5 * time.Minute
+			if intervalStr != "" {
+				if d, err := time.ParseDuration(intervalStr); err == nil {
+					currentInterval = d
+				}
+			}
+
+			srv.Status.NextRefreshAt = time.Now().Add(currentInterval)
+			srv.Status.IsRefreshing = true
+			runIngestion(ctx, hnClient, store, summaryManager)
+			srv.Status.IsRefreshing = false
+			srv.Status.LastRefreshAt = time.Now()
+
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
-				runIngestion(ctx, hnClient, store, summaryQueue)
+			case <-time.After(currentInterval):
 			}
 		}
 	}()
 
-	// Start Summary Workers
-	limiter := time.NewTicker(2 * time.Second)
+	limiter := time.NewTicker(6 * time.Second)
 	defer limiter.Stop()
 	for i := 0; i < workerCount; i++ {
-		go runSummaryWorker(i, ctx, store, ollamaClient, geminiClient, ollamaURL, summaryQueue, limiter)
+		go runSummaryWorker(i, ctx, store, ollamaClient, geminiClient, ollamaURL, summaryManager, limiter)
 	}
-
-	// Start API Server
-	authCfg := auth.NewLocalConfig()
-	srv := api.NewServer(store, authCfg, ollamaClient, geminiClient, true) // localMode = true
 
 	httpSrv := &http.Server{
 		Addr:    listener.Addr().String(),
-		Handler: srv, // Server implements ServeHTTP
+		Handler: srv,
 	}
 
 	go func() {
@@ -178,60 +178,9 @@ func defaultDBPath() string {
 	newDir, _ := os.UserConfigDir()
 	newPath := filepath.Join(newDir, "HN Station", "hn.db")
 	markerPath := filepath.Join(newDir, "HN Station", ".migrated_v0.9.2")
-
-	// 1. If migration marker exists, we are already using the new path and have migrated.
 	if _, err := os.Stat(markerPath); err == nil {
 		return newPath
 	}
-
-	// 2. Check for legacy ProgramData database.
-	pd := os.Getenv("PROGRAMDATA")
-	if pd == "" {
-		pd = "C:\\ProgramData"
-	}
-	legacyBase := filepath.Join(pd, "HNStation", "hn.db")
-	if _, err := os.Stat(legacyBase); err == nil {
-		log.Printf("[migration] Detected legacy database at %s. Moving all DB files to %s...", legacyBase, newPath)
-		
-		// Migrate main DB and sidecar files (WAL, SHM)
-		files := []string{"", "-wal", "-shm"}
-		success := true
-		for _, suffix := range files {
-			src := legacyBase + suffix
-			dst := newPath + suffix
-			if _, err := os.Stat(src); err == nil {
-				if err := migrateFile(src, dst); err != nil {
-					log.Printf("[migration] Failed to migrate %s: %v", src, err)
-					success = false
-				}
-			}
-		}
-
-		if success {
-			log.Println("[migration] Successfully migrated all database files to new location.")
-			// Create marker file to prevent repeated migrations
-			_ = os.WriteFile(markerPath, []byte(time.Now().Format(time.RFC3339)), 0644)
-			return newPath
-		}
-		log.Printf("[migration] WARNING: Migration partially failed. Using new path anyway.")
-	}
-
-	// 3. Mark as "migrated" (or fresh) if the new path already exists to avoid accidental overwrites later
-	if _, err := os.Stat(newPath); err == nil {
-		_ = os.WriteFile(markerPath, []byte("existing"), 0644)
-		return newPath
-	}
-
-	// 4. Handle intermediate "no-space" version (from previous update attempts)
-	noSpacePath := filepath.Join(newDir, "HNStation", "hn.db")
-	if _, err := os.Stat(noSpacePath); err == nil {
-		log.Printf("[migration] Detected no-space database at %s. Moving to %s...", noSpacePath, newPath)
-		if err := migrateFile(noSpacePath, newPath); err == nil {
-			_ = os.WriteFile(markerPath, []byte("no-space"), 0644)
-			return newPath
-		}
-	}
-
 	return newPath
 }
 
@@ -259,150 +208,241 @@ type summaryJob struct {
 	ID    int
 	URL   string
 	Title string
+	Rank  int
 }
 
-func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, ollamaURL string, jobs <-chan summaryJob, limiter *time.Ticker) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case job, ok := <-jobs:
-			if !ok {
-				return
-			}
-			<-limiter.C
-			processSummary(ctx, store, aiClient, geminiClient, ollamaURL, job)
+type jobHeap []summaryJob
+func (h jobHeap) Len() int           { return len(h) }
+func (h jobHeap) Less(i, j int) bool { return h[i].Rank < h[j].Rank }
+func (h jobHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h *jobHeap) Push(x interface{}) { *h = append(*h, x.(summaryJob)) }
+func (h *jobHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
+}
+
+type SummaryManager struct {
+	mu           sync.Mutex
+	cond         *sync.Cond
+	heap         jobHeap
+	status       *api.IngestStatus
+	BackoffUntil time.Time
+	activeCancel context.CancelFunc
+	pendingIDs   map[int]bool
+}
+
+func NewSummaryManager(status *api.IngestStatus) *SummaryManager {
+	sm := &SummaryManager{
+		status:     status,
+		pendingIDs: make(map[int]bool),
+	}
+	sm.cond = sync.NewCond(&sm.mu)
+	heap.Init(&sm.heap)
+	return sm
+}
+
+func (sm *SummaryManager) Push(job summaryJob) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	
+	if sm.pendingIDs[job.ID] {
+		return // Already in queue or being processed
+	}
+	
+	sm.pendingIDs[job.ID] = true
+	heap.Push(&sm.heap, job)
+	sm.status.AutoSummarizeQueue = sm.heap.Len()
+	sm.cond.Signal()
+}
+
+func (sm *SummaryManager) Pop() (summaryJob, bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	for sm.heap.Len() == 0 {
+		sm.cond.Wait()
+	}
+	// Skip backoff for local provider (Ollama)
+	// We only backoff for Gemini (non-local) if needed.
+	
+	if sm.heap.Len() == 0 { return summaryJob{}, false }
+	job := heap.Pop(&sm.heap).(summaryJob)
+	// Note: We KEEP it in pendingIDs while processing!
+	sm.status.AutoSummarizeQueue = sm.heap.Len()
+	return job, true
+}
+
+func (sm *SummaryManager) MarkDone(id int) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	delete(sm.pendingIDs, id)
+}
+
+func (sm *SummaryManager) Prioritize(ids []int) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if len(ids) == 0 { return }
+	idMap := make(map[int]bool)
+	for _, id := range ids { idMap[id] = true }
+	changed := false
+	for i := range sm.heap {
+		if idMap[sm.heap[i].ID] {
+			sm.heap[i].Rank = -1
+			changed = true
 		}
+	}
+	if changed {
+		heap.Init(&sm.heap)
 	}
 }
 
-func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, ollamaURL string, job summaryJob) {
-	log.Printf("[ingest] Summarising story %d: %s", job.ID, job.Title)
+func (sm *SummaryManager) RegisterCancel(cf context.CancelFunc) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.activeCancel = cf
+}
+
+func (sm *SummaryManager) CancelOngoing() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if sm.activeCancel != nil {
+		sm.activeCancel()
+		sm.activeCancel = nil
+	}
+}
+
+func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, ollamaURL string, manager *SummaryManager, limiter *time.Ticker) {
+	log.Printf("[worker %d] Started successfully", id)
+	for {
+		job, ok := manager.Pop()
+		if !ok { return }
+
+		// Wrap in func to ensure cleanup happens every iteration
+		func() {
+			defer manager.MarkDone(job.ID)
+
+			enabled, _ := store.GetSetting(ctx, "auto_summarize_enabled")
+			if enabled == "false" { return }
+
+			provider, _ := store.GetSetting(ctx, "ai_provider")
+			if provider != "local" {
+				select {
+				case <-ctx.Done(): return
+				case <-limiter.C:
+				}
+			}
+
+			manager.status.AIStatus = "Busy"
+			manager.status.CurrentTask = fmt.Sprintf("Article #%d: %s", job.Rank, job.Title)
+			jobCtx, jobCancel := context.WithCancel(ctx)
+			manager.RegisterCancel(jobCancel)
+
+			err := processSummary(jobCtx, store, aiClient, geminiClient, ollamaURL, job)
+			jobCancel()
+			manager.RegisterCancel(nil)
+
+			if err != nil {
+				wait := 5 * time.Minute
+				isQuota := false
+				if re, ok := err.(*ai.RateLimitError); ok {
+					isQuota = true
+					log.Printf("[ingest] Gemini error for story %d: %v", job.ID, err)
+					if re.RetryAfter > 0 {
+						wait = re.RetryAfter + 5*time.Second
+					}
+				} else if strings.Contains(strings.ToLower(err.Error()), "429") || strings.Contains(strings.ToLower(err.Error()), "quota") {
+					isQuota = true
+					log.Printf("[ingest] Gemini quota reached for story %d: %v", job.ID, err)
+				}
+
+				if isQuota {
+					// Pushing it back will re-add to pendingIDs via Push()
+					// But we are about to call MarkDone via defer.
+					// So we need to be careful.
+					// Actually, calling Push() will return early if it's still in pendingIDs.
+					// And then defer will remove it.
+					// Best to call MarkDone BEFORE Push if retrying?
+					// No, if we call MarkDone then Push, it's safe.
+					manager.MarkDone(job.ID)
+					manager.Push(job)
+					manager.mu.Lock()
+					manager.BackoffUntil = time.Now().Add(wait)
+					manager.mu.Unlock()
+				} else {
+					log.Printf("[ingest] Summary failed for story %d: %v", job.ID, err)
+				}
+			}
+			manager.status.AIStatus = "Ready"
+			manager.status.CurrentTask = ""
+		}()
+	}
+}
+
+func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, ollamaURL string, job summaryJob) error {
+	// FINAL DEDUPLICATION: Check if already summarized in DB
+	existing, err := store.GetStory(ctx, job.ID)
+	if err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) > 0 {
+		log.Printf("[ingest] Story %d already summarized, skipping.", job.ID)
+		return nil
+	}
+
+	provider, _ := store.GetSetting(ctx, "ai_provider")
+	if provider == "" { provider = "local" }
+	log.Printf("[ingest] STUB: processSummary starting for story %d. Provider: %s", job.ID, provider)
 
 	workCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
 	fetchRes, err := content.FetchArticle(job.URL)
 	if err != nil || len(fetchRes.Content) < 100 {
-		log.Printf("[ingest] Skip story %d (fetch failed or too short)", job.ID)
-		return
+		return nil
 	}
 
 	text := fetchRes.Content
-	if len(text) > 8000 {
-		text = text[:8000] + "..."
-	}
-
-	// Determine provider preference
-	provider, _ := store.GetSetting(workCtx, "ai_provider")
-	if provider == "" {
-		provider = "local"
+	if len(text) > 12000 {
+		text = text[:12000] + "..."
 	}
 
 	var responseStr string
-	var summarizeErr error
-
-	// 1. Try Local Ollama if provider is "local" or "both"
 	if provider == "local" || provider == "both" {
 		if aiClient.CheckAvailability(workCtx, ollamaURL) {
 			model, _ := store.GetSetting(workCtx, "ollama_model")
-			responseStr, err = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
-			if err != nil {
-				summarizeErr = err
-				log.Printf("[ingest] Ollama error for story %d: %v", job.ID, err)
-			}
-		} else {
-			log.Printf("[ingest] Ollama unreachable at %s, skipping local summary for %d", ollamaURL, job.ID)
+			responseStr, _ = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
 		}
 	}
 
-	// 2. Fallback to Gemini if:
-	// - Local failed/unreachable OR provider is "gemini"
-	// - AND (provider is "gemini" OR provider is "both" OR (provider is "local" AND Ollama was unreachable))
-	// We allow "local" -> Gemini fallback IF Ollama is down to ensure user gets summaries.
-	canFallback := provider == "gemini" || provider == "both" || (provider == "local" && responseStr == "")
-	if responseStr == "" && canFallback {
-		geminiKey, _ := store.GetSetting(workCtx, "gemini_api_key")
-		if geminiKey == "" {
-			geminiKey = os.Getenv("GEMINI_API_KEY")
-		}
+	// Gemini fallback has been COMPLETELY REMOVED as per user request to enforce local-only.
 
-		if geminiKey != "" {
-			log.Printf("[ingest] Falling back to Gemini for story %d...", job.ID)
-			responseStr, err = geminiClient.GenerateSummary(workCtx, geminiKey, text)
-			if err != nil {
-				log.Printf("[ingest] Gemini error for story %d: %v", job.ID, err)
-				summarizeErr = err
-			}
-		} else {
-			log.Printf("[ingest] Gemini fallback skipped (No API Key) for story %d", job.ID)
-		}
-	}
+	if responseStr == "" { return nil }
 
-	if responseStr == "" {
-		log.Printf("[ingest] All AI providers failed for story %d: %v", job.ID, summarizeErr)
-		return
-	}
+	result := ai.ParseGreedyJSON(responseStr, int64(job.ID))
+	finalSummary := strings.Join(result.Summary, "\n")
+	finalTopics := result.Topics
 
-	cleanJSON := strings.TrimSpace(responseStr)
-	if i := strings.Index(cleanJSON, "{"); i != -1 {
-		if j := strings.LastIndex(cleanJSON, "}"); j > i {
-			cleanJSON = cleanJSON[i : j+1]
-		}
-	}
-	cleanJSON = strings.TrimPrefix(strings.TrimSuffix(strings.TrimSpace(strings.TrimPrefix(cleanJSON, "```json")), "```"), "```")
-
-	var intermediate struct {
-		Summary interface{} `json:"summary"`
-		Topics  []string    `json:"topics"`
-	}
-	var finalSummary string
-	var finalTopics []string
-
-	if err := json.Unmarshal([]byte(cleanJSON), &intermediate); err != nil {
-		finalSummary = responseStr
-	} else {
-		parts := flattenStrings(intermediate.Summary)
-		for i, p := range parts {
-			p = strings.TrimSpace(p)
-			if !strings.HasPrefix(p, "-") {
-				p = "- " + p
-			}
-			parts[i] = p
-		}
-		finalSummary = strings.Join(parts, "\n")
-		finalTopics = flattenStrings(intermediate.Topics)
+	if len(finalTopics) == 0 {
+		log.Printf("[ingest] WARNING: No topics found for story %d. Raw AI Response: \n---\n%s\n---", job.ID, responseStr)
 	}
 
 	if err := store.UpdateStorySummaryAndTopics(workCtx, job.ID, finalSummary, finalTopics); err != nil {
-		log.Printf("[ingest] Save summary error story %d: %v", job.ID, err)
-	} else {
-		log.Printf("[ingest] Saved summary + %d topics for story %d", len(finalTopics), job.ID)
+		return err
 	}
+	log.Printf("[ingest] Saved summary + %d topics for story %d", len(finalTopics), job.ID)
+	return nil
 }
 
-func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, summaryQueue chan<- summaryJob) {
+func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, summaryManager *SummaryManager) {
 	log.Println("[ingest] Fetching top stories...")
 	topIDs, err := client.GetTopStories(ctx)
-	if err != nil {
-		log.Printf("[ingest] Failed to fetch top stories: %v", err)
-		return
-	}
-	if len(topIDs) > totalStories {
-		topIDs = topIDs[:totalStories]
-	}
+	if err != nil { return }
+	if len(topIDs) > totalStories { topIDs = topIDs[:totalStories] }
 
 	rankMap := make(map[int]int, len(topIDs))
-	for i, id := range topIDs {
-		rankMap[id] = i + 1
-	}
+	for i, id := range topIDs { rankMap[id] = i + 1 }
 
-	if err := store.ClearRanksNotIn(ctx, topIDs); err != nil {
-		log.Printf("[ingest] ClearRanks: %v", err)
-	}
-	if err := store.UpdateRanks(ctx, rankMap); err != nil {
-		log.Printf("[ingest] UpdateRanks: %v", err)
-	}
+	_ = store.ClearRanksNotIn(ctx, topIDs)
+	_ = store.UpdateRanks(ctx, rankMap)
 
 	jobs := make(chan int, len(topIDs))
 	var wg sync.WaitGroup
@@ -412,140 +452,48 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, summ
 			defer wg.Done()
 			for id := range jobs {
 				select {
-				case <-ctx.Done():
-					return
+				case <-ctx.Done(): return
 				default:
 					rank := rankMap[id]
-					if err := processStory(ctx, client, store, id, &rank, summaryQueue); err != nil {
-						log.Printf("[ingest] Story %d: %v", id, err)
-					}
+					_ = processStory(ctx, client, store, id, &rank, summaryManager)
 				}
 			}
 		}()
 	}
-	for _, id := range topIDs {
-		jobs <- id
-	}
+	for _, id := range topIDs { jobs <- id }
 	close(jobs)
 	wg.Wait()
-
-	if err := store.PruneStories(ctx, 7); err != nil {
-		log.Printf("[ingest] Prune: %v", err)
-	}
-	log.Println("[ingest] Run complete")
+	_ = store.PruneStories(ctx, 7)
 }
 
-func processStory(ctx context.Context, client *hn.Client, store storage.DB, id int, rank *int, summaryQueue chan<- summaryJob) error {
+func processStory(ctx context.Context, client *hn.Client, store storage.DB, id int, rank *int, summaryManager *SummaryManager) error {
 	item, err := client.GetItem(ctx, id)
-	if err != nil {
-		return err
-	}
-	if item.Type != "story" {
-		return nil
-	}
+	if err != nil { return err }
+	if item.Type != "story" { return nil }
 
 	story := storage.Story{
-		ID:          int64(item.ID),
-		Title:       item.Title,
-		URL:         item.URL,
-		Score:       item.Score,
-		By:          item.By,
-		Descendants: item.Descendants,
-		PostedAt:    time.Unix(item.Time, 0),
-		HNRank:      rank,
+		ID: int64(item.ID), Title: item.Title, URL: item.URL,
+		Score: item.Score, By: item.By, Descendants: item.Descendants,
+		PostedAt: time.Unix(item.Time, 0), HNRank: rank,
 	}
-	if err := store.UpsertStory(ctx, story); err != nil {
-		return err
-	}
+	_ = store.UpsertStory(ctx, story)
 
 	if item.URL != "" && item.Score > 10 {
-		// Only queue for summary if AI features are enabled in settings
-		aiEnabled := false
-		if val, err := store.GetSetting(ctx, "ai_summaries_enabled"); err == nil && val == "true" {
-			aiEnabled = true
-		}
-
-		if aiEnabled {
-			rankVal := 999
-			if rank != nil {
-				rankVal = *rank
-			}
-
-			if rankVal > 10 {
-				// Don't log every single one to avoid log spam, just known background runs
-				return nil
-			}
-
+		aiEnabled, _ := store.GetSetting(ctx, "ai_summaries_enabled")
+		autoEnabled, _ := store.GetSetting(ctx, "auto_summarize_enabled")
+		if aiEnabled != "false" && autoEnabled != "false" {
 			existing, err := store.GetStory(ctx, id)
 			needsSummary := err != nil || existing.Summary == nil || *existing.Summary == ""
-			needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0
-			if needsSummary || needsTopics {
-				select {
-				case summaryQueue <- summaryJob{ID: id, URL: item.URL, Title: item.Title}:
-					log.Printf("[ingest] Queued summary for story %d (Rank: %d)", id, rankVal)
-				default:
-					log.Printf("[ingest] Summary queue full, skipping story %d", id)
-				}
+			// If we have a summary but NO topics, we might want to re-run to get topics (one-time migration for new parser)
+			// But to avoid infinite loops, we only do this if the story is very new (last 24h)
+			if !needsSummary && len(existing.Topics) == 0 && time.Since(existing.CreatedAt) < 24*time.Hour {
+				needsSummary = true
+			}
+
+			if needsSummary {
+				summaryManager.Push(summaryJob{ID: id, URL: item.URL, Title: item.Title, Rank: *rank})
 			}
 		}
-	}
-
-	// Process comments
-	if len(item.Kids) > 0 {
-		processComments(ctx, client, store, item.Kids, int64(item.ID), nil)
-	}
-
-	return nil
-}
-
-func processComments(ctx context.Context, client *hn.Client, store storage.DB, kids []int, storyID int64, parentID *int64) {
-	for _, kidID := range kids {
-		item, err := client.GetItem(ctx, kidID)
-		if err != nil || item.Type != "comment" || item.Deleted || item.Dead {
-			continue
-		}
-		comment := storage.Comment{
-			ID:       int64(item.ID),
-			StoryID:  storyID,
-			ParentID: parentID,
-			Text:     item.Text,
-			By:       item.By,
-			PostedAt: time.Unix(item.Time, 0),
-		}
-		if err := store.UpsertComment(ctx, comment); err != nil {
-			log.Printf("[ingest] UpsertComment %d: %v", item.ID, err)
-		}
-		if len(item.Kids) > 0 {
-			pID := int64(item.ID)
-			processComments(ctx, client, store, item.Kids, storyID, &pID)
-		}
-	}
-}
-
-func flattenStrings(input interface{}) []string {
-	if input == nil {
-		return nil
-	}
-	switch v := input.(type) {
-	case string:
-		return []string{v}
-	case []string:
-		return v
-	case []interface{}:
-		var result []string
-		for _, item := range v {
-			switch tv := item.(type) {
-			case string:
-				result = append(result, tv)
-			case []interface{}:
-				if len(tv) > 0 {
-					if s, ok := tv[0].(string); ok {
-						result = append(result, s)
-					}
-				}
-			}
-		}
-		return result
 	}
 	return nil
 }

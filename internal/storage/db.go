@@ -17,11 +17,13 @@ type DB interface {
 	GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, error)
 	UpdateStorySummary(ctx context.Context, id int, summary string) error
 	UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error
+	UpdateStoryDiscussionSummary(ctx context.Context, id int, summary string) error
 	UpdateStoryGeminiURL(ctx context.Context, id int64, url string) error
 	UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error
 	ClearRanksNotIn(ctx context.Context, ids []int) error
 	UpdateRanks(ctx context.Context, rankMap map[int]int) error
 	PruneStories(ctx context.Context, daysToKeep int) error
+	ClearPoisonedSummaries(ctx context.Context) error
 
 	// Comments
 	UpsertComment(ctx context.Context, comment Comment) error
@@ -68,10 +70,11 @@ type Story struct {
 	IsRead        *bool            `json:"is_read,omitempty"`
 	IsSaved       *bool            `json:"is_saved,omitempty"`
 	IsHidden      *bool            `json:"is_hidden,omitempty"`
-	Summary       *string          `json:"summary,omitempty"`
-	Topics        []string         `json:"topics,omitempty"`
-	IframeBlocked *bool            `json:"iframe_blocked,omitempty"`
-	GeminiURL     *string          `json:"gemini_url,omitempty"`
+	Summary           *string          `json:"summary,omitempty"`
+	DiscussionSummary *string          `json:"discussion_summary,omitempty"`
+	Topics            []string         `json:"topics,omitempty"`
+	IframeBlocked     *bool            `json:"iframe_blocked,omitempty"`
+	GeminiURL         *string          `json:"gemini_url,omitempty"`
 	Embedding     *pgvector.Vector `json:"-"`
 	Similarity    *float64         `json:"similarity,omitempty"`
 }

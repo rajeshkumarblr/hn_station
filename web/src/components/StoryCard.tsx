@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Terminal, Link, Check, FileText, MessageSquare, Columns, Bookmark } from 'lucide-react';
+import { Bookmark, Check, Link, Terminal, ExternalLink, Columns } from 'lucide-react';
 
 export interface Story {
     id: number;
@@ -24,6 +24,7 @@ interface StoryCardProps {
     onToggleSave?: (id: number, saved: boolean) => void;
     onHide?: (id: number) => void;
     onOpenInTab?: (id: number, mode: 'article' | 'discussion' | 'split') => void;
+    onSummarize?: (id: number) => void;
     isSelected?: boolean;
     isHighlighted?: boolean;
     isRead?: boolean;
@@ -31,6 +32,7 @@ interface StoryCardProps {
     topicTextClass?: string | null;
     titleColorStyle?: string | null; // inline CSS color for the title
     activeTopics?: string[];
+    onTopicClick?: (topic: string) => void;
 }
 
 function getTimeAgo(date: Date): string {
@@ -77,9 +79,9 @@ export function getTagColor(tag: string) {
 
 
 export function StoryCard({
-    story, index, onSelect, onToggleSave, onHide, onOpenInTab,
+    story, index, onSelect, onToggleSave, onHide, onOpenInTab, onSummarize,
     isSelected, isHighlighted, isRead, isEven,
-    topicTextClass, titleColorStyle, activeTopics
+    topicTextClass, titleColorStyle, activeTopics, onTopicClick
 }: StoryCardProps) {
     let domain = '';
     try {
@@ -153,16 +155,30 @@ export function StoryCard({
         >
             {/* Action Buttons Container - Top Right */}
             <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
-                {/* Single Open button (defaults to Split View) */}
-                {onOpenInTab && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); }}
-                        className="p-1 rounded-md text-blue-500/60 dark:text-blue-400/60 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-300/20 dark:hover:bg-blue-900/40 transition-all duration-150 flex items-center justify-center shrink-0 border border-blue-200/50 dark:border-blue-700/30"
-                        title="Open in Reader"
-                    >
-                        <Columns size={14} strokeWidth={2.5} />
-                    </button>
-                )}
+                <button
+                    onClick={(e) => { e.stopPropagation(); onOpenInTab && onOpenInTab(story.id, 'split'); }}
+                    className="p-1 rounded-md text-blue-500 hover:text-white hover:bg-blue-600 transition-all duration-150 flex items-center justify-center shrink-0 border border-blue-200/50 dark:border-blue-500/20"
+                    title="Open in Tab"
+                >
+                    <Columns size={14} strokeWidth={2.5} />
+                </button>
+
+                {/* Open in Browser button */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); (window as any).electronAPI ? (window as any).electronAPI.openExternal(story.url) : window.open(story.url, '_blank'); }}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-150 flex items-center justify-center shrink-0 border border-slate-200/50 dark:border-slate-700/30"
+                    title="Open in Browser"
+                >
+                    <ExternalLink size={12} strokeWidth={2.5} />
+                </button>
+
+                <button
+                    onClick={(e) => { handleCopyLink(e); }}
+                    className={`p-1 rounded-md transition-all duration-150 border border-slate-200/50 dark:border-slate-700/30 ${isCopied ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'}`}
+                    title={isCopied ? 'Copied!' : 'Copy Link'}
+                >
+                    {isCopied ? <Check size={14} /> : <Link size={14} />}
+                </button>
 
                 {/* Save/Bookmark button */}
                 <button
@@ -209,15 +225,6 @@ export function StoryCard({
                             {story.title}
                         </span>
                     </span>
-
-                    {/* Copy Link button */}
-                    <button
-                        onClick={handleCopyLink}
-                        className={`inline-flex ml-0.5 align-middle transition-all duration-150 ${isCopied ? 'text-green-500 scale-110' : 'text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:scale-110'}`}
-                        title={isCopied ? 'Copied!' : 'Copy Link'}
-                    >
-                        {isCopied ? <Check size={12} /> : <Link size={12} />}
-                    </button>
                 </h3>
 
                 {/* Details Row - Visible on selection OR hover */}
@@ -276,7 +283,11 @@ export function StoryCard({
                                     return (
                                         <span
                                             key={i}
-                                            className={`text-[12px] font-bold transition-all duration-200 ${isActive ? 'px-2 py-0.5 rounded-md shadow-sm scale-110 z-10' : ''}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onTopicClick?.(topic);
+                                            }}
+                                            className={`text-[12px] font-bold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 ${isActive ? 'px-2 py-0.5 rounded-md shadow-sm scale-110 z-10' : 'hover:text-blue-500 dark:hover:text-blue-400 opacity-70 hover:opacity-100'}`}
                                             style={isActive ? {
                                                 background: ts.bg,
                                                 color: ts.color,

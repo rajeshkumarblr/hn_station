@@ -3,9 +3,7 @@ import type { Story } from '../types';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { Check, ExternalLink, Link, MessageSquare, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, FileText, Home } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import { CommentList } from './CommentList';
+import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, Home, MessageSquare, FileText } from 'lucide-react';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { AISidebar } from './AISidebar';
 
@@ -28,12 +26,16 @@ interface ReaderPaneProps {
     onOpenSettings?: () => void;
     isAISidebarOpen?: boolean;
     onToggleAISidebar?: (open: boolean) => void;
+    onSetSummary?: (id: number, summary: string, topics: string[]) => void;
+    onSetDiscussionSummary?: (id: number, summary: string) => void;
 }
 
 export function ReaderPane({ 
     story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, onHide, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
     isAISidebarOpen = true,
-    onToggleAISidebar
+    onToggleAISidebar,
+    onSetSummary,
+    onSetDiscussionSummary
 }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
@@ -99,12 +101,6 @@ export function ReaderPane({
         return () => controller.abort();
     }, [story.id]);
 
-    // Proactive checking - if we are active but somehow empty, try one more time
-    useEffect(() => {
-        if (isActive && comments.length === 0 && !commentsLoading) {
-            loadContent(story.id);
-        }
-    }, [isActive, comments.length, commentsLoading, story.id]);
 
     // Handle iframe blocked transition
     useEffect(() => {
@@ -214,19 +210,6 @@ export function ReaderPane({
         }
     }, [activeCommentId, onSaveProgress]);
 
-    const handleSummarize = async () => {
-        const baseUrl = getApiBase();
-        try {
-            const res = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/summarize`, {
-                method: 'POST',
-            });
-            if (res.ok) {
-                loadContent(story.id); 
-            }
-        } catch (err) {
-            console.error('Summarization failed:', err);
-        }
-    };
 
     return (
         <div className="relative h-full flex flex-row bg-white dark:bg-[#111d2e] border-t border-slate-200 dark:border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] overflow-hidden">
@@ -276,6 +259,7 @@ export function ReaderPane({
                     >
                         <MessageSquare size={18} />
                     </button>
+
                     <button 
                         onClick={() => { setSidebarTab('gemini'); onToggleAISidebar?.(true); }}
                         className={`p-2 rounded-lg transition-all ${isAISidebarOpen && sidebarTab === 'gemini' ? 'text-blue-500 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/40 shadow-sm focus:outline-none' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
@@ -385,7 +369,10 @@ export function ReaderPane({
                         onClose={() => onToggleAISidebar?.(false)}
                         user={user}
                         onSetSummary={(summary, topics) => {
-                            loadContent(story.id); 
+                            onSetSummary?.(story.id, summary, topics);
+                        }}
+                        onSetDiscussionSummary={(summary) => {
+                            onSetDiscussionSummary?.(story.id, summary);
                         }}
                         comments={comments}
                         commentsLoading={commentsLoading}

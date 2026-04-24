@@ -49,13 +49,24 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 		// 1. Repo root or close to it (e.g., github.com/user/repo)
 		if len(parts) >= 2 {
 			user, repo := parts[0], parts[1]
+			
+			// Detect branch from subpaths like tree/branchName
+			branchCandidate := ""
+			if len(parts) >= 4 && (parts[2] == "tree" || parts[2] == "blob") {
+				branchCandidate = parts[3]
+			}
+
 			// Try to find README in common locations
-			branches := []string{"main", "master", "develop"}
+			branches := []string{branchCandidate, "main", "master", "develop"}
 			for _, branch := range branches {
+				if branch == "" {
+					continue
+				}
 				rawPaths := []string{
 					fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/README.md", user, repo, branch),
 					fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/readme.md", user, repo, branch),
 					fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/README.markdown", user, repo, branch),
+					fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/docs/README.md", user, repo, branch),
 				}
 				
 				for _, rawURL := range rawPaths {
@@ -64,6 +75,7 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 					if err2 == nil && resp2.StatusCode == 200 {
 						defer resp2.Body.Close()
 						bodyBytes, _ := io.ReadAll(resp2.Body)
+						log.Printf("Fetcher: Found GitHub README for %s at %s", urlStr, rawURL)
 						return &FetchResult{
 							Content:     string(bodyBytes),
 							Title:       fmt.Sprintf("GitHub README: %s/%s", user, repo),
@@ -168,19 +180,41 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 func stripTags(html string) string {
 	var sb strings.Builder
 	inTag := false
-	for _, r := range html {
+	inScript := false
+	inStyle := false
+	tagName := ""
+
+	for i := 0; i < len(html); i++ {
+		r := rune(html[i])
 		if r == '<' {
 			inTag = true
+			tagName = ""
+			// peek at tag name
+			for j := i + 1; j < len(html) && html[j] != ' ' && html[j] != '>'; j++ {
+				tagName += string(html[j])
+			}
+			tagName = strings.ToLower(tagName)
+			
+			if tagName == "script" {
+				inScript = true
+			} else if tagName == "/script" {
+				inScript = false
+			} else if tagName == "style" {
+				inStyle = true
+			} else if tagName == "/style" {
+				inStyle = false
+			}
 			continue
 		}
 		if r == '>' {
 			inTag = false
 			continue
 		}
-		if !inTag {
+		if !inTag && !inScript && !inStyle {
 			sb.WriteRune(r)
 		}
 	}
+	// Post-process to clean up whitespace
 	return strings.Join(strings.Fields(sb.String()), " ")
 }
 

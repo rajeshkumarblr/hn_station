@@ -10,7 +10,36 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rajeshkumarblr/hn_station/internal/ai"
+	"github.com/rajeshkumarblr/hn_station/internal/storage"
 )
+
+func (s *Server) handlePatchStorySummary(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	var reqBody struct {
+		Summary string `json:"summary"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.UpdateStorySummary(r.Context(), id, reqBody.Summary); err != nil {
+		http.Error(w, "Failed to update summary", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 
 func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -22,8 +51,12 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 
 	userID := s.auth.GetUserIDFromRequest(r)
 	if userID == "" {
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
-		return
+		if s.localMode {
+			userID = "local-user"
+		} else {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
 	}
 
 	user, err := s.store.GetAuthUser(r.Context(), userID)
@@ -31,11 +64,12 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "User not found", http.StatusInternalServerError)
 		return
 	}
-
-	if user.GeminiAPIKey == "" {
-		http.Error(w, "Please set your Gemini API Key in Settings to use this feature.", http.StatusBadRequest)
-		return
+	if user == nil {
+		// In local mode, we might not have a user in auth_users yet
+		user = &storage.AuthUser{ID: userID}
 	}
+
+	// Note: Gemini Key check moved below, only if needed.
 
 	story, err := s.store.GetStory(r.Context(), id)
 	if err != nil {
@@ -44,7 +78,16 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 1. Check Global Cache (Short-circuit if already summarized)
-	if story.Summary != nil && *story.Summary != "" {
+	force := r.URL.Query().Get("force") == "true"
+	priority := r.URL.Query().Get("priority") == "true"
+	log.Printf("[summarize] Handling request for story %d (force=%v, priority=%v)", id, force, priority)
+	
+	if priority && s.Prioritizer != nil {
+		s.Prioritizer.CancelOngoing()
+	}
+
+	if !force && story.Summary != nil && *story.Summary != "" {
+		log.Printf("[summarize] Returning cached summary for story %d", id)
 		// Save to chat history so user sees it in their thread too
 		if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Article Summary of \"%s\":**\n\n%s", story.Title, *story.Summary)); err != nil {
 			log.Printf("Failed to save cached summary to history: %v", err)
@@ -52,6 +95,10 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"summary": *story.Summary})
 		return
+	}
+	
+	if force {
+		log.Printf("[summarize] Cache bypass triggered for story %d. Initiating fresh fetch/AI call...", id)
 	}
 
 	// 2. Fetch and Parse Article
@@ -115,83 +162,52 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 	// 2. Fallback to Gemini if:
 	// - Local failed OR provider is "gemini"
 	// - AND provider is "gemini" or "both"
-	if responseStr == "" && (provider == "gemini" || provider == "both") {
-		geminiKey := user.GeminiAPIKey
-		if geminiKey == "" {
-			geminiKey = os.Getenv("GEMINI_API_KEY")
-		}
-
-		if geminiKey != "" {
-			log.Printf("Falling back to Gemini for article summary...")
-			// Gemini signature is (ctx, apiKey, text)
-			responseStr, err = s.geminiClient.GenerateSummary(r.Context(), geminiKey, finalContent)
-			if err != nil {
-				log.Printf("Gemini article summarization failed: %v", err)
-				summarizeErr = err
-			}
-		} else {
-			log.Printf("Gemini fallback skipped: No API Key available")
-		}
-	}
+	// Gemini fallback removed to enforce local-only AI.
 
 	if responseStr == "" {
-		http.Error(w, "Failed to generate summary: "+summarizeErr.Error(), http.StatusInternalServerError)
+		var errMsg string
+		if summarizeErr != nil {
+			errMsg = summarizeErr.Error()
+		} else {
+			errMsg = "No AI provider succeeded (Check Ollama/Gemini availability)"
+		}
+		
+		if strings.Contains(errMsg, "429") || strings.Contains(strings.ToLower(errMsg), "quota") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Gemini API Quota Exceeded. Please wait a minute or check your billing plan.",
+				"code": "RATE_LIMIT_EXCEEDED",
+			})
+			return
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to generate summary: " + errMsg,
+		})
 		return
 	}
 
-	// Try to parse the JSON
-	cleanJSON := strings.TrimSpace(responseStr)
-	cleanJSON = strings.TrimPrefix(cleanJSON, "```json")
-	cleanJSON = strings.TrimPrefix(cleanJSON, "```")
-	cleanJSON = strings.TrimSuffix(cleanJSON, "```")
-	cleanJSON = strings.TrimSpace(cleanJSON)
+	result := ai.ParseGreedyJSON(responseStr, int64(id))
+	finalSummary := strings.Join(result.Summary, "\n")
+	finalTopics := result.Topics
 
-	var intermediate struct {
-		Summary interface{} `json:"summary"`
-		Topics  []string    `json:"topics"`
-	}
-
-	var result struct {
-		Summary string
-		Topics  []string
-	}
-
-	if err := json.Unmarshal([]byte(cleanJSON), &intermediate); err != nil {
-		log.Printf("Failed to parse JSON in article summary. Error: %v. Raw: %s", err, responseStr)
-		result.Summary = responseStr // Fallback
-		result.Topics = []string{}
-	} else {
-		// Handle Summary being either a string or an array of strings
-		switch v := intermediate.Summary.(type) {
-		case string:
-			result.Summary = v
-		case []interface{}:
-			var parts []string
-			for _, part := range v {
-				if s, ok := part.(string); ok {
-					parts = append(parts, s)
-				}
-			}
-			result.Summary = strings.Join(parts, " ")
-		default:
-			result.Summary = fmt.Sprintf("%v", v)
-		}
-		result.Topics = intermediate.Topics
-	}
 
 	// 4. Save to Global Cache
-	if err := s.store.UpdateStorySummaryAndTopics(r.Context(), id, result.Summary, result.Topics); err != nil {
-		log.Printf("Failed to update story summary/topics cache: %v", err)
+	if err := s.store.UpdateStorySummaryAndTopics(r.Context(), id, finalSummary, finalTopics); err != nil {
+		log.Printf("[summarize] Failed to save to global cache for story %d: %v", id, err)
 	}
 
 	// 5. Save to Chat History
-	if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Article Summary of \"%s\":**\n\n%s", story.Title, result.Summary)); err != nil {
+	if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Article Summary of \"%s\":**\n\n%s", story.Title, finalSummary)); err != nil {
 		log.Printf("Failed to save summary to history: %v", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"summary": result.Summary,
-		"topics":  result.Topics,
+		"summary": finalSummary,
+		"topics":  finalTopics,
 	})
 }

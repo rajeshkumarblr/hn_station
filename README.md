@@ -71,9 +71,24 @@ The web version is deployed to Azure Kubernetes Service (AKS) as a unified conta
 - **Node.js 20+**
 - **Ollama** (Optional, for local AI features)
 
-### 💻 Build & Release
-We use a unified release script for consistent builds across platforms:
+### 💻 Build & Run
+You can use the provided automation scripts or the Makefile:
+
+**Windows (PowerShell):**
 ```powershell
-# Build backend and desktop installers
-.\scripts\release.ps1
+# Build everything (Backend + Frontend)
+.\scripts\build.ps1
+
+# Run both components simultaneously
+.\scripts\run.ps1
+```
+
+**Linux/macOS (Makefile):**
+```bash
+# Build everything
+make all
+
+# Start backend and frontend dev servers
+make dev-backend
+make dev-frontend
 ```

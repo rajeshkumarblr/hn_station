@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { X, Save, Key, ExternalLink, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap } from 'lucide-react';
+import { X, Save, Key, ExternalLink, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap, Sparkles } from 'lucide-react';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -18,7 +18,10 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const [apiKey, setApiKey] = useState('');
     const [aiEnabled, setAiEnabled] = useState(false);
     const [ollamaModel, setOllamaModel] = useState('');
+    const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash');
     const [aiProvider, setAiProvider] = useState<'local' | 'gemini' | 'both'>('local');
+    const [refreshInterval, setRefreshInterval] = useState('5m');
+    const [autoSummarize, setAutoSummarize] = useState(false);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -32,9 +35,12 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     useEffect(() => {
         if (isOpen && user) {
             setApiKey(user.gemini_api_key || '');
-            setAiEnabled(user.ai_summaries_enabled || false);
-            setOllamaModel(user.ollama_model || '');
+            setAiEnabled(user.ai_summaries_enabled);
+            setAutoSummarize(user.auto_summarize_enabled);
             setAiProvider(user.ai_provider || 'local');
+            setGeminiModel(user.gemini_model || 'gemini-1.5-flash');
+            setRefreshInterval(user.refresh_interval || '5m');
+            setOllamaModel(user.ollama_model || '');
         }
     }, [isOpen, user]);
 
@@ -58,7 +64,10 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                     gemini_api_key: apiKey,
                     ai_summaries_enabled: aiEnabled,
                     ollama_model: ollamaModel,
-                    ai_provider: aiProvider
+                    gemini_model: geminiModel,
+                    ai_provider: aiProvider,
+                    refresh_interval: refreshInterval,
+                    auto_summarize_enabled: autoSummarize
                 }),
             });
 
@@ -132,7 +141,6 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                         <form id="settings-form" onSubmit={handleSave} className="space-y-8">
                             {activeTab === 'ai' && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                    <div className="space-y-6">
                                         <div className="flex items-center justify-between p-5 bg-orange-500/5 dark:bg-orange-500/10 rounded-2xl border border-orange-200 dark:border-orange-500/20">
                                             <div className="space-y-1">
                                                 <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -147,6 +155,23 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ${aiEnabled ? 'bg-orange-500 shadow-md shadow-orange-500/20' : 'bg-slate-300 dark:bg-slate-700'}`}
                                             >
                                                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${aiEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-center justify-between p-5 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200 dark:border-indigo-500/20">
+                                            <div className="space-y-1">
+                                                <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                                    <Sparkles size={16} className="text-indigo-500" />
+                                                    Intelligent Auto-Summarize
+                                                </h4>
+                                                <p className="text-[11px] text-slate-500 leading-tight">Summarize new stories automatically in background (Rate limited to Gemini free tier).</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setAutoSummarize(!autoSummarize)}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ${autoSummarize ? 'bg-indigo-500 shadow-md shadow-indigo-500/20' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoSummarize ? 'translate-x-6' : 'translate-x-1'}`} />
                                             </button>
                                         </div>
 
@@ -232,6 +257,28 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                     <div className="space-y-1">
                                         <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Visual Settings</h3>
                                         <p className="text-xs text-slate-500">Customize the look and feel of the application.</p>
+                                    </div>
+
+                                    {/* Refresh Settings */}
+                                    <div className="space-y-3">
+                                        <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">Story Auto-Refresh</label>
+                                        <div className="grid grid-cols-4 gap-3">
+                                            {[
+                                                { id: '5m', label: '5 min' },
+                                                { id: '10m', label: '10 min' },
+                                                { id: '30m', label: '30 min' },
+                                                { id: '1h', label: '1 hour' }
+                                            ].map(opt => (
+                                                <button
+                                                    key={opt.id}
+                                                    type="button"
+                                                    onClick={() => setRefreshInterval(opt.id)}
+                                                    className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all text-center ${refreshInterval === opt.id ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}
+                                                >
+                                                    <span className={`text-[11px] font-bold ${refreshInterval === opt.id ? 'text-blue-600' : 'text-slate-500'}`}>{opt.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
 
                                     {/* Theme Switcher */}

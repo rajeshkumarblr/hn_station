@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, ipcMain, nativeImage, globalShortcut, shell } from 'electron';
+import { app, BrowserWindow, session, ipcMain, nativeImage, globalShortcut, shell, Menu } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
@@ -188,6 +188,7 @@ ipcMain.on('open-external', (_, url: string) => {
     shell.openExternal(url);
 });
 
+
 // ── Window ────────────────────────────────────────────────────────────────────
 function createWindow() {
     win = new BrowserWindow({
@@ -224,6 +225,9 @@ function createWindow() {
         else win?.maximize();
     });
     ipcMain.handle('window-is-maximized', () => win?.isMaximized() ?? false);
+    ipcMain.on('open-external', (_, url: string) => {
+        if (url) shell.openExternal(url);
+    });
 
     win.once('ready-to-show', () => {
         if (win) {
@@ -285,6 +289,24 @@ function createWindow() {
     } catch (e) {
         logToFile(`[main] Failed to register shortcut: ${e}`);
     }
+
+    // Standard Edit Menu for native shortcuts (Ctrl+C, Ctrl+V, etc)
+    const template: any[] = [
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' },
+                { role: 'redo' },
+                { type: 'separator' },
+                { role: 'cut' },
+                { role: 'copy' },
+                { role: 'paste' },
+                { role: 'selectall' }
+            ]
+        }
+    ];
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────

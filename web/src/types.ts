@@ -8,6 +8,10 @@ export interface User {
     is_admin: boolean;
     authenticated: boolean;
     ai_summaries_enabled: boolean;
+    auto_summarize_enabled: boolean;
+    refresh_interval: string;
+    ai_provider: string;
+    gemini_model: string;
     ollama_available: boolean;
     ollama_model?: string;
     ollama_models?: string[];
@@ -31,6 +35,7 @@ export interface Story {
     is_saved?: boolean;
     is_hidden?: boolean;
     summary?: string;
+    discussion_summary?: string;
     topics?: string[];
     iframe_blocked?: boolean;
     gemini_url?: string;

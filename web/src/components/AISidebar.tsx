@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageSquare, Sparkles, Send, Trash2, RefreshCw, Bot, User as UserIcon } from 'lucide-react';
+import { Check, RefreshCw, Sparkles, X, MessageSquare, Copy } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
-import type { Story, ChatMessage, User } from '../types';
+import type { Story, User } from '../types';
 import { getTagStyle } from './StoryCard';
 import { CommentList } from './CommentList';
+
+const AI_COLORS = [
+    'text-blue-500 dark:text-blue-400',
+    'text-emerald-500 dark:text-emerald-400',
+    'text-orange-500 dark:text-orange-400',
+    'text-purple-500 dark:text-purple-400',
+    'text-rose-500 dark:text-rose-400'
+];
 
 interface AISidebarProps {
     story: Story;
@@ -13,6 +21,7 @@ interface AISidebarProps {
     onClose: () => void;
     user: User | null;
     onSetSummary: (summary: string, topics: string[]) => void;
+    onSetDiscussionSummary: (summary: string) => void;
     comments: any[];
     commentsLoading: boolean;
     activeCommentId?: string | null;
@@ -24,91 +33,85 @@ interface AISidebarProps {
 }
 
 export function AISidebar({ 
-    story, isOpen, onClose, user, onSetSummary, 
+    story, isOpen, onClose, user, onSetSummary, onSetDiscussionSummary,
     comments, commentsLoading, activeCommentId, onFocusComment,
     activeTab, onTabChange, containerRef, width = 480
 }: AISidebarProps) {
     const [summarizing, setSummarizing] = useState(false);
-    const [contextInjected, setContextInjected] = useState(false);
-    const webviewRef = useRef<any>(null);
+    const [discussSummarizing, setDiscussSummarizing] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-    // Track Gemini URL changes to persist threads
+    const handleCopy = () => {
+        if (!story.summary) return;
+        navigator.clipboard.writeText(story.summary);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     useEffect(() => {
-        const webview = webviewRef.current;
-        if (!webview) return;
-
-        const handleNav = (e: any) => {
-            const url = e.url;
-            if (url.includes('gemini.google.com/app/')) {
-                saveGeminiURL(url);
+        const handleKeys = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                const selection = window.getSelection()?.toString();
+                if (!selection && activeTab === 'summary' && story.summary) {
+                    navigator.clipboard.writeText(story.summary);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                }
             }
         };
 
-        const handleReady = () => {
-            // 1. Implicit Injection for fresh discussions
-            if (!story.gemini_url || story.gemini_url === "https://gemini.google.com") {
-                const context = `HN Article: ${story.url}`;
-                const script = `
-                    (function() {
-                        const editor = document.querySelector('div.ql-editor');
-                        if (editor && !editor.textContent.trim()) {
-                            editor.textContent = "${context}\\n";
-                            editor.dispatchEvent(new Event('input', { bubbles: true }));
-                            editor.focus();
-                        }
-                    })();
-                `;
-                webview.executeJavaScript(script);
-            }
-            
-            // 2. Auto-scroll to bottom when loading existing thread
-            const scrollScript = `
-                (function() {
-                    const scroller = document.querySelector('infinite-scroller.chat-history') || document.querySelector('div.chat-history');
-                    if (scroller) {
-                        scroller.scrollTop = scroller.scrollHeight;
-                        // Sometimes content is late, try again after a small delay
-                        setTimeout(() => { scroller.scrollTop = scroller.scrollHeight; }, 1000);
-                    }
-                })();
-            `;
-            webview.executeJavaScript(scrollScript);
-        };
-
-        webview.addEventListener('did-navigate-in-page', handleNav);
-        webview.addEventListener('did-navigate', handleNav);
-        webview.addEventListener('dom-ready', handleReady);
+        window.addEventListener('keydown', handleKeys);
         
         return () => {
-            webview.removeEventListener('did-navigate-in-page', handleNav);
-            webview.removeEventListener('did-navigate', handleNav);
-            webview.removeEventListener('dom-ready', handleReady);
+            window.removeEventListener('keydown', handleKeys);
         };
-    }, [story.id, activeTab]);
+    }, [story.id, story.url, activeTab]);
+    useEffect(() => {
+        // If we already have a summary, or the summary tab isn't active, do not poll
+        if (story.summary || activeTab !== 'summary' || !isOpen) return;
 
-    const saveGeminiURL = async (url: string) => {
-        try {
-            const baseUrl = getApiBase();
-            await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/gemini_url`, {
-                method: 'PATCH',
-                body: JSON.stringify({ url }),
-            });
-        } catch (err) {
-            console.error('Failed to save gemini url:', err);
-        }
-    };
+        let isPolling = true;
+        const pollSummary = async () => {
+            try {
+                const baseUrl = getApiBase();
+                if (!baseUrl) return;
+                
+                const res = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}`);
+                if (!res.ok) return;
+                
+                const data = await res.json();
+                if (data && data.story && data.story.summary && isPolling) {
+                    onSetSummary(data.story.summary, data.story.topics || []);
+                }
+            } catch (err) {
+                // Ignore network errors during polling
+            }
+        };
+
+        const interval = setInterval(() => {
+            if (isPolling) pollSummary();
+        }, 5000);
+
+        // Fire once immediately just in case the background worker literally just finished it
+        pollSummary();
+
+        return () => {
+            isPolling = false;
+            clearInterval(interval);
+        };
+    }, [story.id, story.summary, activeTab, isOpen, onSetSummary]);
 
     const handleSummarize = async () => {
         if (summarizing) return;
         setSummarizing(true);
         try {
             const baseUrl = getApiBase();
-            const res = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/summarize`, {
+            const res = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/summarize?force=true&priority=true`, {
                 method: 'POST',
             });
             if (res.ok) {
                 const data = await res.json();
-                onSetSummary(data.summary, data.topics || []);
+                onSetSummary(data.story.summary, data.story.topics || []);
             }
         } catch (err) {
             console.error('Summarization failed:', err);
@@ -117,29 +120,24 @@ export function AISidebar({
         }
     };
 
-    const injectGeminiSummary = () => {
-        const webview = webviewRef.current;
-        if (!webview) return;
-        
-        const context = `Please summarize this article: ${story.url}`;
-        const script = `
-            (function() {
-                const editor = document.querySelector('div.ql-editor');
-                if (editor) {
-                    editor.textContent = "${context}";
-                    editor.dispatchEvent(new Event('input', { bubbles: true }));
-                    editor.focus();
-                    
-                    // Try to find and click the send button
-                    setTimeout(() => {
-                        const sendBtn = document.querySelector('button[aria-label="Send message"]') || 
-                                        document.querySelector('button.send-button');
-                        if (sendBtn) sendBtn.click();
-                    }, 500);
-                }
-            })();
-        `;
-        webview.executeJavaScript(script);
+
+    const handleSummarizeDiscussion = async () => {
+        if (discussSummarizing) return;
+        setDiscussSummarizing(true);
+        try {
+            const baseUrl = getApiBase();
+            const res = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/summarize/discussion`, {
+                method: 'POST',
+            });
+            if (res.ok) {
+                const data = await res.json();
+                onSetDiscussionSummary(data.discussion_summary);
+            }
+        } catch (err) {
+            console.error('Discussion summarization failed:', err);
+        } finally {
+            setDiscussSummarizing(false);
+        }
     };
 
     const aiEnabled = user?.ai_summaries_enabled || false;
@@ -200,7 +198,43 @@ export function AISidebar({
                                 <span className="animate-pulse font-medium text-xs uppercase tracking-widest">Loading HN discussion...</span>
                             </div>
                         ) : comments && comments.length > 0 ? (
-                            <div className="pb-20">
+                            <div className="pb-20 space-y-6">
+                                {/* Discussion Summary Section */}
+                                {story.discussion_summary ? (
+                                    <div className="p-5 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Sparkles size={14} className="text-indigo-500" />
+                                            <h4 className="text-[11px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Community Analysis</h4>
+                                        </div>
+                                        <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
+                                            <ReactMarkdown
+                                                components={{
+                                                    li: ({node, ...props}) => (
+                                                        <li className="flex gap-2 items-start mb-2">
+                                                            <span className="mt-1.5 w-1 h-1 rounded-full bg-indigo-400 shrink-0" />
+                                                            <span {...props} />
+                                                        </li>
+                                                    ),
+                                                    ul: ({node, ...props}) => <ul className="pl-0 list-none" {...props} />,
+                                                }}
+                                            >
+                                                {story.discussion_summary}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-center">
+                                        <button 
+                                            onClick={handleSummarizeDiscussion}
+                                            disabled={discussSummarizing}
+                                            className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold transition-all flex items-center gap-2 group border border-indigo-200/50 dark:border-indigo-500/20"
+                                        >
+                                            {discussSummarizing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} className="group-hover:scale-110 transition-transform" />}
+                                            {discussSummarizing ? "Analyzing Discussion..." : "Summarize Discussion"}
+                                        </button>
+                                    </div>
+                                )}
+
                                 <CommentList
                                     comments={comments}
                                     parentId={null}
@@ -240,15 +274,67 @@ export function AISidebar({
                         </div>
                     ) : (
                         <div className="animate-in fade-in slide-in-from-bottom-2">
-                            {/* Tags */}
+                            <div className="flex items-center justify-between mb-5 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/50 dark:border-white/5 shadow-sm">
+                                <div className="flex flex-col">
+                                    <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-0.5">Summary Engine</h3>
+                                    <span className="text-[10px] font-bold text-blue-500 opacity-80">Refined UI (rc31)</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button 
+                                        onClick={handleCopy}
+                                        title="Copy Summary (Ctrl+C)"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-white hover:bg-blue-600 transition-all border border-slate-300 dark:border-slate-700"
+                                    >
+                                        {copied ? <Check size={12} /> : <Copy size={12} />}
+                                        {copied ? "Copied" : "Copy"}
+                                    </button>
+                                    <button 
+                                        onClick={handleSummarize}
+                                        disabled={summarizing}
+                                        title="Regenerate for new 3-point format"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-white hover:bg-amber-600 transition-all border border-slate-300 dark:border-slate-700 disabled:opacity-50"
+                                    >
+                                        <RefreshCw size={12} className={summarizing ? "animate-spin" : ""} />
+                                        {summarizing ? "..." : "Regen"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            
+                            {/* Markdown Summary with Index-Based Colors */}
+                            <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans select-text">
+                                <ul className="pl-0 list-none m-0">
+                                    {story.summary.split('\n').filter(line => line.trim().length > 0).map((line, idx) => {
+                                        const colorClass = AI_COLORS[idx % AI_COLORS.length];
+                                        const cleanLine = line.replace(/^[-*•]\s+/, '');
+                                        return (
+                                            <li key={idx} className={`${colorClass} flex gap-2 items-start mb-3 last:mb-0 marker:text-transparent`}>
+                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-sm" />
+                                                <div className="flex-1 text-slate-600 dark:text-slate-300">
+                                                    <ReactMarkdown
+                                                        components={{
+                                                            p: ({ node, ...props }) => <span {...props} />,
+                                                            strong: ({ node, ...props }) => <strong className="text-blue-500 font-bold dark:text-blue-400" {...props} />
+                                                        }}
+                                                    >
+                                                        {cleanLine}
+                                                    </ReactMarkdown>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+
+                            {/* Tags - MOVED BELOW SUMMARY */}
                             {story.topics && story.topics.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mb-6">
+                                <div className="flex flex-wrap gap-2 mt-8 mb-6 animate-in fade-in slide-in-from-bottom-2">
                                     {story.topics.map(t => {
                                         const ts = getTagStyle(t);
                                         return (
                                             <span 
                                                 key={t}
-                                                className="px-2 py-1 rounded-md text-[10px] font-black border uppercase tracking-wider"
+                                                className="px-2.5 py-1 rounded-lg text-[10px] font-black border uppercase tracking-widest shadow-sm"
                                                 style={{ backgroundColor: ts.bg, color: ts.color, borderColor: ts.border }}
                                             >
                                                 #{t.replace(/\s+/g, '')}
@@ -257,25 +343,6 @@ export function AISidebar({
                                     })}
                                 </div>
                             )}
-                            
-                            {/* Markdown Summary */}
-                            <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
-                                <ReactMarkdown
-                                    components={{
-                                        li: ({node, ...props}) => (
-                                            <li className="flex gap-2 items-start mb-2">
-                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 shadow-sm shadow-blue-500/50" />
-                                                <span {...props} />
-                                            </li>
-                                        ),
-                                        ul: ({node, ...props}) => <ul className="pl-0 list-none" {...props} />,
-                                        p: ({node, ...props}) => <p className="mb-4" {...props} />,
-                                        strong: ({node, ...props}) => <strong className="text-blue-500 font-bold dark:text-blue-400" {...props} />
-                                    }}
-                                >
-                                    {story.summary}
-                                </ReactMarkdown>
-                            </div>
                         </div>
                     )}
                 </div>
@@ -284,18 +351,18 @@ export function AISidebar({
                 <div className={`flex-1 flex flex-col relative bg-white dark:bg-slate-950 ${activeTab !== 'gemini' ? 'hidden' : ''}`}>
                     {/* Overlay Controls */}
                     <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-                        <span className="text-[9px] font-black uppercase text-slate-400 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded-full backdrop-blur-sm border border-slate-200 dark:border-white/5">Live Chat</span>
+                        <span className="text-[9px] font-black uppercase text-slate-400 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded-full backdrop-blur-sm border border-slate-200 dark:border-white/5">Manual Chat Mode</span>
                     </div>
 
                     {/* Electron WebView Tag */}
                     {/* @ts-ignore */}
                     <webview 
-                        ref={webviewRef}
                         src={story.gemini_url || "https://gemini.google.com"} 
                         className="flex-1 w-full h-full border-none"
                         style={{ background: 'white' }}
                     />
                 </div>
+
             </div>
         </div>
     );

@@ -89,6 +89,21 @@ func (m *MultiStore) UpdateStorySummaryAndTopics(ctx context.Context, id int, su
 	return nil
 }
 
+func (m *MultiStore) UpdateStoryDiscussionSummary(ctx context.Context, id int, summary string) error {
+	err := m.Primary.UpdateStoryDiscussionSummary(ctx, id, summary)
+	if err != nil {
+		return err
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, sec := range m.Secondaries {
+		if sErr := sec.UpdateStoryDiscussionSummary(ctx, id, summary); sErr != nil {
+			log.Printf("MultiStore: Secondary UpdateStoryDiscussionSummary failed: %v", sErr)
+		}
+	}
+	return nil
+}
+
 func (m *MultiStore) UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error {
 	err := m.Primary.UpdateStoryIframeStatus(ctx, id, blocked)
 	if err != nil {

@@ -46,6 +46,7 @@ func (s *SQLiteStore) migrate() error {
 		created_at  DATETIME NOT NULL DEFAULT (datetime('now')),
 		hn_rank     INTEGER,
 		summary     TEXT,
+		discussion_summary TEXT,
 		topics      TEXT    NOT NULL DEFAULT '[]', -- JSON array of strings
 		is_read     BOOLEAN NOT NULL DEFAULT 0,
 		is_saved    BOOLEAN NOT NULL DEFAULT 0,
@@ -111,6 +112,7 @@ func (s *SQLiteStore) migrate() error {
 		"ALTER TABLE stories ADD COLUMN is_hidden BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN iframe_blocked BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE stories ADD COLUMN gemini_url TEXT",
+		"ALTER TABLE stories ADD COLUMN discussion_summary TEXT",
 		"ALTER TABLE auth_users ADD COLUMN summaries_enabled BOOLEAN NOT NULL DEFAULT 1",
 		"ALTER TABLE auth_users ADD COLUMN topics TEXT NOT NULL DEFAULT '[]'",
 		"ALTER TABLE auth_users ADD COLUMN gemini_url TEXT",
@@ -162,13 +164,13 @@ func scanStory(row interface{ Scan(...any) error }) (Story, error) {
 	var story Story
 	var topicsJSON string
 	var hnRank sql.NullInt64
-	var summary, geminiURL sql.NullString
+	var summary, discussSummary, geminiURL sql.NullString
 	var postedAt, createdAt string
 
 	if err := row.Scan(
 		&story.ID, &story.Title, &story.URL, &story.Score,
 		&story.By, &story.Descendants, &postedAt, &createdAt,
-		&hnRank, &summary, &topicsJSON,
+		&hnRank, &summary, &discussSummary, &topicsJSON,
 		&story.IsRead, &story.IsSaved, &story.IsHidden, &story.IframeBlocked,
 		&geminiURL,
 	); err != nil {
@@ -181,6 +183,9 @@ func scanStory(row interface{ Scan(...any) error }) (Story, error) {
 	}
 	if summary.Valid && summary.String != "" {
 		story.Summary = &summary.String
+	}
+	if discussSummary.Valid && discussSummary.String != "" {
+		story.DiscussionSummary = &discussSummary.String
 	}
 	if geminiURL.Valid && geminiURL.String != "" {
 		story.GeminiURL = &geminiURL.String
@@ -211,7 +216,7 @@ func (s *SQLiteStore) UpsertStory(ctx context.Context, story Story) error {
 		ON CONFLICT(id) DO UPDATE SET
 			title = excluded.title, url = excluded.url, score = excluded.score,
 			descendants = excluded.descendants, hn_rank = excluded.hn_rank,
-			topics = excluded.topics
+			topics = CASE WHEN excluded.topics = '[]' OR excluded.topics IS NULL THEN topics ELSE excluded.topics END
 			-- DO NOT update is_read, is_saved, is_hidden on conflict
 	`,
 		story.ID, story.Title, story.URL, story.Score,
@@ -225,7 +230,7 @@ func (s *SQLiteStore) UpsertStory(ctx context.Context, story Story) error {
 
 func (s *SQLiteStore) GetStory(ctx context.Context, id int) (*Story, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
+		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, discussion_summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
 		 FROM stories WHERE id = ?`, id)
 	story, err := scanStory(row)
 	if err != nil {
@@ -275,8 +280,8 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 	}
 
 	// Get stories
-	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
-	          FROM stories ` + whereClause + ` ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
+	query := `SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, discussion_summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
+			  FROM stories ` + whereClause + ` ORDER BY ` + orderBy + ` LIMIT ? OFFSET ?`
 	finalArgs := append(args, limit, offset)
 
 	rows, err := s.db.QueryContext(ctx, query, finalArgs...)
@@ -332,6 +337,11 @@ func (s *SQLiteStore) UpdateStorySummary(ctx context.Context, id int, summary st
 
 func (s *SQLiteStore) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error {
 	_, err := s.db.ExecContext(ctx, "UPDATE stories SET summary = ?, topics = ? WHERE id = ?", summary, topicsToJSON(topics), id)
+	return err
+}
+
+func (s *SQLiteStore) UpdateStoryDiscussionSummary(ctx context.Context, id int, summary string) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE stories SET discussion_summary = ? WHERE id = ?", summary, id)
 	return err
 }
 
@@ -465,9 +475,13 @@ func (s *SQLiteStore) UpsertAuthUser(ctx context.Context, id, email, name, avata
 func (s *SQLiteStore) GetAuthUser(ctx context.Context, id string) (*AuthUser, error) {
 	var user AuthUser
 	var topicsJSON string
-	err := s.db.QueryRowContext(ctx, "SELECT id, email, name, avatar_url, is_admin, summaries_enabled, topics FROM auth_users WHERE id = ?", id).
-		Scan(&user.ID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &topicsJSON)
+	var geminiURL sql.NullString
+	err := s.db.QueryRowContext(ctx, "SELECT id, email, name, avatar_url, is_admin, summaries_enabled, topics, gemini_url FROM auth_users WHERE id = ?", id).
+		Scan(&user.ID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &topicsJSON, &geminiURL)
 	user.Topics = jsonToTopics(topicsJSON)
+	if geminiURL.Valid {
+		user.GeminiAPIKey = geminiURL.String
+	}
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -582,7 +596,7 @@ func (s *SQLiteStore) GetSavedStories(ctx context.Context, _ string, limit, offs
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
+		`SELECT id, title, url, score, by, descendants, posted_at, created_at, hn_rank, summary, discussion_summary, topics, is_read, is_saved, is_hidden, iframe_blocked, gemini_url
 		 FROM stories WHERE is_saved = 1 ORDER BY posted_at DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
 		return nil, 0, err
@@ -638,4 +652,8 @@ func (s *SQLiteStore) GetChatHistory(ctx context.Context, userID string, storyID
 		history = append(history, m)
 	}
 	return history, nil
+}
+func (s *SQLiteStore) ClearPoisonedSummaries(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE stories SET summary = NULL WHERE summary LIKE '%Exceeded Gemini API quota%' OR summary LIKE 'AI Error: %'")
+	return err
 }

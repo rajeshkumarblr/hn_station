@@ -1,6 +1,6 @@
 # release.ps1 — Unified Release Script for HN Station (Web + Desktop)
 # Usage: .\scripts\release.ps1
-$VERSION = "1.0.0-rc17"
+$VERSION = "1.0.0-rc22"
 Write-Host "🚀 Starting Unified Release Process (v$VERSION)..." -ForegroundColor Cyan
 
 # 1. Build Local Go Backend
@@ -12,7 +12,9 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Go build failed"; exit $LASTEXITCODE }
 Write-Host "`n2. Deploying to Web (AKS)..." -ForegroundColor Yellow
 # Since this is a PS1 script, call the companion deployment script
 powershell -ExecutionPolicy Bypass -File .\infrastructure\deploy_aks.ps1
-if ($LASTEXITCODE -ne 0) { Write-Error "AKS Deployment failed"; exit $LASTEXITCODE }
+if ($LASTEXITCODE -ne 0) { 
+    Write-Warning "AKS Deployment failed. Continuing anyway to build Desktop app..." 
+}
 
 
 # 3. Build & Package Electron App

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { PAGE_SIZE, MAX_READ_IDS } from '../types';
 import type { Story, ReaderTab, ModeKey, User } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
@@ -133,6 +133,7 @@ export function useAppState() {
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [user, setUser] = useState<User | null>(null);
     const [globalWarning, setGlobalWarning] = useState<string | null>(null);
+    const lastPrioritizedIdsRef = useRef<string>('');
 
     // Primary Tab Management
     const [primaryTab, setPrimaryTab] = useState<'feed' | 'bookmarks'>(() => {
@@ -214,6 +215,11 @@ export function useAppState() {
         setTabs(prev => prev.map(t => t.storyId === storyId ? { ...t, story: { ...t.story, iframe_blocked: blocked } } : t));
     }, []);
 
+    const setStoryDiscussionSummary = useCallback((storyId: number, summary: string) => {
+        setStoryBuffer(prev => prev.map(s => s.id === storyId ? { ...s, discussion_summary: summary } : s));
+        setTabs(prev => prev.map(t => t.storyId === storyId ? { ...t, story: { ...t.story, discussion_summary: summary } } : t));
+    }, []);
+
     const toggleAISidebar = useCallback((tabId: string, open: boolean) => {
         setTabs(prev => prev.map(t => t.id === tabId ? { ...t, isAISidebarOpen: open } : t));
     }, []);
@@ -227,6 +233,14 @@ export function useAppState() {
     }, []);
 
     const isWebMode = isWebPreview();
+    
+    useEffect(() => {
+        saveTopicChips(activeTopics);
+    }, [activeTopics]);
+
+    useEffect(() => {
+        localStorage.setItem('hn_disabled_topics', JSON.stringify(disabledTopics));
+    }, [disabledTopics]);
 
     useEffect(() => {
         // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
@@ -543,6 +557,22 @@ export function useAppState() {
     }, [mode, refreshKey, showHidden, offset, apiBase, activeTopics, disabledTopics]);
 
     useEffect(() => {
+        if (!apiBase || storyBuffer.length === 0) return;
+        
+        // Prioritize the top stories in the current view (first 20)
+        const visibleIds = storyBuffer.slice(0, 20).map(s => s.id);
+        const idsKey = visibleIds.join(',');
+        
+        if (idsKey === lastPrioritizedIdsRef.current) return;
+        lastPrioritizedIdsRef.current = idsKey;
+
+        fetchWithAuth(`${apiBase}/api/summary/prioritize`, {
+            method: 'POST',
+            body: JSON.stringify({ ids: visibleIds })
+        }).catch(err => console.error('[useAppState] priority sync error:', err));
+    }, [storyBuffer, apiBase]);
+
+    useEffect(() => {
         const fetchStats = () => {
             const baseUrl = getApiBase();
             if (!baseUrl && isElectron()) return;
@@ -626,9 +656,40 @@ export function useAppState() {
         setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         setDisabledTopics, setGlobalWarning, setPrimaryTab,
         // Handlers
-        handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, handleHideStory,
+        handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, setStoryDiscussionSummary, handleHideStory,
         toggleAISidebar,
         handleStorySelect, handleToggleSave, handleBack, handleHome,
+        handleSummarizeStory: async (id: number) => {
+            const baseUrl = getApiBase();
+            const response = await fetchWithAuth(`${baseUrl}/api/stories/${id}/summarize?force=true`, {
+                method: 'POST'
+            });
+
+            if (response.status === 429) {
+                const data = await response.json();
+                const msg = data.error || "Gemini API Quota Exceeded. Please try again in 1 minute.";
+                console.error('AI Rate Limit:', msg);
+                setGlobalWarning(msg);
+                return;
+            }
+
+            if (!response.ok) {
+                const text = await response.text();
+                const status = response.status;
+                const msg = `AI Error (${status}): ${text || 'Empty response from server'}`;
+                console.error('AI Fetch failure:', msg);
+                setGlobalWarning(msg);
+                return;
+            }
+
+            const data = await response.json();
+            if (data.summary) {
+                setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, summary: data.summary, topics: data.topics || s.topics } : s));
+                setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, summary: data.summary, topics: data.topics || t.story.topics } } : t));
+                return data;
+            }
+            return null;
+        },
     };
 
     if (typeof window !== 'undefined') {

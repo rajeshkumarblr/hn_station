@@ -21,6 +21,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type Prioritizer interface {
+	Prioritize(ids []int)
+	CancelOngoing()
+}
+
 type Server struct {
 	store        storage.DB
 	router       *chi.Mux
@@ -30,9 +35,20 @@ type Server struct {
 	hnClient     *hn.Client
 	localMode    bool // true = SQLite local mode, auth disabled
 	pendingAuthToken string
+	Status       *IngestStatus
+	Prioritizer  Prioritizer
 }
 
-func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, localMode bool) *Server {
+type IngestStatus struct {
+	NextRefreshAt      time.Time `json:"next_refresh_at"`
+	LastRefreshAt      time.Time `json:"last_refresh_at"`
+	IsRefreshing       bool      `json:"is_refreshing"`
+	AutoSummarizeQueue int       `json:"auto_summarize_queue"`
+	AIStatus           string    `json:"ai_status"` // "Ready", "Rate-Limited", "Busy"
+	CurrentTask        string    `json:"current_task"`
+}
+
+func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, localMode bool, prioritizer Prioritizer, status *IngestStatus) *Server {
 	s := &Server{
 		store:        store,
 		router:       chi.NewRouter(),
@@ -41,6 +57,8 @@ func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient
 		geminiClient: geminiClient,
 		hnClient:     hn.NewClient(),
 		localMode:    localMode,
+		Status:       status,
+		Prioritizer:  prioritizer,
 	}
 
 	s.middlewares()
@@ -86,8 +104,11 @@ func (s *Server) routes() {
 	s.router.Post("/api/user/topics", s.handleUpdateUserTopics)
 	s.router.Post("/api/settings", s.handleUpdateSettings)
 	s.router.Get("/api/stats", s.handleGetStats)
+	s.router.Get("/api/status", s.handleGetStatus)
+	s.router.Post("/api/summary/prioritize", s.handlePrioritizeSummaries)
 	s.router.Get("/api/download/latest", s.handleDownloadLatest)
 	s.router.Patch("/api/stories/{id}/gemini_url", s.handleUpdateStoryGeminiURL)
+	s.router.Patch("/api/stories/{id}/summary", s.handlePatchStorySummary)
 
 	// Auth routes
 	s.router.Get("/auth/google", s.handleGoogleLogin)
@@ -97,8 +118,9 @@ func (s *Server) routes() {
 
 	// AI routes
 	s.router.Get("/api/models/ollama", s.handleListOllamaModels)
-	s.router.Post("/api/stories/{id}/summarize", s.handleSummarizeStory)
+	s.router.Post("/api/stories/{id}/summarize", s.handleSummarizeArticle)
 	s.router.Post("/api/stories/{id}/summarize_article", s.handleSummarizeArticle)
+	s.router.Post("/api/stories/{id}/summarize/discussion", s.handleSummarizeDiscussion)
 	s.router.Post("/api/stories/{id}/chat", s.handleChat)
 	s.router.Get("/api/stories/{id}/chat", s.handleGetChatHistory)
 
@@ -465,16 +487,27 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	}
 	ollamaAvailable := s.aiClient.CheckAvailability(r.Context(), ollamaURL)
 
-	// Get AI enabled setting
-	aiEnabled := false
-	if val, err := s.store.GetSetting(r.Context(), "ai_summaries_enabled"); err == nil && val == "true" {
-		aiEnabled = true
+	// Get AI settings with defaults (missing = true)
+	aiEnabled := true
+	if val, err := s.store.GetSetting(r.Context(), "ai_summaries_enabled"); err == nil && val == "false" {
+		aiEnabled = false
+	}
+
+	autoSummarizeEnabled := true
+	if val, err := s.store.GetSetting(r.Context(), "auto_summarize_enabled"); err == nil && val == "false" {
+		autoSummarizeEnabled = false
 	}
 
 	ollamaModel, _ := s.store.GetSetting(r.Context(), "ollama_model")
+	geminiModel, _ := s.store.GetSetting(r.Context(), "gemini_model")
 	aiProvider, _ := s.store.GetSetting(r.Context(), "ai_provider")
 	if aiProvider == "" {
 		aiProvider = "local" // Default to local
+	}
+
+	refreshInterval, _ := s.store.GetSetting(r.Context(), "refresh_interval")
+	if refreshInterval == "" {
+		refreshInterval = "5m"
 	}
 
 	// Get available models if Ollama is available
@@ -494,20 +527,23 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":                   "local-user",
-			"email":                "local@hnstation.app",
-			"name":                 "Local User",
-			"avatar_url":           "",
-			"is_admin":             true,
-			"authenticated":        true, // Local-first: always authenticated
-			"topics":               topics,
-			"ai_summaries_enabled": aiEnabled,
-			"ai_provider":          aiProvider,
-			"gemini_api_key":       geminiKey,
-			"ollama_available":     ollamaAvailable,
-			"ollama_model":         ollamaModel,
-			"ollama_models":        ollamaModels,
-			"jwt_token":            claimedToken,
+			"id":                     "local-user",
+			"email":                  "local@hnstation.app",
+			"name":                   "Local User",
+			"avatar_url":             "",
+			"is_admin":               true,
+			"authenticated":          true, // Local-first: always authenticated
+			"topics":                 topics,
+			"ai_summaries_enabled":   aiEnabled,
+			"auto_summarize_enabled": autoSummarizeEnabled,
+			"refresh_interval":       refreshInterval,
+			"ai_provider":            aiProvider,
+			"gemini_api_key":         geminiKey,
+			"gemini_model":           geminiModel,
+			"ollama_available":       ollamaAvailable,
+			"ollama_model":           ollamaModel,
+			"ollama_models":          ollamaModels,
+			"jwt_token":              claimedToken,
 		})
 		return
 	}
@@ -535,22 +571,28 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	// Map to response struct that includes the extra fields
 	resp := struct {
 		*storage.AuthUser
-		Authenticated      bool     `json:"authenticated"`
-		AISummariesEnabled bool     `json:"ai_summaries_enabled"`
-		OllamaAvailable    bool     `json:"ollama_available"`
-		OllamaModel        string   `json:"ollama_model"`
-		OllamaModels       []string `json:"ollama_models"`
-		AIProvider         string   `json:"ai_provider"`
-		JWTToken           string   `json:"jwt_token,omitempty"`
+		Authenticated          bool     `json:"authenticated"`
+		AISummariesEnabled     bool     `json:"ai_summaries_enabled"`
+		AutoSummarizeEnabled   bool     `json:"auto_summarize_enabled"`
+		RefreshInterval        string   `json:"refresh_interval"`
+		OllamaAvailable        bool     `json:"ollama_available"`
+		OllamaModel            string   `json:"ollama_model"`
+		OllamaModels           []string `json:"ollama_models"`
+		AIProvider             string   `json:"ai_provider"`
+		GeminiModel            string   `json:"gemini_model"`
+		JWTToken               string   `json:"jwt_token,omitempty"`
 	}{
-		AuthUser:           user,
-		Authenticated:      true, // Real session
-		AISummariesEnabled: aiEnabled,
-		OllamaAvailable:    ollamaAvailable,
-		OllamaModel:        ollamaModel,
-		OllamaModels:       ollamaModels,
-		AIProvider:         aiProvider,
-		JWTToken:           claimedToken,
+		AuthUser:               user,
+		Authenticated:          true, // Real session
+		AISummariesEnabled:     aiEnabled,
+		AutoSummarizeEnabled:   autoSummarizeEnabled,
+		RefreshInterval:        refreshInterval,
+		OllamaAvailable:        ollamaAvailable,
+		OllamaModel:            ollamaModel,
+		OllamaModels:           ollamaModels,
+		AIProvider:             aiProvider,
+		GeminiModel:            geminiModel,
+		JWTToken:               claimedToken,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -791,7 +833,9 @@ func (s *Server) handleUpdateStoryGeminiURL(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
+
+
+func (s *Server) handleSummarizeDiscussion(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -799,149 +843,89 @@ func (s *Server) handleSummarizeStory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	story, err := s.store.GetStory(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Story not found", http.StatusNotFound)
-		return
-	}
-
-	// 1. Check Global Cache (Short-circuit if already summarized)
-	// This part is allowed for anonymous users.
-	if story.Summary != nil && *story.Summary != "" {
-		userID := s.auth.GetUserIDFromRequest(r)
-		if userID != "" {
-			if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Summary of \"%s\":**\n\n%s", story.Title, *story.Summary)); err != nil {
-				log.Printf("Failed to save cached summary to history: %v", err)
-			}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"summary": *story.Summary})
-		return
-	}
-
-	// In local mode any request can generate summaries (no auth wall)
 	userID := s.auth.GetUserIDFromRequest(r)
 	if userID == "" && !s.localMode {
-		http.Error(w, "Authentication required to generate new summary", http.StatusUnauthorized)
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return
 	}
+	if userID == "" {
+		userID = "local-user"
+	}
 
+	// 1. Fetch Comments
 	comments, err := s.store.GetComments(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
+		log.Printf("Failed to fetch comments for story %d: %v", id, err)
+		http.Error(w, "Failed to fetch discussion", http.StatusInternalServerError)
 		return
 	}
 
 	if len(comments) == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"summary": "No discussion to summarize."})
+		http.Error(w, "No comments found to summarize", http.StatusBadRequest)
 		return
 	}
 
+	// 2. Format discussion text
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Title: %s\n\nDiscussion:\n", story.Title))
-
-	totalChars := 0
-	maxChars := 20000 // Increased for local GPU
-	for _, c := range comments {
-		text := fmt.Sprintf("- %s: %s\n", c.By, c.Text)
-		if totalChars+len(text) > maxChars {
+	for i, c := range comments {
+		if i > 50 { // Limit to top 50 comments for token safety
 			break
 		}
-		sb.WriteString(text)
-		totalChars += len(text)
+		sb.WriteString(fmt.Sprintf("- %s: %s\n", c.By, c.Text))
 	}
 
-	// Determine provider preference
+	// 3. Determine provider
 	provider, _ := s.store.GetSetting(r.Context(), "ai_provider")
 	if provider == "" {
 		provider = "local"
 	}
 
 	var summary string
-	var topics []string
 	var summarizeErr error
 
-	// 1. Try Local Ollama if provider is "local" or "both"
-	if provider == "local" || provider == "both" {
+	// We ONLY use Gemini/Cloud for Discussion summary for now as it handles large context better,
+	// but we check the provider setting.
+	/*
+	if provider == "gemini" || provider == "both" {
+		var geminiKey string
+		if s.localMode {
+			geminiKey = os.Getenv("GEMINI_API_KEY")
+		}
+		geminiModel, _ := s.store.GetSetting(r.Context(), "gemini_model")
+		if u, err := s.store.GetAuthUser(r.Context(), userID); err == nil && u != nil && u.GeminiAPIKey != "" {
+			geminiKey = u.GeminiAPIKey
+		}
+
+		if geminiKey != "" {
+			summary, summarizeErr = s.geminiClient.GenerateDiscussionSummary(r.Context(), geminiKey, geminiModel, sb.String())
+		}
+	}
+	*/
+
+	if summary == "" {
+		// If Gemini failed or wasn't configured, try Ollama with specific prompt
 		ollamaURL := os.Getenv("OLLAMA_URL")
 		if ollamaURL == "" {
 			ollamaURL = "http://localhost:11434"
 		}
 		model, _ := s.store.GetSetting(r.Context(), "ollama_model")
-		responseStr, err := s.aiClient.GenerateSummary(r.Context(), ollamaURL, model, story.Title, sb.String())
-		if err == nil {
-			// Success with local
-			summary, topics = parseOllamaResponse(responseStr)
-		} else {
-			summarizeErr = err
-			log.Printf("Ollama summarization failed: %v", err)
-		}
+		prompt := fmt.Sprintf("Summarize the following Hacker News discussion in 3-5 bullet points. Focus on community reaction and top insights:\n\n%s", sb.String())
+		summary, summarizeErr = s.aiClient.GenerateSummary(r.Context(), ollamaURL, model, "Community Discussion", prompt)
 	}
 
-	// 2. Fallback to Gemini if:
-	// - Local failed OR provider is "gemini"
-	// - AND provider is "gemini" or "both"
-	// - AND user has gemini key
-	if summary == "" && (provider == "gemini" || provider == "both") {
-		// Get Gemini API Key
-		var geminiKey string
-		if s.localMode {
-			geminiKey = os.Getenv("GEMINI_API_KEY") // System key fallback
-		}
-		if u, err := s.store.GetAuthUser(r.Context(), userID); err == nil && u.GeminiAPIKey != "" {
-			geminiKey = u.GeminiAPIKey
-		}
-
-		if geminiKey != "" {
-			log.Printf("Attempting fallback/primary Gemini summarization for story %d", id)
-			resp, err := s.geminiClient.GenerateSummary(r.Context(), geminiKey, sb.String())
-			if err == nil {
-				summary = resp
-				// topics? Gemini client doesn't explicitly return topics yet, but we can extract them if they are in bullet points
-				// or just leave them empty for now.
-			} else {
-				summarizeErr = err
-				log.Printf("Gemini summarization failed: %v", err)
-			}
-		}
-	}
-
-	if summary == "" {
-		log.Printf("All summarization attempts failed for story %d", id)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		errMsg := "Failed to generate summary"
-		if summarizeErr != nil {
-			errMsg += ": " + summarizeErr.Error()
-		}
-		json.NewEncoder(w).Encode(map[string]string{"error": errMsg})
+	if summarizeErr != nil || summary == "" {
+		log.Printf("Discussion summarization failed: %v", summarizeErr)
+		http.Error(w, "Failed to generate discussion summary", http.StatusInternalServerError)
 		return
 	}
 
-	result := struct {
-		Summary string
-		Topics  []string
-	}{
-		Summary: summary,
-		Topics:  topics,
-	}
-
-	// 2. Save both Summary and Topics to Global Cache
-	if err := s.store.UpdateStorySummaryAndTopics(r.Context(), id, result.Summary, result.Topics); err != nil {
-		log.Printf("Failed to update story summary/topics cache: %v", err)
-	}
-
-	// Save summary to chat history
-	if err := s.store.SaveChatMessage(r.Context(), userID, id, "model", fmt.Sprintf("**Summary of \"%s\":**\n\n%s", story.Title, result.Summary)); err != nil {
-		log.Printf("Failed to save summary to history: %v", err)
+	// 4. Save and return
+	if err := s.store.UpdateStoryDiscussionSummary(r.Context(), id, summary); err != nil {
+		log.Printf("Failed to update story discussion summary: %v", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"summary": result.Summary,
-		"topics":  result.Topics,
-	})
+	json.NewEncoder(w).Encode(map[string]string{"discussion_summary": summary})
 }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
@@ -1015,19 +999,22 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		response, chatErr = s.aiClient.GenerateChatResponse(r.Context(), ollamaURL, model, sb.String(), aiHistory, req.Message)
 	}
 
+	/*
 	if response == "" && (provider == "gemini" || provider == "both") {
 		var geminiKey string
 		if s.localMode {
 			geminiKey = os.Getenv("GEMINI_API_KEY")
 		}
-		if u, err := s.store.GetAuthUser(r.Context(), userID); err == nil && u.GeminiAPIKey != "" {
+		geminiModel, _ := s.store.GetSetting(r.Context(), "gemini_model")
+		if u, err := s.store.GetAuthUser(r.Context(), userID); err == nil && u != nil && u.GeminiAPIKey != "" {
 			geminiKey = u.GeminiAPIKey
 		}
 
 		if geminiKey != "" {
-			response, chatErr = s.geminiClient.GenerateChatResponse(r.Context(), geminiKey, sb.String(), aiHistory, req.Message)
+			response, chatErr = s.geminiClient.GenerateChatResponse(r.Context(), geminiKey, geminiModel, sb.String(), aiHistory, req.Message)
 		}
 	}
+	*/
 
 	if chatErr != nil {
 		log.Printf("Chat generation failed: %v", chatErr)
@@ -1119,9 +1106,12 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		GeminiAPIKey       string `json:"gemini_api_key"`
+		GeminiModel        string `json:"gemini_model"`
 		AISummariesEnabled *bool  `json:"ai_summaries_enabled"`
 		OllamaModel        string `json:"ollama_model"`
 		AIProvider         string `json:"ai_provider"`
+		RefreshInterval    string `json:"refresh_interval"`
+		AutoSummarize      *bool  `json:"auto_summarize_enabled"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -1156,7 +1146,48 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if body.GeminiModel != "" {
+		if err := s.store.SetSetting(r.Context(), "gemini_model", body.GeminiModel); err != nil {
+			log.Printf("Failed to update Gemini model setting: %v", err)
+			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if body.RefreshInterval != "" {
+		if err := s.store.SetSetting(r.Context(), "refresh_interval", body.RefreshInterval); err != nil {
+			log.Printf("Failed to update refresh interval setting: %v", err)
+			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if body.AutoSummarize != nil {
+		val := "false"
+		if *body.AutoSummarize {
+			val = "true"
+		}
+		if err := s.store.SetSetting(r.Context(), "auto_summarize_enabled", val); err != nil {
+			log.Printf("Failed to update auto-summarize setting: %v", err)
+			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if body.OllamaModel != "" {
+		if err := s.store.SetSetting(r.Context(), "ollama_model", body.OllamaModel); err != nil {
+			log.Printf("Failed to update Ollama model setting: %v", err)
+			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleGetStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(s.Status)
 }
 
 func (s *Server) handleDownloadLatest(w http.ResponseWriter, r *http.Request) {
@@ -1215,7 +1246,7 @@ func (s *Server) adminMiddleware(next http.Handler) http.Handler {
 		}
 
 		user, err := s.store.GetAuthUser(r.Context(), userID)
-		if err != nil {
+		if err != nil || user == nil {
 			http.Error(w, "User not found", http.StatusUnauthorized)
 			return
 		}
@@ -1343,4 +1374,19 @@ func (s *Server) handleCheckIframe(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"iframe_blocked": blocked})
+}
+func (s *Server) handlePrioritizeSummaries(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		IDs []int `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if s.Prioritizer != nil {
+		s.Prioritizer.Prioritize(body.IDs)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

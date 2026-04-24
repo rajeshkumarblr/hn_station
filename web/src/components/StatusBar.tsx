@@ -1,0 +1,103 @@
+import { useState, useEffect } from 'react';
+import { getApiBase } from '../utils/apiBase';
+import { fetchWithAuth } from '../utils/api';
+import { Clock, Zap, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+
+interface Status {
+    next_refresh_at: string;
+    last_refresh_at: string;
+    is_refreshing: boolean;
+    auto_summarize_queue: number;
+    ai_status: string;
+    current_task?: string;
+}
+
+export function StatusBar() {
+    const [status, setStatus] = useState<Status | null>(null);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        const fetchStatus = async () => {
+            const baseUrl = getApiBase();
+            if (!baseUrl) return; // Wait for base URL
+
+            try {
+                const res = await fetchWithAuth(`${baseUrl}/api/status`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setStatus(data);
+                    setError(false);
+                } else {
+                    setError(true);
+                }
+            } catch (e) {
+                setError(true);
+            }
+        };
+
+        fetchStatus();
+        const interval = setInterval(fetchStatus, 5000); // Poll more frequently (5s) to catch it on startup
+        return () => clearInterval(interval);
+    }, []);
+
+    if (error) {
+        return (
+            <div className="h-7 bg-red-500/10 border-t border-red-500/20 px-4 flex items-center gap-2 text-[10px] font-bold text-red-500">
+                <AlertCircle size={11} className="animate-pulse" />
+                Backend Connection Lost
+            </div>
+        );
+    }
+
+    if (!status) {
+        return (
+            <div className="h-7 bg-slate-50 dark:bg-[#0f172a] border-t border-slate-200 dark:border-slate-800 px-4 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
+                <Loader2 size={11} className="animate-spin" />
+                Initializing Engine...
+            </div>
+        );
+    }
+
+    const nextRefresh = new Date(status.next_refresh_at);
+    const now = new Date();
+    const diffMs = nextRefresh.getTime() - now.getTime();
+    const diffMins = Math.max(0, Math.ceil(diffMs / 60000));
+
+    return (
+        <div className="h-7 bg-slate-50 dark:bg-[#0f172a] border-t border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between text-[10px] font-bold tracking-wider uppercase select-none">
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                    <Clock size={11} className={status.is_refreshing ? "animate-spin text-blue-500" : ""} />
+                    {status.is_refreshing ? (
+                        <span className="text-blue-500">Refreshing Stories...</span>
+                    ) : (
+                        <span>Next Refresh: <span className="text-slate-700 dark:text-slate-300">{diffMins}m</span></span>
+                    )}
+                </div>
+
+                <div className="w-px h-3 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                    <Zap size={11} className={status.ai_status === 'Busy' ? "text-orange-500 animate-pulse" : "text-indigo-500"} />
+                    AI Summarizer: 
+                    <span className={
+                        status.ai_status === 'Rate-Limited' ? "text-amber-500 font-medium" : 
+                        status.ai_status === 'Busy' ? "text-orange-500" : "text-indigo-500"
+                    }>
+                        {status.ai_status === 'Busy' ? `Summarizing article: ${status.current_task || 'Story'}` : status.ai_status}
+                    </span>
+                    {status.auto_summarize_queue > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            {status.auto_summarize_queue} queued
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-500/80">
+                <CheckCircle2 size={11} />
+                <span>Engine v1.0-rc26 (Local)</span>
+            </div>
+        </div>
+    );
+}

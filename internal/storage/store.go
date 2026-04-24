@@ -32,6 +32,7 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 			hn_rank INT,
 			summary TEXT,
+			discussion_summary TEXT,
 			topics TEXT[] DEFAULT '{}',
 			search_vector tsvector,
 			iframe_blocked BOOLEAN
@@ -219,9 +220,9 @@ func (s *PostgresStore) GetStories(ctx context.Context, limit, offset int, sortS
 }
 
 func (s *PostgresStore) GetStory(ctx context.Context, id int) (*Story, error) {
-	query := `SELECT id, title, COALESCE(url, ''), score, COALESCE(by, ''), descendants, posted_at, created_at, hn_rank, summary, COALESCE(topics, '{}'::text[]), iframe_blocked FROM stories WHERE id = $1`
+	query := `SELECT id, title, COALESCE(url, ''), score, COALESCE(by, ''), descendants, posted_at, created_at, hn_rank, summary, discussion_summary, COALESCE(topics, '{}'::text[]), iframe_blocked FROM stories WHERE id = $1`
 	var story Story
-	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IframeBlocked)
+	err := s.db.QueryRow(ctx, query, id).Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.DiscussionSummary, &story.Topics, &story.IframeBlocked)
 	if err != nil {
 		return nil, err
 	}
@@ -334,6 +335,12 @@ func (s *PostgresStore) UpdateStorySummary(ctx context.Context, id int, summary 
 	return err
 }
 
+func (s *PostgresStore) UpdateStoryDiscussionSummary(ctx context.Context, id int, summary string) error {
+	query := `UPDATE stories SET discussion_summary = $1 WHERE id = $2`
+	_, err := s.db.Exec(ctx, query, summary, id)
+	return err
+}
+
 func (s *PostgresStore) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error {
 	query := `UPDATE stories SET summary = $1, topics = $2 WHERE id = $3`
 	_, err := s.db.Exec(ctx, query, summary, topics, id)
@@ -430,7 +437,7 @@ func (s *PostgresStore) GetSavedStories(ctx context.Context, userID string, limi
 	}
 
 	query := `
-		SELECT s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.topics, s.iframe_blocked, ui.is_read, ui.is_saved
+		SELECT s.id, s.title, s.url, s.score, s.by, s.descendants, s.posted_at, s.created_at, s.hn_rank, s.summary, s.discussion_summary, s.topics, s.iframe_blocked, ui.is_read, ui.is_saved
 		FROM stories s
 		INNER JOIN user_interactions ui ON s.id = ui.story_id AND ui.user_id = $1
 		WHERE ui.is_saved = TRUE
@@ -446,7 +453,7 @@ func (s *PostgresStore) GetSavedStories(ctx context.Context, userID string, limi
 	var stories []Story
 	for rows.Next() {
 		var story Story
-		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.Topics, &story.IframeBlocked, &story.IsRead, &story.IsSaved); err != nil {
+		if err := rows.Scan(&story.ID, &story.Title, &story.URL, &story.Score, &story.By, &story.Descendants, &story.PostedAt, &story.CreatedAt, &story.HNRank, &story.Summary, &story.DiscussionSummary, &story.Topics, &story.IframeBlocked, &story.IsRead, &story.IsSaved); err != nil {
 			return nil, 0, err
 		}
 		stories = append(stories, story)
@@ -614,5 +621,10 @@ func (s *PostgresStore) SetSetting(ctx context.Context, key, value string) error
 		INSERT INTO settings (key, value) VALUES ($1, $2)
 		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
 	`, key, value)
+	return err
+}
+func (s *PostgresStore) ClearPoisonedSummaries(ctx context.Context) error {
+	query := "UPDATE stories SET summary = NULL WHERE summary LIKE '%Exceeded Gemini API quota%' OR summary LIKE 'AI Error: %'"
+	_, err := s.db.Exec(ctx, query)
 	return err
 }

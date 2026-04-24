@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, X, Download, ShieldCheck, Zap, Monitor, Info } from 'lucide-react';
+import { Search, Sparkles, X, Download, ShieldCheck, Zap, Monitor, Info, Copy, Check, RefreshCw } from 'lucide-react';
 import { isWebPreview } from '../utils/env';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
@@ -11,6 +11,8 @@ interface FilterSidebarProps {
     disabledTopics: string[];
     setDisabledTopics: React.Dispatch<React.SetStateAction<string[]>>;
     highlightedStory?: Story | null;
+    onSummarize?: (id: number) => Promise<any>;
+    user: any;
 }
 
 
@@ -20,9 +22,7 @@ const AI_COLORS = [
     'text-emerald-500 dark:text-emerald-400',
     'text-orange-500 dark:text-orange-400',
     'text-purple-500 dark:text-purple-400',
-    'text-pink-500 dark:text-pink-400',
-    'text-cyan-500 dark:text-cyan-400',
-    'text-amber-500 dark:text-amber-400'
+    'text-rose-500 dark:text-rose-400'
 ];
 
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
@@ -31,9 +31,34 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     disabledTopics,
     setDisabledTopics,
     highlightedStory,
+    onSummarize,
+    user,
 }) => {
     const [inputValue, setInputValue] = useState('');
     const [isFeaturesModalOpen, setIsFeaturesModalOpen] = useState(false);
+    const [summarizing, setSummarizing] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async () => {
+        if (!highlightedStory?.summary) return;
+        try {
+            await navigator.clipboard.writeText(highlightedStory.summary);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy!', err);
+        }
+    };
+
+    const handleRegen = async () => {
+        if (!highlightedStory?.id || summarizing) return;
+        setSummarizing(true);
+        try {
+            await onSummarize?.(highlightedStory.id);
+        } finally {
+            setSummarizing(false);
+        }
+    };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
@@ -58,43 +83,91 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     const summary = highlightedStory?.summary ?? null;
     const hasSummary = summary && summary.trim().length > 0;
     const isWebMode = isWebPreview();
-    const aiEnabled = (window as any).appState?.user?.ai_summaries_enabled;
+    const aiEnabled = user?.ai_summaries_enabled;
 
     return (
         <div className="w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
 
-            {/* ── AI Summary (Top) / Web CTA ────────────────────────────────────────────── */}
-            {/* ── AI Summary (Top) ──────────────────────────────────────────────────────── */}
+            {/* ── AI Summary & Suggested Tags (Top 70%) ─────────────────────────────────── */}
             {(aiEnabled || hasSummary) ? (
-                <div className="h-[45%] flex-shrink-0 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="flex items-center gap-2 px-4 py-3 flex-shrink-0 border-b border-slate-100 dark:border-slate-800/50">
-                        <Sparkles size={12} className="text-orange-400" />
-                        <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Article Summary by AI</h3>
+                <div className="h-[70%] min-h-[70%] flex-shrink-0 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800/50">
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                                <Sparkles size={11} className="text-blue-500" />
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Article Summary</h3>
+                            </div>
+                        </div>
+                        
+                        {hasSummary && (
+                            <div className="flex items-center gap-1.5">
+                                <button 
+                                    onClick={handleCopy}
+                                    title="Copy Summary"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-blue-600 transition-all border border-slate-200 dark:border-slate-700"
+                                >
+                                    {copied ? <Check size={11} /> : <Copy size={11} />}
+                                </button>
+                                <button 
+                                    onClick={handleRegen}
+                                    disabled={summarizing}
+                                    title="Regenerate Summary"
+                                    className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-amber-600 transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50 flex items-center gap-1.5"
+                                >
+                                    <RefreshCw size={11} className={summarizing ? "animate-spin" : ""} />
+                                    <span className="text-[9px] font-black uppercase">Refresh</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 custom-scrollbar bg-white/30 dark:bg-transparent">
                         {hasSummary ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold">
-                                <ReactMarkdown
-                                    components={{
-                                        li: ({ node, ...props }) => {
-                                            const text = String(props.children || '');
-                                            let hash = 0;
-                                            for (let i = 0; i < text.length; i++) hash = text.charCodeAt(i) + ((hash << 5) - hash);
-                                            const color = AI_COLORS[Math.abs(hash) % AI_COLORS.length];
-                                            return <li className={color} {...props} />;
-                                        }
-                                    }}
-                                >
-                                    {summary!}
-                                </ReactMarkdown>
-                            </div>
+                            <>
+                                {/* Markdown Summary with Index-Based Colors */}
+                                <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold select-text mb-6">
+                                    <ul className="pl-0 list-none m-0">
+                                        {summary.split('\n').filter(line => line.trim().length > 0).map((line, idx) => {
+                                            const colorClass = AI_COLORS[idx % AI_COLORS.length];
+                                            const cleanLine = line.replace(/^[-*•]\s+/, '');
+                                            return (
+                                                <li key={idx} className={`${colorClass} flex gap-2 items-start mb-3 last:mb-0 marker:text-transparent`}>
+                                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-sm" />
+                                                    <div className="flex-1">
+                                                        <ReactMarkdown
+                                                            components={{
+                                                                p: ({ node, ...props }) => <span {...props} />,
+                                                                strong: ({ node, ...props }) => <strong className="text-blue-600 dark:text-blue-400 font-extrabold" {...props} />
+                                                            }}
+                                                        >
+                                                            {cleanLine}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+
+                            </>
                         ) : aiEnabled ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center gap-2 py-8 opacity-60">
-                                <Sparkles size={20} className="text-slate-300 dark:text-slate-600" />
-                                <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                                    {highlightedStory ? 'No summary yet' : 'Hover a story to see summary'}
-                                </p>
+                            <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-8 opacity-60">
+                                <Sparkles size={24} className="text-slate-300 dark:text-slate-700 animate-pulse" />
+                                <div>
+                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">
+                                        {highlightedStory ? 'Ready to analyze' : 'Hover a story'}
+                                    </p>
+                                    {highlightedStory && (
+                                        <button 
+                                            onClick={handleRegen}
+                                            disabled={summarizing}
+                                            className="mt-4 px-4 py-1.5 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-blue-700 transition-all flex items-center gap-1.5"
+                                        >
+                                            {summarizing ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                            {summarizing ? 'Summarizing...' : 'Summarize Article'}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ) : null}
                     </div>
@@ -107,67 +180,44 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                 </div>
             )}
 
-            {/* ── Topics / Multi-Tag Search (Middle) ─────────────────────────────────── */}
-            <div className="flex-1 border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800/50 flex-shrink-0">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Topic Search</h3>
-                        {activeTopics.length > 0 && (
-                            <button
-                                onClick={() => { setActiveTopics([]); setDisabledTopics([]); }}
-                                className="text-[10px] font-bold text-red-500 hover:text-red-400 uppercase tracking-tighter transition-colors"
-                            >
-                                #clear all
-                            </button>
-                        )}
+            <div className="flex-1 border-t border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden bg-slate-50/30 dark:bg-slate-900/10">
+                <div className="p-4 flex flex-col h-full">
+                    <div className="flex items-center gap-1.5 mb-3">
+                        <Zap size={11} className="text-amber-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Story Topics</span>
                     </div>
-                    <div className="relative mb-3">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input
-                            type="text"
-                            placeholder="Add tag and press Enter..."
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:text-slate-200 placeholder:text-slate-400"
-                        />
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 min-h-[32px]">
-                        {activeTopics.map(topic => {
-                            const isDisabled = disabledTopics.includes(topic);
-                            const style = getTagStyle(topic);
-
-                            return (
-                                <button
-                                    key={topic}
-                                    onClick={() => toggleTopicEnabled(topic)}
-                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all group animate-in fade-in zoom-in duration-200 border ${isDisabled
-                                        ? 'bg-slate-100/50 dark:bg-slate-800/30 text-slate-400 dark:text-slate-600 border-slate-200 dark:border-slate-800 opacity-40 hover:opacity-100'
-                                        : 'shadow-sm'
-                                        }`}
-                                    style={!isDisabled ? {
-                                        backgroundColor: style.bg,
-                                        color: style.color,
-                                        borderColor: style.border,
-                                        fontWeight: 'bold'
-                                    } : {}}
-                                >
-                                    <span>#{topic}</span>
-                                    {!isDisabled && (
-                                        <div
-                                            onClick={(e) => { e.stopPropagation(); removeTopic(topic); }}
-                                            className="p-0.5 rounded-full hover:bg-red-500/20 hover:text-red-500 transition-colors"
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        <div className="flex flex-wrap gap-2 pb-4">
+                            {highlightedStory?.topics && highlightedStory.topics.length > 0 ? (
+                                highlightedStory.topics.map(topic => {
+                                    const style = getTagStyle(topic);
+                                    const isActive = activeTopics.includes(topic);
+                                    const isDisabled = disabledTopics.includes(topic);
+                                    const isActuallyActive = isActive && !isDisabled;
+                                    
+                                    return (
+                                        <button
+                                            key={`sidebar-bottom-topic-${topic}`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (isActive) {
+                                                    setDisabledTopics(prev => prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]);
+                                                } else {
+                                                    setActiveTopics(prev => [...new Set([...prev, topic])]);
+                                                    setDisabledTopics(prev => prev.filter(x => x !== topic));
+                                                }
+                                            }}
+                                            className={`px-2.5 py-1 rounded text-[10px] font-black uppercase border transition-all hover:scale-105 active:scale-95 whitespace-nowrap shadow-sm ${isActuallyActive ? 'ring-1 ring-offset-1 ring-slate-400 dark:ring-slate-500 brightness-110' : 'opacity-90 hover:opacity-100'}`}
+                                            style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
                                         >
-                                            <X size={10} className="opacity-60 group-hover:opacity-100" />
-                                        </div>
-                                    )}
-                                </button>
-                            );
-                        })}
-                        {activeTopics.length === 0 && (
-                            <p className="text-[11px] text-slate-400 italic py-1">No active tags. Type above to add.</p>
-                        )}
+                                            #{topic}
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <p className="text-[10px] text-slate-400 italic">No topics extracted for this story</p>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

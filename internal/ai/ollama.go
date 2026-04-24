@@ -38,17 +38,27 @@ func (c *OllamaClient) CheckAvailability(ctx context.Context, apiURL string) boo
 // GenerateSummary generates a concise summary and tags using the provided local Ollama server URL and model.
 func (c *OllamaClient) GenerateSummary(ctx context.Context, apiURL string, model string, title string, text string) (string, error) {
 	if model == "" {
-		model = "qwen2.5-coder:latest"
+		model = "llama3.2:3b"
 	}
+
+	// Limit context for local models to ensure instruction following
+	limit := 12000
+	if len(text) > limit {
+		text = text[:limit] + "... [truncated for context]"
+	}
+
 	log.Printf("OllamaClient: Starting summarization for %q using model %q. Input text length: %d", title, model, len(text))
 
-	prompt := fmt.Sprintf(`Analyze this Hacker News story and provide a high-quality technical summary.
-Return ONLY a JSON object with two keys:
-1. "summary": A FLAT JSON array of exactly 5 strings (DO NOT use nested arrays or objects). Each string is a single key point.
-2. "topics": A FLAT JSON array of 5 relevant tags (plain strings).
+	prompt := fmt.Sprintf(`Analyze the following article and return a high-quality summary and tags.
+<Title>%s</Title>
+<ArticleText>%s</ArticleText>
 
-Title: %s
-Text: %s`, title, text)
+INSTRUCTIONS:
+- You MUST return a valid JSON object.
+- Use ONLY these two keys: "summary" and "topics".
+- "summary" MUST be an array of 5 short, impactful bullet points.
+- "topics" MUST be an array of 5 one-word technical tags.
+- Output NOTHING except the JSON.`, title, text)
 
 	return c.generateWithRetry(ctx, apiURL, model, prompt)
 }
@@ -73,7 +83,7 @@ type OllamaChatResponse struct {
 // GenerateChatResponse generates a response to a user message, given context and history.
 func (c *OllamaClient) GenerateChatResponse(ctx context.Context, apiURL string, model string, contextText string, history []ChatMessage, newMessage string) (string, error) {
 	if model == "" {
-		model = "qwen2.5-coder:latest"
+		model = "llama3.2:3b"
 	}
 	log.Printf("OllamaClient: Starting chat using model %q. History length: %d", model, len(history))
 
@@ -158,7 +168,7 @@ func (c *OllamaClient) generateWithRetry(ctx context.Context, apiURL string, mod
 		lastErr = err
 		
 		// If the error was a timeout, don't waste more minutes retrying. 
-		// Fail fast so the worker can fall back to Gemini or move to next job.
+		// Fail fast so the worker can move to next job (Gemini is disabled).
 		if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "Client.Timeout exceeded") {
 			return "", fmt.Errorf("ollama timed out: %w", err)
 		}
@@ -183,7 +193,7 @@ func (c *OllamaClient) doOllamaRequest(ctx context.Context, endpoint string, req
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("http request failed: %w", err)

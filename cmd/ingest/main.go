@@ -217,6 +217,7 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 	// 2. Fallback to Gemini if:
 	// - Local failed/unreachable OR provider is "gemini"
 	// - AND (provider is "gemini" OR provider is "both" OR (provider is "local" AND Ollama was unreachable))
+	/*
 	canFallback := job.Provider == "gemini" || job.Provider == "both" || (job.Provider == "local" && summary == "")
 	if summary == "" && canFallback {
 		geminiKey := os.Getenv("GEMINI_API_KEY")
@@ -232,6 +233,7 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 			}
 		}
 	}
+	*/
 
 	if summary == "" {
 		log.Printf("Worker: All summarization attempts failed for story %d. Last error: %v", job.ID, summarizeErr)
