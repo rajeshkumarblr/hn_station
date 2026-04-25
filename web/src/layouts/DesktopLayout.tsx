@@ -402,16 +402,18 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     {!tabs.length && <div className="h-full flex items-center justify-center text-slate-500">Select a story</div>}
                 </div>
 
-                {/* Always-on AI Topic Sidebar (optional, but keep for feature parity) */}
-                <FilterSidebar
-                    activeTopics={activeTopics}
-                    setActiveTopics={setActiveTopics}
-                    disabledTopics={app.disabledTopics}
-                    setDisabledTopics={app.setDisabledTopics}
-                    highlightedStory={highlightedStory}
-                    user={user}
-                    onSummarize={app.handleSummarizeStory}
-                />
+                {/* Always-on AI Topic Sidebar (needed only in Feed view) */}
+                {currentView === 'feed' && (
+                    <FilterSidebar
+                        activeTopics={activeTopics}
+                        setActiveTopics={setActiveTopics}
+                        disabledTopics={app.disabledTopics}
+                        setDisabledTopics={app.setDisabledTopics}
+                        highlightedStory={highlightedStory}
+                        user={user}
+                        onSummarize={app.handleSummarizeStory}
+                    />
+                )}
             </div>
 
             {/* Modals */}
