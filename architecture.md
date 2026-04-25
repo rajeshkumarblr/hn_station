@@ -53,8 +53,8 @@ graph TD
         Gemini["Google Gemini API"]
     end
 
-    Agent -->|Polls every 1 min| HN
-    API -->|Polls every 1 min| HN
+    Agent -->|Polls every 5 min| HN
+    API -->|Polls every 5 min| HN
     
     Agent -->|Local Summaries| Ollama
     API -->|Cloud Summaries| Gemini
@@ -92,7 +92,9 @@ The UI is a three-pane workspace designed for high-density information consumpti
 2. **Tabbed Workspace**:
     - **Primary Tabs**: Persistent **FEED** and **BOOKMARKS** tabs.
     - **Reader Tabs**: Individual story tabs that support side-by-side Article/Comments view.
-3. **AI Sidebar**: Summaries and contextual chat powered by local or cloud models.
+3. **AI Sidebars**:
+    - **Global Sidebar** (Feed View): Context-aware pane containing "Article Summary" and "Article Topics" for rapid triage.
+    - **Reader Sidebar** (Article View): Specialized `AISidebar` with tabs for **Discussion** (comment analysis), **Chat**, and **Summary**.
 
 ### Keyboard Shortcuts (Core)
 - `Ctrl + W`: Close active tab (or Exit App in Feed view).

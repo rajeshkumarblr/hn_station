@@ -33,22 +33,34 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 - **Rich Sidebar Summaries**: AI-powered takeaways from Gemini Pro (cloud) or local models (Ollama).
 
 ### ⌨️ Keyboard Shortcuts
+
 | Shortcut | Action |
 | :--- | :--- |
-| `Ctrl + Q` | **Article View** (Hide Sidebar) |
-| `Ctrl + G` | **Gemini Chat** Tab |
-| `Ctrl + H` | **Discussion** Tab |
-| `Ctrl + K` | **AI Summary** Tab |
-| `Ctrl + D` | Switch to **Bookmarks Tab** |
+| **View Control** | |
+| `Ctrl + 0` | Return to **Feed** view |
 | `Ctrl + Home` | Switch to **Feed Tab** |
-| `Ctrl + W` | Close current reader tab (Reader view) |
-| `Ctrl + W` | **Exit Application** (Feed view) |
-| `Ctrl + 0` | Switch to Feed view |
-| `Ctrl + Space` | Cycle reader mode: Article → Discussion → Split |
-| `j` / `k` | Navigate stories in the feed |
-| `Enter` | Open story in Reader |
+| `Ctrl + D` | Switch to **Bookmarks Tab** |
+| `Ctrl + Tab` | Cycle through tabs (Forward) |
+| `Ctrl + Shift + Tab` | Cycle through tabs (Backward) |
+| `Ctrl + W` | Close active tab (Reader) / **Exit Application** (Feed) |
+| `F5` / `Ctrl + R` | Refresh Feed or Active Tab |
+| **Feed Selection** | |
+| `j` / `k` or `Arrows` | Navigate stories in the feed |
+| `Home` / `End` | Jump to first/last story in current view |
+| `PageUp` / `PageDown` | Previous/Next 10 stories (Pagination) |
+| `Ctrl + Home` | First page of current feed |
+| `Enter` | Open story in **Split Mode** |
+| **Reader Control** | |
+| `Ctrl + Space` | Cycle layout: **Article → Discussion → Split** |
+| `Ctrl + Alt + Arrows` | Incremental layout cycling |
+| `Ctrl + Q` | Toggle Sidebar Visibility (Show/Hide) |
+| `Ctrl + H` | Direct switch to **Discussion** Tab |
+| `Ctrl + K` | Direct switch to **AI Summary** Tab |
+| `Ctrl + G` | Direct switch to **Gemini Chat** Tab |
 
-### 🛠️ Desktop Architecture
+---
+
+## 4. Operational Notes
 - **In-App Backend**: A Go-based local agent runs alongside the app, handling continuous background ingestion and data persistence.
 - **SQLite Storage**: All data persists at `%APPDATA%/HN Station/` on Windows.
 - **Port Mapping**: Uses port `58090` for robust local communication.

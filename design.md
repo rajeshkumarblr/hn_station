@@ -1,6 +1,6 @@
 # HN Station — Design Document
 
-> **Version**: 0.9.7 · **Last Updated**: 2026-04-16
+> **Version**: 1.0.0-rc37 · **Last Updated**: 2026-04-25
 > Live at [hnstation.dev](https://hnstation.dev)
 
 This document captures the **architectural decisions, design rationale, and operational constraints** that govern HN Station. It serves as the source of truth for the project's evolution from a cloud-first reader to a local-first productivity tool.
@@ -32,7 +32,13 @@ HN Station has transitioned from a cloud-centric service to a **Local-First Desk
 - High-frequency users need instant access to their saved stories without losing their place in the "Top" or "New" feeds.
 - Preserves the scroll position and filtering state independently for each context.
 
-### 2.3 Context-Aware AI Summarization
+### 2.3 Scoped Summary Sidebars
+**Decision**: Restricting the global `FilterSidebar` (containing "Article Summary" and "Article Topics") strictly to the **Feed** view.
+**Rationale**: 
+- Prevents UI redundancy in the **Reader** view, which already manages its own `AISidebar` with dedicated analysis and discussion tabs.
+- Streamlines the reading experience by removing non-essential global controls when the user is focused on a specific article.
+
+### 2.4 Context-Aware AI Summarization
 **Decision**: Implementing specialized extraction logic for non-HTML content.
 - **PDF Extraction**: Using the Go `pdf` package to extract text from the first 20 pages of linked documents.
 - **GitHub Integration**: Detecting repo-links in "Show HN" posts and fetching the `README.md` via the raw GitHub API.
@@ -42,19 +48,44 @@ HN Station has transitioned from a cloud-centric service to a **Local-First Desk
 
 ## 3. UI Design Principles
 
-### 3.1 Simplified Interaction model
+### 3.1 Pinned Feed Navigation
+**Decision**: Implementing a compact, numbered pagination bar (`< Prev 1 2 3 ... N Next >`) pinned to the bottom of the feed.
+**Rationale**: Provides predictable, one-click access to the full story archive while maintaining a clean, non-obtrusive footer.
+
+### 3.2 Dynamic Feed Density
+**Decision**: Ensuring article cards dynamically stretch to occupy the full height of the feed pane.
+**Rationale**: Eliminates "dead space" below the story list, providing a balanced and high-density information display regardless of the number of items or window size.
+
+### 3.3 Simplified Interaction model
 **Decision**: Consolidating multiple "Open" buttons into a single icon that defaults to the **Split Layout**.
 **Rationale**: Analysis showed that users almost always prefer the split view (Article + Comments) on their first open. Providing too many choices in the story card created cognitive friction.
 
-### 3.2 Premium Desktop Aesthetics
+### 3.4 Premium Desktop Aesthetics
 **Decision**: Using a deep blue/slate dark mode with high-contrast accents (vibrant orange for scores, emerald for active status). 
 **Rationale**: Position HN Station as a professional productivity tool rather than a generic news aggregator.
 
-### 3.3 Keyboard-Centric Workflow
+### 3.5 Keyboard-Centric Workflow
 **Decision**: Comprehensive shortcut support for tab management and story triaging.
-- `Ctrl + W`: Close current tab / Exit App.
-- `Ctrl + D`: Toggle Bookmark (Universal).
-- `Ctrl + 0`: Return to Feed.
+
+| Shortcut | Category | Action |
+| :--- | :--- | :--- |
+| `Ctrl + 0` | View | Return to **Feed** view |
+| `Ctrl + Home` | View | Switch to **Feed Tab** |
+| `Ctrl + D` | View | Switch to **Bookmarks Tab** |
+| `Ctrl + Tab` | View | Cycle through tabs (Forward) |
+| `Ctrl + Shift + Tab` | View | Cycle through tabs (Backward) |
+| `Ctrl + W` | App | Close active tab (Reader) / **Exit Application** (Feed) |
+| `F5` / `Ctrl + R` | App | Refresh Feed or Active Tab |
+| `j` / `k` or `Arrows` | Feed | Navigate stories in the feed |
+| `Home` / `End` | Feed | Jump to first/last story in current view |
+| `PageUp` / `PageDown` | Feed | Previous/Next 10 stories (Pagination) |
+| `Enter` | Feed | Open story in **Split Mode** |
+| `Ctrl + Space` | Reader | Cycle layout: **Article → Discussion → Split** |
+| `Ctrl + Alt + Arrows` | Reader | Incremental layout cycling |
+| `Ctrl + Q` | Reader | Toggle Sidebar Visibility (Show/Hide) |
+| `Ctrl + H` | Reader | Switch to **Discussion** Tab |
+| `Ctrl + K` | Reader | Switch to **AI Summary** Tab |
+| `Ctrl + G` | Reader | Switch to **Gemini Chat** Tab |
 
 ---
 
