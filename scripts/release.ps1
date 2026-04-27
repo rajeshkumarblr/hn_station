@@ -1,6 +1,6 @@
 # release.ps1 — Unified Release Script for HN Station (Web + Desktop)
 # Usage: .\scripts\release.ps1
-$VERSION = "1.0.0-rc22"
+$VERSION = "0.9.0"
 Write-Host "🚀 Starting Unified Release Process (v$VERSION)..." -ForegroundColor Cyan
 
 # 1. Build Local Go Backend
@@ -16,7 +16,6 @@ if ($LASTEXITCODE -ne 0) {
     Write-Warning "AKS Deployment failed. Continuing anyway to build Desktop app..." 
 }
 
-
 # 3. Build & Package Electron App
 Write-Host "`n3. Building & Packaging Electron App (Desktop)..." -ForegroundColor Yellow
 Set-Location web
@@ -30,5 +29,5 @@ Write-Host "Desktop: Installer ready at web/release/HN Station Setup $VERSION.ex
 
 # 4. Create GitHub Release
 Write-Host "`n4. Creating GitHub Release (v$VERSION)..." -ForegroundColor Yellow
-gh release create v$VERSION "web/release/HN Station Setup $VERSION.exe" --title "Hacker News Station v$VERSION" --notes "Reverting triple-sync AI summary functionality."
+gh release create v$VERSION "web/release/HN Station Setup $VERSION.exe" --title "Hacker News Station v$VERSION" --notes "Restored ingestion engine, unified storage path to %APPDATA%, and improved app lifecycle stability."
 if ($LASTEXITCODE -ne 0) { Write-Warning "GitHub release failed (is gh authenticated?)" }

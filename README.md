@@ -17,7 +17,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v1.0.0-rc37)
+## 🖥️ Electron Desktop App (v0.9.0)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
@@ -60,10 +60,9 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 
 ---
 
-## 4. Operational Notes
-- **In-App Backend**: A Go-based local agent runs alongside the app, handling continuous background ingestion and data persistence.
-- **SQLite Storage**: All data persists at `%APPDATA%/HN Station/` on Windows.
-- **Port Mapping**: Uses port `58090` for robust local communication.
+- **In-App Backend**: A Go-based local agent runs automatically as a background process within the app, handling continuous HN ingestion while the window is open.
+- **SQLite Storage**: All data persists in a unified user-localized directory at `%APPDATA%/HN Station/` on Windows.
+- **Port Mapping**: Uses port `58090` for robust communication between the UI and local agent.
 
 ---
 
