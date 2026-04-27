@@ -136,6 +136,8 @@ export function ReaderPane({
     );
 
     // --- Resizing Handlers ---
+    const resizeRef = useRef<number | null>(null);
+
     const startResizing = useCallback((e: React.MouseEvent) => {
         setIsResizing(true);
         e.preventDefault();
@@ -143,28 +145,42 @@ export function ReaderPane({
 
     const stopResizing = useCallback(() => {
         setIsResizing(false);
+        if (resizeRef.current) {
+            cancelAnimationFrame(resizeRef.current);
+            resizeRef.current = null;
+        }
     }, []);
 
     const resize = useCallback((e: MouseEvent) => {
-        if (isResizing) {
+        if (!isResizing) return;
+        
+        if (resizeRef.current) cancelAnimationFrame(resizeRef.current);
+        
+        resizeRef.current = requestAnimationFrame(() => {
             const newWidth = window.innerWidth - e.clientX;
-            if (newWidth > 300 && newWidth < 900) {
+            if (newWidth > 300 && newWidth < Math.min(window.innerWidth * 0.8, 1200)) {
                 setSidebarWidth(newWidth);
             }
-        }
+        });
     }, [isResizing]);
 
     useEffect(() => {
         if (isResizing) {
-            window.addEventListener('mousemove', resize);
-            window.addEventListener('mouseup', stopResizing);
+            document.addEventListener('mousemove', resize);
+            document.addEventListener('mouseup', stopResizing);
+            // Prevent text selection while resizing
+            document.body.style.userSelect = 'none';
         } else {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
+            document.removeEventListener('mousemove', resize);
+            document.removeEventListener('mouseup', stopResizing);
+            document.body.style.userSelect = '';
         }
+
         return () => {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
+            document.removeEventListener('mousemove', resize);
+            document.removeEventListener('mouseup', stopResizing);
+            document.body.style.userSelect = '';
+            if (resizeRef.current) cancelAnimationFrame(resizeRef.current);
         };
     }, [isResizing, resize, stopResizing]);
 
@@ -311,7 +327,15 @@ export function ReaderPane({
             </div>
 
             {/* Main Content Area Container */}
-            <div className="flex-1 flex flex-col min-w-0 h-full">
+            <div className="flex-1 flex flex-col min-w-0 h-full relative">
+                {/* Resizing Overlay - Captures mouse events during resize to prevent iframe swallowing */}
+                {isResizing && (
+                    <div 
+                        className="fixed inset-0 z-[9999] cursor-col-resize bg-transparent"
+                        onMouseUp={stopResizing}
+                    />
+                )}
+
                 <div className="flex-1 flex flex-row min-h-0 overflow-hidden relative">
                     
                     {/* Article view is now the ONLY main content area */}

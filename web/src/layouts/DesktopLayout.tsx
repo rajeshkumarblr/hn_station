@@ -197,7 +197,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         {primaryTab === 'feed' && (
                             <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] flex items-center justify-between gap-4 shrink-0 shadow-sm z-10">
                                 <div className="flex items-center gap-3 overflow-x-auto no-scrollbar flex-1">
-                                    <span className="text-[10px] font-black uppercase text-slate-400 shrink-0">Topics:</span>
+                                    <span className="text-[10px] font-black uppercase text-slate-400 shrink-0">Filter by topics:</span>
                                     <div className="flex items-center gap-2">
                                         {activeTopics.filter(t => !disabledTopics.includes(t)).map(t => {
                                             const style = getTagStyle(t);

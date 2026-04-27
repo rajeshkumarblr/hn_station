@@ -35,7 +35,7 @@ function loadTopicChips(): string[] {
         const saved = localStorage.getItem('hn_topic_chips');
         if (saved) return JSON.parse(saved);
     } catch { }
-    return [];
+    return ['LLM', 'AI', 'Postgres', 'Database', 'Model'];
 }
 
 function saveTopicChips(chips: string[]) {
