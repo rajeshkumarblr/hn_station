@@ -120,8 +120,8 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                                     >
                                         <StoryCard
                                             story={story} index={index} isSelected={false} isRead={isRead} isEven={index % 2 === 0}
-                                            titleColorStyle={tagStyle?.color} topicTextClass={null} onSelect={() => { }} onOpenInTab={() => { }}
                                             onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory}
+                                            activeTopics={activeTopics}
                                         />
                                     </div>
                                 );

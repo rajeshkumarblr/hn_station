@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, X, Download, ShieldCheck, Zap, Monitor, Copy, Check, RefreshCw } from 'lucide-react';
+import { Sparkles, X, Download, ShieldCheck, Zap, Monitor, Copy, Check, RefreshCw, ChevronRight } from 'lucide-react';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { getTagStyle } from '../utils/colors';
@@ -149,7 +149,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                             const cleanLine = line.replace(/^[-*•]\s+/, '');
                                             return (
                                                 <li key={idx} className={`${colorClass} flex gap-3 items-start group p-3 rounded-xl bg-gradient-to-r from-lime-50/50 to-transparent dark:from-lime-950/20 dark:to-transparent border border-lime-100/30 dark:border-lime-800/10 shadow-sm`}>
-                                                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-sm group-hover:scale-125 transition-transform" />
+                                                    <ChevronRight size={14} className="mt-1 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                                                     <div className="flex-1 text-slate-700 dark:text-slate-200">
                                                         <ReactMarkdown
                                                             components={{

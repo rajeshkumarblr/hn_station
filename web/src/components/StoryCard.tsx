@@ -30,10 +30,7 @@ interface StoryCardProps {
     isHighlighted?: boolean;
     isRead?: boolean;
     isEven?: boolean;
-    topicTextClass?: string | null;
-    titleColorStyle?: string | null; // inline CSS color for the title
     activeTopics?: string[];
-    onTopicClick?: (topic: string) => void;
 }
 
 
@@ -48,7 +45,7 @@ interface StoryCardProps {
 export function StoryCard({
     story, index, onSelect, onToggleSave, onHide, onOpenInTab,
     isSelected, isHighlighted, isRead,
-    topicTextClass, titleColorStyle, activeTopics, onTopicClick
+    activeTopics
 }: StoryCardProps) {
     let domain = '';
     try {

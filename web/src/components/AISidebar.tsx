@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, RefreshCw, Sparkles, X, MessageSquare, Copy } from 'lucide-react';
+import { Check, RefreshCw, Sparkles, X, MessageSquare, Copy, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
@@ -308,8 +308,8 @@ export function AISidebar({
                                         const colorClass = AI_COLORS[idx % AI_COLORS.length];
                                         const cleanLine = line.replace(/^[-*•]\s+/, '');
                                         return (
-                                            <li key={idx} className={`${colorClass} flex gap-2 items-start mb-3 last:mb-0 marker:text-transparent`}>
-                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-sm" />
+                                            <li key={idx} className={`${colorClass} flex gap-2 items-start mb-3 last:mb-0 marker:text-transparent group`}>
+                                                <ChevronRight size={14} className="mt-1 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                                                 <div className="flex-1 text-slate-600 dark:text-slate-300">
                                                     <ReactMarkdown
                                                         components={{
