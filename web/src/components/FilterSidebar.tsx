@@ -102,7 +102,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                     {/* Story Title Context — matches the emerald left-accent on the highlighted card */}
                     {highlightedStory && (
                         <div className="relative px-5 py-3.5 border-b border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-r from-emerald-50 via-emerald-50/30 to-white dark:from-emerald-950/30 dark:via-emerald-950/15 dark:to-[#111827] border-l-[3px] border-l-emerald-500">
-                            <p className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2">
+                            <p className="text-[15px] font-bold text-amber-600 dark:text-amber-400 leading-snug line-clamp-2">
                                 {highlightedStory.title}
                             </p>
                             <div className="flex items-center gap-3 mt-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
