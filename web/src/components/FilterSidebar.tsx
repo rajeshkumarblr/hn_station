@@ -73,8 +73,8 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                     <div className="flex items-center justify-between px-6 py-3 border-b border-slate-100 dark:border-slate-800/50">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2 mb-0.5">
-                                <Sparkles size={12} className="text-emerald-500" />
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Insight</h3>
+                                <Sparkles size={12} className="text-lime-500" />
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Article Insight</h3>
                             </div>
                         </div>
                         
@@ -99,15 +99,15 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         )}
                     </div>
 
-                    {/* Story Title Context — matches the emerald left-accent on the highlighted card */}
+                    {/* Story Title Context — matches the lime/olive left-accent on the highlighted card */}
                     {highlightedStory && (
-                        <div className="relative px-5 py-3.5 border-b border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-r from-emerald-50 via-emerald-50/30 to-white dark:from-emerald-950/30 dark:via-emerald-950/15 dark:to-[#111827] border-l-[3px] border-l-emerald-500">
+                        <div className="relative px-5 py-3.5 border-b border-lime-100 dark:border-lime-900/40 bg-gradient-to-r from-lime-50 via-lime-50/30 to-white dark:from-lime-950/30 dark:via-lime-950/15 dark:to-[#111827] border-l-[3px] border-l-lime-500">
                             <p className="text-[15px] font-bold text-amber-600 dark:text-amber-400 leading-snug line-clamp-2">
                                 {highlightedStory.title}
                             </p>
                             <div className="flex items-center gap-3 mt-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
                                 {highlightedStory.by && (
-                                    <span className="text-emerald-600/70 dark:text-emerald-400/70 font-semibold">by {highlightedStory.by}</span>
+                                    <span className="text-lime-600/70 dark:text-lime-400/70 font-semibold">by {highlightedStory.by}</span>
                                 )}
                                 {highlightedStory.score != null && (
                                     <span className="flex items-center gap-0.5 text-amber-600/80 dark:text-amber-400/70 font-bold">
@@ -138,7 +138,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         </div>
                     )}
 
-                    <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0 custom-scrollbar border-l-2 border-emerald-500/20 bg-gradient-to-b from-emerald-50/30 to-transparent dark:from-emerald-950/15 dark:to-transparent">
+                    <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0 custom-scrollbar border-l-2 border-lime-500/20 bg-gradient-to-b from-lime-50/30 to-transparent dark:from-lime-950/15 dark:to-transparent">
                         {hasSummary ? (
                             <>
                                 {/* Markdown Summary with Index-Based Colors */}
@@ -148,7 +148,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                             const colorClass = AI_COLORS[idx % AI_COLORS.length];
                                             const cleanLine = line.replace(/^[-*•]\s+/, '');
                                             return (
-                                                <li key={idx} className={`${colorClass} flex gap-3 items-start group p-3 rounded-xl bg-gradient-to-r from-emerald-50/50 to-transparent dark:from-emerald-950/20 dark:to-transparent border border-emerald-100/30 dark:border-emerald-800/10 shadow-sm`}>
+                                                <li key={idx} className={`${colorClass} flex gap-3 items-start group p-3 rounded-xl bg-gradient-to-r from-lime-50/50 to-transparent dark:from-lime-950/20 dark:to-transparent border border-lime-100/30 dark:border-lime-800/10 shadow-sm`}>
                                                     <span className="mt-2 w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-sm group-hover:scale-125 transition-transform" />
                                                     <div className="flex-1 text-slate-700 dark:text-slate-200">
                                                         <ReactMarkdown

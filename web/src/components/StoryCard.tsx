@@ -116,9 +116,9 @@ export function StoryCard({
 
     // Unified card styling with hover lifting effect
     const activeBg = isHighlighted
-        ? 'bg-gradient-to-r from-emerald-50 via-emerald-50/30 to-white dark:from-emerald-950/30 dark:via-emerald-950/15 dark:to-[#111827] border-l-[3px] border-l-emerald-500 border-y border-r border-y-emerald-200/60 border-r-emerald-100/40 dark:border-y-emerald-500/20 dark:border-r-emerald-500/10 shadow-lg shadow-emerald-500/8 z-10 ring-1 ring-emerald-500/10'
+        ? 'bg-gradient-to-r from-lime-50 via-lime-50/30 to-white dark:from-lime-950/30 dark:via-lime-950/15 dark:to-[#111827] border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-200/60 border-r-lime-100/40 dark:border-y-lime-500/20 dark:border-r-lime-500/10 shadow-lg shadow-lime-500/8 z-10 ring-1 ring-lime-500/10'
         : isSelected
-            ? 'bg-white dark:bg-slate-800/60 border-l-[3px] border-l-emerald-400/50 border-y border-r border-y-emerald-100 border-r-emerald-100 dark:border-y-emerald-500/15 dark:border-r-emerald-500/15 shadow-sm'
+            ? 'bg-white dark:bg-slate-800/60 border-l-[3px] border-l-lime-400/50 border-y border-r border-y-lime-100 border-r-lime-100 dark:border-y-lime-500/15 dark:border-r-lime-500/15 shadow-sm'
             : `bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800/60 hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-md hover:scale-[1.003]`;
 
     return (
