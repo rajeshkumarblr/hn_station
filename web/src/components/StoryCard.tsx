@@ -45,8 +45,13 @@ export function getTagStyle(tag: string): { color: string; bg: string; border: s
         hash = tag.charCodeAt(i) + ((hash << 5) - hash);
     }
     // Spread hues evenly, keep saturation/lightness readable
-    const hue = Math.abs(hash) % 360;
-    const sat = 60 + (Math.abs(hash >> 8) % 20); // 60-80%
+    let hue = Math.abs(hash) % 360;
+    // Avoid yellow/amber/orange (20-75) to keep it for selection
+    if (hue >= 20 && hue <= 75) {
+        hue = hue < 47 ? 15 : 85; 
+    }
+    
+    const sat = 65 + (Math.abs(hash >> 8) % 15); // 65-80%
     const lit = 55 + (Math.abs(hash >> 16) % 10); // 55-65%
     const color = `hsl(${hue}, ${sat}%, ${lit}%)`;
     const bg = `hsla(${hue}, ${sat}%, ${lit}%, 0.12)`;
@@ -111,8 +116,10 @@ export function StoryCard({
 
     // Focus (keyboard/hover) vs Selection (open tab)
     // We want the current focus to be the most prominent.
-    const firstActiveMatch = story.topics?.find(t => activeTopics?.some(at => at.toLowerCase() === t.toLowerCase()));
-    const activeStyle = firstActiveMatch ? getTagStyle(firstActiveMatch) : null;
+    const matchingActiveTopic = activeTopics?.find(at => 
+        story.topics?.some(st => st.toLowerCase() === at.toLowerCase())
+    );
+    const activeTopicStyle = matchingActiveTopic ? getTagStyle(matchingActiveTopic) : null;
 
     // Unified card styling with hover lifting effect
     const activeBg = isHighlighted
@@ -188,46 +195,14 @@ export function StoryCard({
                         </div>
                     )}
                     <div className="flex-1">
-                        <h3 className="text-[15px] leading-snug mb-1.5 font-bold whitespace-normal transition-all duration-200">
+                        <h3 className="text-[15px] leading-snug mb-1 font-bold whitespace-normal transition-all duration-200">
                             <span
-                                className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isHighlighted ? 'text-amber-600 dark:text-amber-400' : (!titleColorStyle && topicTextClass ? topicTextClass : '')} ${!isHighlighted && !titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-400 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-100') : ''}`}
-                                style={!isHighlighted && (activeStyle?.color || titleColorStyle) ? { color: (activeStyle?.color || titleColorStyle) as string } : undefined}
+                                className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isHighlighted ? 'text-amber-600 dark:text-amber-400' : ''} ${!isHighlighted ? (dimmed && !isSelected ? 'text-slate-400 dark:text-slate-500 font-normal' : (!activeTopicStyle ? 'text-slate-800 dark:text-slate-100' : '')) : ''}`}
+                                style={!isHighlighted && activeTopicStyle ? { color: activeTopicStyle.color } : undefined}
                             >
                                 {story.title}
                             </span>
                         </h3>
-
-                        {/* Tags Display - Below Title */}
-                        {story.topics && story.topics.length > 0 && (
-                            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                                {story.topics.slice(0, 3).map((topic, i) => {
-                                    const ts = getTagStyle(topic);
-                                    const isActive = activeTopics?.some(t => t.toLowerCase() === topic.toLowerCase());
-                                    return (
-                                        <span
-                                            key={i}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onTopicClick?.(topic);
-                                            }}
-                                            className={`text-[9px] font-bold px-2 py-0.5 rounded-md transition-all duration-200 cursor-pointer ${isActive ? 'ring-1 ring-offset-1 dark:ring-offset-slate-900' : 'opacity-50 hover:opacity-100 hover:scale-105'}`}
-                                            style={{
-                                                background: ts.bg,
-                                                color: ts.color,
-                                                borderColor: ts.border,
-                                                borderWidth: '1px',
-                                                borderStyle: 'solid'
-                                            }}
-                                        >
-                                            #{topic}
-                                        </span>
-                                    );
-                                })}
-                                {story.topics.length > 3 && (
-                                    <span className="text-[9px] text-slate-400 font-bold">+{story.topics.length - 3}</span>
-                                )}
-                            </div>
-                        )}
 
                         {/* Compact Metadata Row */}
                         <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium">
