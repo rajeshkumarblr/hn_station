@@ -130,6 +130,13 @@ export function useAppState() {
 
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [currentView, setCurrentView] = useState<'feed' | 'reader' | 'admin'>(loadPersistedCurrentView);
+    const [isFilterActive, setIsFilterActive] = useState(() => {
+        try {
+            const saved = localStorage.getItem('hn_filter_active');
+            return saved !== 'false'; // Default to true
+        } catch { }
+        return true;
+    });
     const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [user, setUser] = useState<User | null>(null);
     const [globalWarning, setGlobalWarning] = useState<string | null>(null);
@@ -339,6 +346,10 @@ export function useAppState() {
     }, [currentView]);
 
     useEffect(() => {
+        localStorage.setItem('hn_filter_active', isFilterActive.toString());
+    }, [isFilterActive]);
+
+    useEffect(() => {
         localStorage.setItem('hn_desktop_primary_tab', primaryTab);
         if (primaryTab === 'bookmarks') {
             setMode('saved');
@@ -476,14 +487,16 @@ export function useAppState() {
         let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
         if (showHidden) url += `&show_hidden=true`;
 
-        const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
-        if (enabledTopics.length > 0) {
-            enabledTopics.forEach(t => {
-                url += `&topic=${encodeURIComponent(t)}`;
-            });
+        if (isFilterActive) {
+            const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
+            if (enabledTopics.length > 0) {
+                enabledTopics.forEach(t => {
+                    url += `&topic=${encodeURIComponent(t)}`;
+                });
+            }
         }
         return url;
-    }, [mode, showHidden, apiBase, activeTopics, disabledTopics]);
+    }, [mode, showHidden, apiBase, activeTopics, disabledTopics, isFilterActive]);
 
     useEffect(() => {
         setLoading(true);
@@ -491,7 +504,7 @@ export function useAppState() {
         setHasMore(true);
         setStoryBuffer([]);
         setBufferOffset(0);
-    }, [mode, refreshKey, showHidden, activeTopics, disabledTopics]);
+    }, [mode, refreshKey, showHidden, activeTopics, disabledTopics, isFilterActive]);
 
     useEffect(() => {
         if (bufferOffset === 0) return;
@@ -556,7 +569,7 @@ export function useAppState() {
                 setError(msg);
                 setLoading(false);
             });
-    }, [mode, refreshKey, showHidden, offset, apiBase, activeTopics, disabledTopics]);
+    }, [mode, refreshKey, showHidden, offset, apiBase, activeTopics, disabledTopics, isFilterActive]);
 
     useEffect(() => {
         if (!apiBase || storyBuffer.length === 0) return;
@@ -649,14 +662,14 @@ export function useAppState() {
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
         tabs, activeTabId, showHidden,
         isSettingsOpen, currentView, isAdminModalOpen, user,
-        hiddenStories, offset, globalWarning, backendStats, primaryTab,
+        hiddenStories, offset, globalWarning, backendStats, primaryTab, isFilterActive,
         // Derived
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         isWebMode,
         // Setters
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
-        setDisabledTopics, setGlobalWarning, setPrimaryTab,
+        setDisabledTopics, setGlobalWarning, setPrimaryTab, setIsFilterActive,
         // Handlers
         handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, setStoryDiscussionSummary, handleHideStory,
         toggleAISidebar,

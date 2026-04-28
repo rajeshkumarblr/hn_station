@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
-import { RefreshCw, Home, Bookmark, Settings, X, Search } from 'lucide-react';
+import pkg from '../../package.json';
+import { RefreshCw, Home, Bookmark, Settings, X, Search, ToggleLeft, ToggleRight, Filter } from 'lucide-react';
 import { StoryCard, getTagStyle } from '../components/StoryCard';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
@@ -27,6 +28,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         readIds, setReadIds, setHighlightedStoryId,
         primaryTab, setPrimaryTab,
         disabledTopics, setDisabledTopics,
+        isFilterActive, setIsFilterActive,
     } = app;
     const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -128,6 +130,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                         <span className="text-[13px] font-black tracking-[0.2em] bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent uppercase leading-none">HN Station</span>
+                        <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 ml-0.5 tracking-normal lowercase">v{pkg.version}</span>
                     </div>
                 </div>
 
@@ -204,12 +207,19 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {/* Feed Specific Toolbar */}
                         {primaryTab === 'feed' && (
-                            <div className="px-6 py-2.5 border-b border-slate-100 dark:border-slate-900 bg-white dark:bg-slate-950 flex items-center justify-between gap-6 shrink-0 z-10">
+                            <div className="px-6 py-3 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xl flex items-center justify-between gap-6 shrink-0 z-10 sticky top-0 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
                                 <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Topics</span>
-                                    </div>
+                                    <button 
+                                        onClick={() => setIsFilterActive(!isFilterActive)}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all border ${isFilterActive ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'}`}
+                                        title={isFilterActive ? "Topic filtering is active" : "Topic filtering is disabled (showing all)"}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {isFilterActive ? <ToggleRight size={18} className="text-emerald-500" /> : <ToggleLeft size={18} />}
+                                            <Filter size={14} className={isFilterActive ? 'opacity-100' : 'opacity-40'} />
+                                            <span className="text-[10px] font-black uppercase tracking-wider">Filter Topics</span>
+                                        </div>
+                                    </button>
                                     <div className="flex items-center gap-2">
                                         {activeTopics.filter(t => !disabledTopics.includes(t)).map(t => {
                                             const style = getTagStyle(t);
@@ -239,20 +249,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                                 <div className="flex items-center gap-3 shrink-0">
                                     {activeTopics.length > 0 && (
-                                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900 p-1 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
-                                            <button 
-                                                onClick={() => {
-                                                    const allActive = activeTopics.filter(t => !disabledTopics.includes(t));
-                                                    if (allActive.length > 0) {
-                                                        setDisabledTopics([...new Set([...disabledTopics, ...allActive])]);
-                                                    } else {
-                                                        setDisabledTopics([]); 
-                                                    }
-                                                }}
-                                                className="text-[9px] font-black uppercase px-2.5 py-1.5 rounded-md text-slate-500 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100 transition-all"
-                                            >
-                                                Mute
-                                            </button>
+                                        <div className="flex items-center gap-1.5 bg-white/50 dark:bg-slate-950/50 p-1 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
                                             <button 
                                                 onClick={() => { setActiveTopics([]); setDisabledTopics([]); }}
                                                 className="text-[9px] font-black uppercase px-2.5 py-1.5 rounded-md text-red-400 hover:bg-white dark:hover:bg-slate-800 hover:text-red-600 transition-all"
@@ -262,7 +259,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         </div>
                                     )}
 
-                                    <div className="flex items-center bg-slate-50 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 group focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500/50 transition-all shadow-sm">
+                                    <div className="flex items-center bg-white dark:bg-slate-950 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 group focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500/50 transition-all shadow-sm">
                                         <Search size={13} className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                                         <input
                                             type="text"
