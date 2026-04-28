@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	Version      = "v0.9.2"
+	Version      = "v0.9.3"
 	workerCount  = 1
 	totalStories = 100 // Keep top 100 front-page stories
 )

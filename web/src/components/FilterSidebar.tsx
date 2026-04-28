@@ -70,10 +70,10 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             {/* ── AI Summary & Suggested Tags (Top 70%) ─────────────────────────────────── */}
             {(aiEnabled || hasSummary) ? (
                 <div className="flex-1 overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-4 duration-500">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800/50">
+                    <div className="flex items-center justify-between px-6 py-3 border-b border-slate-100 dark:border-slate-800/50">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2 mb-0.5">
-                                <Sparkles size={12} className="text-indigo-500" />
+                                <Sparkles size={12} className="text-emerald-500" />
                                 <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Insight</h3>
                             </div>
                         </div>
@@ -99,7 +99,46 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0 custom-scrollbar">
+                    {/* Story Title Context — matches the emerald left-accent on the highlighted card */}
+                    {highlightedStory && (
+                        <div className="relative px-5 py-3.5 border-b border-emerald-100 dark:border-emerald-900/40 bg-gradient-to-r from-emerald-50 via-emerald-50/30 to-white dark:from-emerald-950/30 dark:via-emerald-950/15 dark:to-[#111827] border-l-[3px] border-l-emerald-500">
+                            <p className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2">
+                                {highlightedStory.title}
+                            </p>
+                            <div className="flex items-center gap-3 mt-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                {highlightedStory.by && (
+                                    <span className="text-emerald-600/70 dark:text-emerald-400/70 font-semibold">by {highlightedStory.by}</span>
+                                )}
+                                {highlightedStory.score != null && (
+                                    <span className="flex items-center gap-0.5 text-amber-600/80 dark:text-amber-400/70 font-bold">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                                        {highlightedStory.score}
+                                    </span>
+                                )}
+                                {highlightedStory.descendants != null && highlightedStory.descendants > 0 && (
+                                    <span className="flex items-center gap-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                        {highlightedStory.descendants}
+                                    </span>
+                                )}
+                                {highlightedStory.time && (
+                                    <span className="flex items-center gap-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                        {(() => {
+                                            const d = new Date(highlightedStory.time);
+                                            const s = Math.floor((Date.now() - d.getTime()) / 1000);
+                                            if (s > 86400) return Math.floor(s / 86400) + 'd';
+                                            if (s > 3600) return Math.floor(s / 3600) + 'h';
+                                            if (s > 60) return Math.floor(s / 60) + 'm';
+                                            return s + 's';
+                                        })()}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0 custom-scrollbar border-l-2 border-emerald-500/20 bg-gradient-to-b from-emerald-50/30 to-transparent dark:from-emerald-950/15 dark:to-transparent">
                         {hasSummary ? (
                             <>
                                 {/* Markdown Summary with Index-Based Colors */}
@@ -109,9 +148,9 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                             const colorClass = AI_COLORS[idx % AI_COLORS.length];
                                             const cleanLine = line.replace(/^[-*•]\s+/, '');
                                             return (
-                                                <li key={idx} className={`${colorClass} flex gap-3 items-start group`}>
+                                                <li key={idx} className={`${colorClass} flex gap-3 items-start group p-3 rounded-xl bg-gradient-to-r from-emerald-50/50 to-transparent dark:from-emerald-950/20 dark:to-transparent border border-emerald-100/30 dark:border-emerald-800/10 shadow-sm`}>
                                                     <span className="mt-2 w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-sm group-hover:scale-125 transition-transform" />
-                                                    <div className="flex-1 text-slate-700 dark:text-slate-300">
+                                                    <div className="flex-1 text-slate-700 dark:text-slate-200">
                                                         <ReactMarkdown
                                                             components={{
                                                                 p: ({ node, ...props }) => <span {...props} />,
@@ -151,12 +190,13 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                                             }
                                                         }}
                                                         className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${isActive 
-                                                            ? 'scale-105 brightness-100' 
-                                                            : 'opacity-60 hover:opacity-100'}`}
+                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950' 
+                                                            : 'opacity-70 hover:opacity-100'}`}
                                                         style={{ 
-                                                            backgroundColor: isActive ? style.bg : 'transparent', 
-                                                            color: isActive ? style.color : '', 
-                                                            borderColor: isActive ? style.border : style.border + '40'
+                                                            backgroundColor: style.bg, 
+                                                            color: style.color, 
+                                                            borderColor: style.border,
+                                                            ...(isActive ? { ringColor: style.border } : {})
                                                         }}
                                                     >
                                                         {isActive ? '✓ ' : '#'}{topic}

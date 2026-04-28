@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bookmark, Check, Link, Terminal, ExternalLink, Columns, X } from 'lucide-react';
+import { Bookmark, Check, Link, Terminal, ExternalLink, Columns, X, Sparkles } from 'lucide-react';
 
 export interface Story {
     id: number;
@@ -35,21 +35,7 @@ interface StoryCardProps {
     onTopicClick?: (topic: string) => void;
 }
 
-function getTimeAgo(date: Date): string {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
 
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + "y";
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + "mo";
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + "d";
-    interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + "h";
-    interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + "m";
-    return Math.floor(seconds) + "s";
-}
 
 
 export function getTagStyle(tag: string): { color: string; bg: string; border: string } {
@@ -101,8 +87,7 @@ export function StoryCard({
         setTimeout(() => setIsCopied(false), 2000);
     };
 
-    const date = new Date(story.time);
-    const timeAgo = getTimeAgo(date);
+
 
     const displayRank = index !== undefined ? index + 1 : null;
     const dimmed = story.is_read || isRead;
@@ -131,10 +116,10 @@ export function StoryCard({
 
     // Unified card styling with hover lifting effect
     const activeBg = isHighlighted
-        ? 'bg-slate-50 dark:bg-slate-900 border-indigo-200 dark:border-indigo-500/50 shadow-lg shadow-indigo-500/10 z-10 scale-[1.01]'
+        ? 'bg-gradient-to-r from-emerald-50 via-emerald-50/30 to-white dark:from-emerald-950/30 dark:via-emerald-950/15 dark:to-[#111827] border-l-[3px] border-l-emerald-500 border-y border-r border-y-emerald-200/60 border-r-emerald-100/40 dark:border-y-emerald-500/20 dark:border-r-emerald-500/10 shadow-lg shadow-emerald-500/8 z-10 ring-1 ring-emerald-500/10'
         : isSelected
-            ? 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-500/30 shadow-sm'
-            : `bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-900 hover:border-slate-200 dark:hover:border-slate-800 hover:shadow-md hover:scale-[1.005]`;
+            ? 'bg-white dark:bg-slate-800/60 border-l-[3px] border-l-emerald-400/50 border-y border-r border-y-emerald-100 border-r-emerald-100 dark:border-y-emerald-500/15 dark:border-r-emerald-500/15 shadow-sm'
+            : `bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800/60 hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-md hover:scale-[1.003]`;
 
     return (
         <div
@@ -196,94 +181,91 @@ export function StoryCard({
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
                 <div className="flex items-start gap-3">
                     {displayRank && (
-                        <span className="text-[11px] font-black text-slate-300 dark:text-slate-700 mt-1 tabular-nums w-4 shrink-0">
-                            {displayRank}
-                        </span>
+                        <div className="flex flex-col items-center mt-0.5 shrink-0">
+                            <span className="text-[13px] font-black text-slate-300 dark:text-slate-600 tabular-nums w-6 text-center">
+                                {displayRank}
+                            </span>
+                        </div>
                     )}
                     <div className="flex-1">
-                        <h3 className="text-[15px] leading-snug mb-1 font-bold whitespace-normal transition-all duration-200">
+                        <h3 className="text-[15px] leading-snug mb-1.5 font-bold whitespace-normal transition-all duration-200">
                             <span
-                                className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isHighlighted ? 'text-indigo-600 dark:text-indigo-400' : (!titleColorStyle && topicTextClass ? topicTextClass : '')} ${!isHighlighted && !titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-400 font-normal' : 'text-slate-800 dark:text-slate-100') : ''}`}
+                                className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isHighlighted ? 'text-indigo-600 dark:text-indigo-400' : (!titleColorStyle && topicTextClass ? topicTextClass : '')} ${!isHighlighted && !titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-400 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-100') : ''}`}
                                 style={!isHighlighted && (activeStyle?.color || titleColorStyle) ? { color: (activeStyle?.color || titleColorStyle) as string } : undefined}
                             >
                                 {story.title}
                             </span>
                         </h3>
 
-                        {/* Details Row */}
-                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-500 font-medium">
+                        {/* Tags Display - Below Title */}
+                        {story.topics && story.topics.length > 0 && (
+                            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                                {story.topics.slice(0, 3).map((topic, i) => {
+                                    const ts = getTagStyle(topic);
+                                    const isActive = activeTopics?.some(t => t.toLowerCase() === topic.toLowerCase());
+                                    return (
+                                        <span
+                                            key={i}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onTopicClick?.(topic);
+                                            }}
+                                            className={`text-[9px] font-bold px-2 py-0.5 rounded-md transition-all duration-200 cursor-pointer ${isActive ? 'ring-1 ring-offset-1 dark:ring-offset-slate-900' : 'opacity-50 hover:opacity-100 hover:scale-105'}`}
+                                            style={{
+                                                background: ts.bg,
+                                                color: ts.color,
+                                                borderColor: ts.border,
+                                                borderWidth: '1px',
+                                                borderStyle: 'solid'
+                                            }}
+                                        >
+                                            #{topic}
+                                        </span>
+                                    );
+                                })}
+                                {story.topics.length > 3 && (
+                                    <span className="text-[9px] text-slate-400 font-bold">+{story.topics.length - 3}</span>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Compact Metadata Row */}
+                        <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                             {domain && (
                                 <div className="flex items-center gap-1.5">
                                     <img
                                         src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
                                         alt=""
-                                        className="w-3.5 h-3.5 rounded-sm grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all"
+                                        className="w-3.5 h-3.5 rounded-sm grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all"
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                     />
-                                    <span className="truncate max-w-[150px] hover:text-slate-900 dark:hover:text-slate-300 transition-colors">{domain}</span>
+                                    <span className="truncate max-w-[120px]">{domain}</span>
                                 </div>
                             )}
                             {!domain && story.title.startsWith('Ask HN') && (
                                 <div className="flex items-center gap-1 text-indigo-500/70">
-                                    <Terminal size={11} />
+                                    <Terminal size={10} />
                                     <span>Ask HN</span>
                                 </div>
                             )}
+                            <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-500/80">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                                {story.score}
+                            </span>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
+                                className={`flex items-center gap-0.5 transition-colors ${story.descendants > 0 ? 'text-indigo-500 dark:text-indigo-400/80' : 'text-slate-400'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                {story.descendants > 0 ? story.descendants : ''}
+                            </button>
 
-                            <div className="flex items-center gap-4 border-l border-slate-200 dark:border-slate-800 pl-3 ml-1">
-                                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500/80">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
-                                    {story.score}
-                                </span>
-
-                                <span className="flex items-center gap-1">
-                                    by <span className="text-slate-600 dark:text-slate-400">{story.by}</span>
-                                </span>
-
-                                <span className="flex items-center gap-1" title={date.toLocaleString()}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                    {timeAgo}
-                                </span>
-
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
-                                    className={`flex items-center gap-1 transition-colors px-2 py-0.5 rounded-md ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                    {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
-                                </button>
-                            </div>
-
-                            {/* Tags Display */}
-                            {story.topics && story.topics.length > 0 && (
-                                <div className="flex items-center gap-1.5 ml-auto">
-                                    {story.topics.slice(0, 3).map((topic, i) => {
-                                        const ts = getTagStyle(topic);
-                                        const isActive = activeTopics?.some(t => t.toLowerCase() === topic.toLowerCase());
-                                        return (
-                                            <span
-                                                key={i}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onTopicClick?.(topic);
-                                                }}
-                                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all duration-200 cursor-pointer ${isActive ? 'ring-1 ring-offset-1 dark:ring-offset-slate-900' : 'opacity-60 hover:opacity-100 hover:scale-105'}`}
-                                                style={{
-                                                    background: ts.bg,
-                                                    color: ts.color,
-                                                    borderColor: ts.border,
-                                                    borderWidth: '1px',
-                                                    borderStyle: 'solid'
-                                                }}
-                                            >
-                                                #{topic}
-                                            </span>
-                                        );
-                                    })}
-                                    {story.topics.length > 3 && (
-                                        <span className="text-[9px] text-slate-400 font-bold">+{story.topics.length - 3}</span>
-                                    )}
-                                </div>
+                            {/* 1-line AI Summary Preview */}
+                            {story.summary && story.summary.trim().length > 0 && (
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 line-clamp-1 italic leading-relaxed">
+                                    <Sparkles size={10} className="inline mr-1 text-indigo-400/60" />
+                                    {story.summary.replace(/^[-*•]\s+/, '').split('\n')[0].replace(/^[-*•]\s+/, '').slice(0, 120)}
+                                </p>
                             )}
                         </div>
                     </div>

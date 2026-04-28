@@ -201,13 +201,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden relative">
                 <main 
-                    className="flex-1 overflow-hidden bg-white dark:bg-slate-950 flex flex-col" 
+                    className="flex-1 overflow-hidden bg-slate-50 dark:bg-[#0c1222] flex flex-col" 
                     style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
                 >
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {/* Feed Specific Toolbar */}
                         {primaryTab === 'feed' && (
-                            <div className="px-6 py-3 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xl flex items-center justify-between gap-6 shrink-0 z-10 sticky top-0 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+                            <div className="px-6 py-3 border-b border-slate-300/50 dark:border-slate-700/60 bg-white/95 dark:bg-[#0f1729] backdrop-blur-xl flex items-center justify-between gap-6 shrink-0 z-10 sticky top-0 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                                 <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
                                     <button 
                                         onClick={() => setIsFilterActive(!isFilterActive)}
@@ -280,7 +280,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </div>
                             </div>
                         )}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-white dark:bg-slate-950">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-slate-50 dark:bg-[#0c1222]">
                             {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-indigo-500 mx-auto" /></div>}
                             {!loading && (
                                 <div className="flex-1 flex flex-col min-h-full pb-8">
@@ -293,7 +293,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             const isRead = readIds.has(story.id) || !!story.is_read;
                                             return (
                                                 <div key={story.id} ref={el => storyRefs.current[index] = el}
-                                                    className="px-4 py-1"
+                                                    className="px-4 py-1.5"
                                                     onClick={() => setHighlightedStoryId(story.id)}
                                                     onDoubleClick={() => handleStorySelect(story.id, 'split')}
                                                 >
@@ -314,7 +314,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                         {/* Pagination - Floating Style */}
                         {totalStories > PAGE_SIZE && !loading && (
-                            <div className="py-2.5 px-6 border-t border-slate-100 dark:border-slate-900 flex items-center justify-center gap-1 shrink-0 bg-white dark:bg-slate-950 z-20">
+                            <div className="py-2.5 px-6 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-center gap-1 shrink-0 bg-white/80 dark:bg-[#0c1222] backdrop-blur-sm z-20">
                                 <button 
                                     onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))} 
                                     disabled={offset === 0} 
