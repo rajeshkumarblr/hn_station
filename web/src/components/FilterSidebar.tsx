@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, X, Download, ShieldCheck, Zap, Monitor, Info, Copy, Check, RefreshCw } from 'lucide-react';
-import { isWebPreview } from '../utils/env';
+import { Sparkles, X, Download, ShieldCheck, Zap, Monitor, Copy, Check, RefreshCw } from 'lucide-react';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { getTagStyle } from './StoryCard';
@@ -28,13 +27,11 @@ const AI_COLORS = [
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     activeTopics,
     setActiveTopics,
-    disabledTopics,
     setDisabledTopics,
     highlightedStory,
     onSummarize,
     user,
 }) => {
-    const [inputValue, setInputValue] = useState('');
     const [isFeaturesModalOpen, setIsFeaturesModalOpen] = useState(false);
     const [summarizing, setSummarizing] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -60,84 +57,65 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         }
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            const newTopic = inputValue.trim();
-            if (newTopic) {
-                // ADD to activeTopics if not already there
-                setActiveTopics(prev => prev.includes(newTopic) ? prev : [...prev, newTopic]);
-            }
-            setInputValue('');
-        }
-    };
 
-    const toggleTopicEnabled = (topic: string) => {
-        setDisabledTopics(prev => prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]);
-    };
 
-    const removeTopic = (topic: string) => {
-        setActiveTopics(prev => prev.filter(t => t !== topic));
-        setDisabledTopics(prev => prev.filter(t => t !== topic));
-    };
 
     const summary = highlightedStory?.summary ?? null;
     const hasSummary = summary && summary.trim().length > 0;
-    const isWebMode = isWebPreview();
     const aiEnabled = user?.ai_summaries_enabled;
 
     return (
-        <div className="w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-l border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#111d2e]/50 backdrop-blur-sm hidden md:flex flex-col gap-0 border-t-0 overflow-hidden">
+        <div className="w-80 shrink-0 h-full border-l border-slate-100 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-950/40 backdrop-blur-xl hidden md:flex flex-col gap-0 overflow-hidden">
 
             {/* ── AI Summary & Suggested Tags (Top 70%) ─────────────────────────────────── */}
             {(aiEnabled || hasSummary) ? (
-                <div className="flex-1 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800/50">
+                <div className="flex-1 overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-4 duration-500">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800/50">
                         <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                                <Sparkles size={11} className="text-blue-500" />
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">Article Summary</h3>
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <Sparkles size={12} className="text-indigo-500" />
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Insight</h3>
                             </div>
                         </div>
                         
                         {hasSummary && (
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-2">
                                 <button 
                                     onClick={handleCopy}
                                     title="Copy Summary"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-blue-600 transition-all border border-slate-200 dark:border-slate-700"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                                 >
-                                    {copied ? <Check size={11} /> : <Copy size={11} />}
+                                    {copied ? <Check size={12} /> : <Copy size={12} />}
                                 </button>
                                 <button 
                                     onClick={handleRegen}
                                     disabled={summarizing}
                                     title="Regenerate Summary"
-                                    className="px-2 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-amber-600 transition-all border border-slate-200 dark:border-slate-700 disabled:opacity-50 flex items-center gap-1.5"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 disabled:opacity-50"
                                 >
-                                    <RefreshCw size={11} className={summarizing ? "animate-spin" : ""} />
-                                    <span className="text-[9px] font-black uppercase">Refresh</span>
+                                    <RefreshCw size={12} className={summarizing ? "animate-spin" : ""} />
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 custom-scrollbar bg-white/30 dark:bg-transparent">
+                    <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0 custom-scrollbar">
                         {hasSummary ? (
                             <>
                                 {/* Markdown Summary with Index-Based Colors */}
-                                <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-bold select-text mb-6">
-                                    <ul className="pl-0 list-none m-0">
+                                <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-semibold select-text mb-8">
+                                    <ul className="pl-0 list-none m-0 space-y-4">
                                         {summary.split('\n').filter(line => line.trim().length > 0).map((line, idx) => {
                                             const colorClass = AI_COLORS[idx % AI_COLORS.length];
                                             const cleanLine = line.replace(/^[-*•]\s+/, '');
                                             return (
-                                                <li key={idx} className={`${colorClass} flex gap-2 items-start mb-3 last:mb-0 marker:text-transparent`}>
-                                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-sm" />
-                                                    <div className="flex-1">
+                                                <li key={idx} className={`${colorClass} flex gap-3 items-start group`}>
+                                                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-sm group-hover:scale-125 transition-transform" />
+                                                    <div className="flex-1 text-slate-700 dark:text-slate-300">
                                                         <ReactMarkdown
                                                             components={{
                                                                 p: ({ node, ...props }) => <span {...props} />,
-                                                                strong: ({ node, ...props }) => <strong className="text-blue-600 dark:text-blue-400 font-extrabold" {...props} />
+                                                                strong: ({ node, ...props }) => <strong className="text-indigo-600 dark:text-indigo-400 font-black" {...props} />
                                                             }}
                                                         >
                                                             {cleanLine}
@@ -148,6 +126,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                         })}
                                     </ul>
                                 </div>
+
                                 
                                 {/* Article Specific Topics (Suggested) - Moved from Header */}
                                 {highlightedStory?.topics && highlightedStory.topics.length > 0 && (

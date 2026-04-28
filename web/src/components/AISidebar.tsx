@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, RefreshCw, Sparkles, X, MessageSquare, Copy } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';

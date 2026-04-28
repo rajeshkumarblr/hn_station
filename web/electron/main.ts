@@ -52,7 +52,7 @@ function debug(msg: string) {
         fs.appendFileSync(debugLog, `[DEBUG ${new Date().toISOString()}] ${msg}\n`);
     } catch(e) {}
 }
-debug(`Main process starting v0.9.3. __dirname=${__dirname}`);
+debug(`Main process starting v0.9.1. __dirname=${__dirname}`);
 debug(`APP_PATH=${app.getAppPath()}`);
 
 // Set App User Model ID early for correct Windows Taskbar grouping/pinning

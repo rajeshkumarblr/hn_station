@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bookmark, Check, Link, Terminal, ExternalLink, Columns } from 'lucide-react';
+import { Bookmark, Check, Link, Terminal, ExternalLink, Columns, X } from 'lucide-react';
 
 export interface Story {
     id: number;
@@ -79,8 +79,8 @@ export function getTagColor(tag: string) {
 
 
 export function StoryCard({
-    story, index, onSelect, onToggleSave, onHide, onOpenInTab, onSummarize,
-    isSelected, isHighlighted, isRead, isEven,
+    story, index, onSelect, onToggleSave, onHide, onOpenInTab,
+    isSelected, isHighlighted, isRead,
     topicTextClass, titleColorStyle, activeTopics, onTopicClick
 }: StoryCardProps) {
     let domain = '';
@@ -108,16 +108,6 @@ export function StoryCard({
     const dimmed = story.is_read || isRead;
     const saved = story.is_saved || false;
 
-    // Zebra coloring — even rows: white, odd rows: light-blue tint
-    let bgClass = isEven
-        ? 'bg-white dark:bg-slate-900/90'
-        : 'bg-blue-50/60 dark:bg-blue-900/15';
-
-    if (dimmed && !isSelected) {
-        bgClass = isEven
-            ? 'bg-slate-50/90 dark:bg-slate-900/70'
-            : 'bg-blue-50/30 dark:bg-blue-900/10';
-    }
 
     const [contextMenuPos, setContextMenuPos] = useState<{ x: number, y: number } | null>(null);
 
@@ -139,177 +129,167 @@ export function StoryCard({
     const firstActiveMatch = story.topics?.find(t => activeTopics?.some(at => at.toLowerCase() === t.toLowerCase()));
     const activeStyle = firstActiveMatch ? getTagStyle(firstActiveMatch) : null;
 
+    // Unified card styling with hover lifting effect
     const activeBg = isHighlighted
-        ? 'bg-blue-100/70 dark:bg-[#264f78]/80 border-l-4 border-l-blue-600 dark:border-l-blue-400 shadow-xl shadow-blue-500/20 dark:shadow-black/60 ring-1 ring-blue-300 dark:ring-blue-500/50 z-10'
+        ? 'bg-slate-50 dark:bg-slate-900 border-indigo-200 dark:border-indigo-500/50 shadow-lg shadow-indigo-500/10 z-10 scale-[1.01]'
         : isSelected
-            ? 'bg-blue-50/40 dark:bg-blue-900/20 border-l-4 border-l-blue-500/50 dark:border-l-blue-500/30'
-            : `${bgClass} hover:ring-1 hover:ring-slate-300 dark:hover:ring-slate-700 hover:shadow-sm border-l-4 ${activeStyle ? '' : 'border-l-transparent'}`;
+            ? 'bg-white dark:bg-slate-900 border-indigo-100 dark:border-indigo-500/30 shadow-sm'
+            : `bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-900 hover:border-slate-200 dark:hover:border-slate-800 hover:shadow-md hover:scale-[1.005]`;
 
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all flex-1 py-2 px-4 flex flex-col justify-center relative border-b border-slate-100 dark:border-slate-800 ${activeBg}`}
-            style={!isHighlighted && !isSelected && activeStyle ? { borderLeftColor: activeStyle.color } : undefined}
+            className={`group transition-all duration-200 flex flex-col justify-center relative border rounded-xl px-5 py-3 ${activeBg}`}
             onClick={() => onSelect && onSelect(story.id)}
             onContextMenu={handleContextMenu}
         >
-            {/* Action Buttons Container - Top Right */}
-            <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
+            {/* Action Buttons Container - Top Right - Subtler/Hover Only */}
+            <div className="absolute top-3 right-3 flex items-center gap-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <button
                     onClick={(e) => { e.stopPropagation(); onOpenInTab && onOpenInTab(story.id, 'split'); }}
-                    className="p-1 rounded-md text-blue-500 hover:text-white hover:bg-blue-600 transition-all duration-150 flex items-center justify-center shrink-0 border border-blue-200/50 dark:border-blue-500/20"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all"
                     title="Open in Tab"
                 >
-                    <Columns size={14} strokeWidth={2.5} />
+                    <Columns size={14} />
                 </button>
 
-                {/* Open in Browser button */}
                 <button
                     onClick={(e) => { e.stopPropagation(); (window as any).electronAPI ? (window as any).electronAPI.openExternal(story.url) : window.open(story.url, '_blank'); }}
-                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-150 flex items-center justify-center shrink-0 border border-slate-200/50 dark:border-slate-700/30"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                     title="Open in Browser"
                 >
-                    <ExternalLink size={12} strokeWidth={2.5} />
+                    <ExternalLink size={14} />
                 </button>
 
                 <button
                     onClick={(e) => { handleCopyLink(e); }}
-                    className={`p-1 rounded-md transition-all duration-150 border border-slate-200/50 dark:border-slate-700/30 ${isCopied ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800/40'}`}
+                    className={`p-1.5 rounded-lg transition-all ${isCopied ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                     title={isCopied ? 'Copied!' : 'Copy Link'}
                 >
                     {isCopied ? <Check size={14} /> : <Link size={14} />}
                 </button>
 
-                {/* Save/Bookmark button */}
                 <button
                     onClick={(e) => { e.stopPropagation(); if (onToggleSave) onToggleSave(story.id, !saved); }}
-                    className={`p-1 rounded-md transition-all duration-150 ${saved
-                        ? 'text-yellow-500 dark:text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300 hover:scale-110'
+                    className={`p-1.5 rounded-lg transition-all ${saved
+                        ? 'text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-500/10'
                         : onToggleSave 
-                            ? 'text-gray-400 dark:text-slate-600 hover:text-yellow-500 dark:hover:text-yellow-400 hover:scale-110'
-                            : 'text-gray-300 dark:text-slate-800 cursor-not-allowed'
+                            ? 'text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            : 'text-slate-200 dark:text-slate-800 cursor-not-allowed'
                         }`}
                     title={!onToggleSave ? 'Login to bookmark' : saved ? 'Unbookmark' : 'Bookmark'}
                 >
                     <Bookmark size={14} fill={saved ? "currentColor" : "none"} />
                 </button>
 
-                {/* Close button */}
                 {onHide && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onHide(story.id); }}
-                        className="p-1 rounded-md text-gray-400 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all duration-150"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
                         title="Hide Story"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                        <X size={14} />
                     </button>
                 )}
             </div>
 
             <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
-                <h3 className="text-[14px] leading-snug mb-0 font-semibold whitespace-normal transition-all duration-200">
+                <div className="flex items-start gap-3">
                     {displayRank && (
-                        <span className="text-slate-400 dark:text-slate-500 font-normal mr-2 select-none tabular-nums text-xs">
-                            {displayRank}.
+                        <span className="text-[11px] font-black text-slate-300 dark:text-slate-700 mt-1 tabular-nums w-4 shrink-0">
+                            {displayRank}
                         </span>
                     )}
-                    {/* Title + Topic Chip + Tooltip Wrapper */}
-                    <span
-                        className="relative inline-block align-middle group/tooltip"
-                    >
-                        {/* Title */}
-                        <span
-                            className={`hover:opacity-80 transition-opacity cursor-pointer font-bold mr-1.5 ${isHighlighted ? 'text-yellow-600 dark:text-yellow-400 font-black' : (!titleColorStyle && topicTextClass ? topicTextClass : '')} ${!isHighlighted && !titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-500/80 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-200') : ''}`}
-                            style={!isHighlighted && (activeStyle?.color || titleColorStyle) ? { color: (activeStyle?.color || titleColorStyle) as string } : undefined}
-                        >
-                            {story.title}
-                        </span>
-                    </span>
-                </h3>
+                    <div className="flex-1">
+                        <h3 className="text-[15px] leading-snug mb-1 font-bold whitespace-normal transition-all duration-200">
+                            <span
+                                className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isHighlighted ? 'text-indigo-600 dark:text-indigo-400' : (!titleColorStyle && topicTextClass ? topicTextClass : '')} ${!isHighlighted && !titleColorStyle && !topicTextClass ? (dimmed && !isSelected ? 'text-slate-400 font-normal' : 'text-slate-800 dark:text-slate-100') : ''}`}
+                                style={!isHighlighted && (activeStyle?.color || titleColorStyle) ? { color: (activeStyle?.color || titleColorStyle) as string } : undefined}
+                            >
+                                {story.title}
+                            </span>
+                        </h3>
 
-                {/* Details Row - Visible on selection OR hover */}
-                {/* We use grid/height transition for smooth expansion effect on hover, or just simple block display for now */}
-                <div className="overflow-hidden transition-all duration-200 ease-in-out mt-1.5 opacity-100 max-h-20">
-                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium pt-0.5">
-                        {domain && (
-                            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-500">
-                                <img
-                                    src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-                                    alt=""
-                                    className="w-3 h-3 rounded-sm opacity-75"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                                <span className="truncate max-w-[150px] hover:text-slate-800 dark:hover:text-slate-300 transition-colors">{domain}</span>
-                                <span className="text-slate-300 dark:text-slate-600">•</span>
+                        {/* Details Row */}
+                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-500 font-medium">
+                            {domain && (
+                                <div className="flex items-center gap-1.5">
+                                    <img
+                                        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                                        alt=""
+                                        className="w-3.5 h-3.5 rounded-sm grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                    <span className="truncate max-w-[150px] hover:text-slate-900 dark:hover:text-slate-300 transition-colors">{domain}</span>
+                                </div>
+                            )}
+                            {!domain && story.title.startsWith('Ask HN') && (
+                                <div className="flex items-center gap-1 text-indigo-500/70">
+                                    <Terminal size={11} />
+                                    <span>Ask HN</span>
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-4 border-l border-slate-200 dark:border-slate-800 pl-3 ml-1">
+                                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500/80">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                                    {story.score}
+                                </span>
+
+                                <span className="flex items-center gap-1">
+                                    by <span className="text-slate-600 dark:text-slate-400">{story.by}</span>
+                                </span>
+
+                                <span className="flex items-center gap-1" title={date.toLocaleString()}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                    {timeAgo}
+                                </span>
+
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
+                                    className={`flex items-center gap-1 transition-colors px-2 py-0.5 rounded-md ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
+                                </button>
                             </div>
-                        )}
-                        {!domain && story.title.startsWith('Ask HN') && (
-                            <div className="flex items-center gap-1 text-slate-500">
-                                <Terminal size={11} />
-                                <span>Ask HN</span>
-                                <span className="text-slate-300 dark:text-slate-600">•</span>
-                            </div>
-                        )}
 
-                        <span className="flex items-center gap-1 text-orange-600 dark:text-orange-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
-                            {story.score}
-                        </span>
-
-                        <span className="flex items-center gap-1">
-                            {story.by}
-                        </span>
-
-                        <span className="flex items-center gap-1" title={date.toLocaleString()}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                            {timeAgo}
-                        </span>
-
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
-                            className={`flex items-center gap-1 transition-colors px-2 py-0.5 rounded-full ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                            {story.descendants > 0 ? `${story.descendants}` : 'discuss'}
-                        </button>
-
-                        {/* Tags Display — plain #hashtag style, color on click */}
-                        {story.topics && story.topics.length > 0 && (
-                            <div className="flex items-center gap-1.5 ml-1 pt-0.5">
-                                <span className="text-slate-300 dark:text-slate-600">•</span>
-                                {story.topics.slice(0, 3).map((topic, i) => {
-                                    const ts = getTagStyle(topic);
-                                    const isActive = activeTopics?.some(t => t.toLowerCase() === topic.toLowerCase());
-                                    return (
-                                        <span
-                                            key={i}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onTopicClick?.(topic);
-                                            }}
-                                            className={`text-[12px] font-bold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 ${isActive ? 'px-2 py-0.5 rounded-md shadow-sm scale-110 z-10' : 'hover:text-blue-500 dark:hover:text-blue-400 opacity-70 hover:opacity-100'}`}
-                                            style={isActive ? {
-                                                background: ts.bg,
-                                                color: ts.color,
-                                                borderColor: ts.border,
-                                                borderWidth: '1px',
-                                                borderStyle: 'solid'
-                                            } : {
-                                                color: 'inherit'
-                                            }}
-                                        >
-                                            #{topic}
-                                        </span>
-                                    );
-                                })}
-                                {story.topics.length > 3 && (
-                                    <span className="text-[9px] text-slate-400">+{story.topics.length - 3}</span>
-                                )}
-                            </div>
-                        )}
+                            {/* Tags Display */}
+                            {story.topics && story.topics.length > 0 && (
+                                <div className="flex items-center gap-1.5 ml-auto">
+                                    {story.topics.slice(0, 3).map((topic, i) => {
+                                        const ts = getTagStyle(topic);
+                                        const isActive = activeTopics?.some(t => t.toLowerCase() === topic.toLowerCase());
+                                        return (
+                                            <span
+                                                key={i}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onTopicClick?.(topic);
+                                                }}
+                                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all duration-200 cursor-pointer ${isActive ? 'ring-1 ring-offset-1 dark:ring-offset-slate-900' : 'opacity-60 hover:opacity-100 hover:scale-105'}`}
+                                                style={{
+                                                    background: ts.bg,
+                                                    color: ts.color,
+                                                    borderColor: ts.border,
+                                                    borderWidth: '1px',
+                                                    borderStyle: 'solid'
+                                                }}
+                                            >
+                                                #{topic}
+                                            </span>
+                                        );
+                                    })}
+                                    {story.topics.length > 3 && (
+                                        <span className="text-[9px] text-slate-400 font-bold">+{story.topics.length - 3}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
+
 
             {/* Context Menu Popup */}
             {contextMenuPos && onOpenInTab && (

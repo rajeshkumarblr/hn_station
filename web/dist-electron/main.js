@@ -35,7 +35,7 @@ function h(t) {
   } catch {
   }
 }
-h(`Main process starting v0.9.3. __dirname=${P}`);
+h(`Main process starting v0.9.1. __dirname=${P}`);
 h(`APP_PATH=${c.getAppPath()}`);
 process.platform === "win32" && c.setAppUserModelId("com.hnstation.app");
 let e = null, m = null, g = null;

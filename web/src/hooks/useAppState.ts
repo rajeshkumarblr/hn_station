@@ -254,6 +254,7 @@ export function useAppState() {
         }
 
         const fetchMe = () => {
+            if (isElectron() && !apiBase) return;
             const url = `${apiBase}/api/me`;
 
             fetchWithAuth(url, { credentials: 'include' })
@@ -516,6 +517,7 @@ export function useAppState() {
     useEffect(() => {
         setLoading(true);
         setError(null);
+        if (isElectron() && !apiBase) return;
         const url = buildUrl(offset);
         if (!url) return;
 
