@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, X, Download, ShieldCheck, Zap, Monitor, Copy, Check, RefreshCw } from 'lucide-react';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
-import { getTagStyle } from './StoryCard';
+import { getTagStyle } from '../utils/colors';
 
 interface FilterSidebarProps {
     activeTopics: string[];

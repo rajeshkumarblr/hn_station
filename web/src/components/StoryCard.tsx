@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Bookmark, Check, Link, Terminal, ExternalLink, Columns, X, Sparkles } from 'lucide-react';
+import { getTagStyle } from '../utils/colors';
 
 export interface Story {
     id: number;
@@ -38,32 +39,7 @@ interface StoryCardProps {
 
 
 
-export function getTagStyle(tag: string): { color: string; bg: string; border: string } {
-    // Deterministic unique HSL color from tag name
-    let hash = 0;
-    for (let i = 0; i < tag.length; i++) {
-        hash = tag.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    // Spread hues evenly, keep saturation/lightness readable
-    let hue = Math.abs(hash) % 360;
-    // Avoid yellow/amber/orange (20-75) to keep it for selection
-    if (hue >= 20 && hue <= 75) {
-        hue = hue < 47 ? 15 : 85; 
-    }
-    
-    const sat = 65 + (Math.abs(hash >> 8) % 15); // 65-80%
-    const lit = 55 + (Math.abs(hash >> 16) % 10); // 55-65%
-    const color = `hsl(${hue}, ${sat}%, ${lit}%)`;
-    const bg = `hsla(${hue}, ${sat}%, ${lit}%, 0.12)`;
-    const border = `hsl(${hue}, ${sat}%, ${lit}%)`;
-    return { color, bg, border };
-}
 
-// Legacy Tailwind alias — kept for any external consumers
-export function getTagColor(tag: string) {
-    const s = getTagStyle(tag);
-    return { bg: '', text: '', border: '', _style: s };
-}
 
 // A tag that shows as plain #hashtag text, lights up with its color when clicked
 
@@ -116,8 +92,10 @@ export function StoryCard({
 
     // Focus (keyboard/hover) vs Selection (open tab)
     // We want the current focus to be the most prominent.
+    // Fallback: If no topic match, check if title contains the active topic keyword
     const matchingActiveTopic = activeTopics?.find(at => 
-        story.topics?.some(st => st.toLowerCase() === at.toLowerCase())
+        story.topics?.some(st => st.toLowerCase() === at.toLowerCase()) ||
+        story.title.toLowerCase().includes(at.toLowerCase())
     );
     const activeTopicStyle = matchingActiveTopic ? getTagStyle(matchingActiveTopic) : null;
 

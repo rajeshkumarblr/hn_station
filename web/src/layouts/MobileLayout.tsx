@@ -1,6 +1,7 @@
 
 import { Home, Bookmark, Settings, ArrowLeft, RefreshCw, Sun, Moon } from 'lucide-react';
-import { StoryCard, getTagStyle } from '../components/StoryCard';
+import { StoryCard } from '../components/StoryCard';
+import { getTagStyle } from '../utils/colors';
 import { ReaderPane } from '../components/ReaderPane';
 import { getStoryTopicMatch } from '../hooks/useAppState';
 import { MODES } from '../types';

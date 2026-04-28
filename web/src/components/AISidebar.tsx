@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
 import type { Story, User } from '../types';
-import { getTagStyle } from './StoryCard';
+import { getTagStyle } from '../utils/colors';
 import { CommentList } from './CommentList';
 
 const AI_COLORS = [

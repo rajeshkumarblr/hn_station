@@ -17,16 +17,16 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v0.9.0)
+## 🖥️ Electron Desktop App (v0.9.3)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
-- **Context-Aware Sidebars**: The global "Article Summary" sidebar is now intelligently scoped strictly to the **Feed tab**, eliminating UI redundancy while reading full articles.
-- **Pinned Numbered Pagination**: A compact `< Prev 1 2 3 ... N Next >` navigation bar pinned to the bottom of the feed for one-click access to the full story archive.
-- **Maximized Feed Real Estate**: Article cards dynamically stretch to occupy the full height of the feed pane, eliminating dead space and providing a balanced, high-density reading experience.
-- **Contextual Feed Toolbar**: Integrated topic filters, "Disable All", "Remove All", and "Refresh" controls directly into the Feed tab for rapid content curation.
-- **Unified Analysis Sidebar**: Consolidated AI-powered summaries and suggested article topics in a single, high-performance side panel.
+- **Color-Coded Topic Filtering**: Every article in the filtered view now inherits its title color from the active filter (e.g., #LLM is blue, #robotics is green), making the association between topics and content immediate and visual.
+- **Olive Theme Refresh**: A refined "Olive Green" selection theme for cards and sidebars that provides high contrast and a professional, premium feel.
+- **Article Insight Panel**: A dedicated context panel in the sidebar that consolidates the story title, metadata (author, score, comments), and AI-powered takeaways.
+- **Selection Bridge**: A high-visibility Yellow/Amber highlight for the active story title that synchronizes across the feed and the sidebar.
+- **Maximized Feed Density**: Simplified card design that moves secondary metadata to the sidebar, allowing more stories to fit in the visible viewport.
 - **Zero-Login Reader**: Local SQLite persistence for your bookmarks, read history, and topic filters—no account required.
 - **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view.
 - **Resizable Layout**: Dynamically adjust the width of the sidebar to balance article reading and conversation.

@@ -1,12 +1,20 @@
-export const STORY_COLORS = [
-    'text-red-600 dark:text-red-400', 'text-orange-600 dark:text-orange-400', 'text-amber-600 dark:text-amber-400',
-    'text-yellow-600 dark:text-yellow-400', 'text-lime-600 dark:text-lime-400', 'text-green-600 dark:text-green-400',
-    'text-emerald-600 dark:text-emerald-400', 'text-teal-600 dark:text-teal-400', 'text-cyan-600 dark:text-cyan-400',
-    'text-sky-600 dark:text-sky-400', 'text-blue-600 dark:text-blue-400', 'text-indigo-600 dark:text-indigo-400',
-    'text-violet-600 dark:text-violet-400', 'text-purple-600 dark:text-purple-400', 'text-fuchsia-600 dark:text-fuchsia-400',
-    'text-pink-600 dark:text-pink-400', 'text-rose-600 dark:text-rose-400'
-];
-
-export function getStoryColor(id: number): string {
-    return STORY_COLORS[id % STORY_COLORS.length];
+export function getTagStyle(tag: string): { color: string; bg: string; border: string } {
+    // Deterministic unique HSL color from tag name
+    let hash = 0;
+    for (let i = 0; i < tag.length; i++) {
+        hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    // Spread hues evenly, keep saturation/lightness readable
+    let hue = Math.abs(hash) % 360;
+    // Avoid yellow/amber/orange (20-75) to keep it for selection
+    if (hue >= 20 && hue <= 75) {
+        hue = hue < 47 ? 15 : 85; 
+    }
+    
+    const sat = 65 + (Math.abs(hash >> 8) % 15); // 65-80%
+    const lit = 55 + (Math.abs(hash >> 16) % 10); // 55-65%
+    const color = `hsl(${hue}, ${sat}%, ${lit}%)`;
+    const bg = `hsla(${hue}, ${sat}%, ${lit}%, 0.12)`;
+    const border = `hsl(${hue}, ${sat}%, ${lit}%)`;
+    return { color, bg, border };
 }

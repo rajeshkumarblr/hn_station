@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
 import pkg from '../../package.json';
 import { RefreshCw, Home, Bookmark, Settings, X, Search, ToggleLeft, ToggleRight, Filter } from 'lucide-react';
-import { StoryCard, getTagStyle } from '../components/StoryCard';
+import { StoryCard } from '../components/StoryCard';
+import { getTagStyle } from '../utils/colors';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
 import { AdminDashboard } from '../components/AdminDashboard';
