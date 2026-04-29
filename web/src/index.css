@@ -69,13 +69,40 @@ body {
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #334155;
 }
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-}
-
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #475569;
+}
+
+@layer utilities {
+  .glass-card {
+    @apply backdrop-blur-md bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-slate-800/40;
+  }
+  
+  .premium-shadow {
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+  }
+
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-500/10;
+  }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s infinite ease-in-out;
 }
 
 /* Firefox scrollbar */

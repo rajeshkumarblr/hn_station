@@ -17,20 +17,18 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v0.9.3)
+## 🖥️ Electron Desktop App (v0.9.4)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
-- **Color-Coded Topic Filtering**: Every article in the filtered view now inherits its title color from the active filter (e.g., #LLM is blue, #robotics is green), making the association between topics and content immediate and visual.
-- **Olive Theme Refresh**: A refined "Olive Green" selection theme for cards and sidebars that provides high contrast and a professional, premium feel.
-- **Article Insight Panel**: A dedicated context panel in the sidebar that consolidates the story title, metadata (author, score, comments), and AI-powered takeaways.
-- **Selection Bridge**: A high-visibility Yellow/Amber highlight for the active story title that synchronizes across the feed and the sidebar.
-- **Maximized Feed Density**: Simplified card design that moves secondary metadata to the sidebar, allowing more stories to fit in the visible viewport.
+- **Premium "SaaS" UI Refinement**: Introducing a high-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
+- **Interactive Tactility**: Story cards now feature a "Floating Lift" hover effect, staggered entry animations, and smooth CSS transitions.
+- **Enhanced Sidebar Layout**: A resizable and fully collapsible sidebar with dedicated "Article Insight" and "Article Topics" sections for better discovery.
+- **Strict Topic Filtering**: Re-engineered the backend storage query to use exact `json_each` matching, eliminating fuzzy results and ensuring your feed is perfectly targeted.
 - **Zero-Login Reader**: Local SQLite persistence for your bookmarks, read history, and topic filters—no account required.
 - **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view.
-- **Resizable Layout**: Dynamically adjust the width of the sidebar to balance article reading and conversation.
-- **Rich Sidebar Summaries**: AI-powered takeaways from Gemini Pro (cloud) or local models (Ollama).
+- **High-Performance Background Ingestion**: The Go-based local agent handles continuous HN ingestion while the app is open, ensuring your feed is always fresh.
 
 ### ⌨️ Keyboard Shortcuts
 

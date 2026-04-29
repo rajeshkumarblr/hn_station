@@ -98,15 +98,16 @@ export function StoryCard({
 
     // Unified card styling with hover lifting effect
     const activeBg = isHighlighted
-        ? 'bg-gradient-to-r from-lime-50 via-lime-50/30 to-white dark:from-lime-950/30 dark:via-lime-950/15 dark:to-[#111827] border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-200/60 border-r-lime-100/40 dark:border-y-lime-500/20 dark:border-r-lime-500/10 shadow-lg shadow-lime-500/8 z-10 ring-1 ring-lime-500/10'
+        ? 'glass-card dark:from-lime-950/20 dark:to-slate-900/40 border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle'
         : isSelected
-            ? 'bg-white dark:bg-slate-800/60 border-l-[3px] border-l-lime-400/50 border-y border-r border-y-lime-100 border-r-lime-100 dark:border-y-lime-500/15 dark:border-r-lime-500/15 shadow-sm'
-            : `bg-white dark:bg-[#111827] border border-slate-100 dark:border-slate-800/60 hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-md hover:scale-[1.003]`;
+            ? 'glass-card border-l-[3px] border-l-lime-400/50 shadow-md'
+            : `glass-card hover:bg-white dark:hover:bg-slate-800/40 hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-0.5`;
 
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all duration-200 flex flex-col justify-center relative border rounded-xl px-5 py-3 ${activeBg}`}
+            className={`group transition-all duration-300 flex flex-col justify-center relative rounded-2xl px-5 py-4 animate-slide-in ${activeBg}`}
+            style={{ animationDelay: `${(index !== undefined ? index % 10 : 0) * 0.05}s` }}
             onClick={() => onSelect && onSelect(story.id)}
             onContextMenu={handleContextMenu}
         >
@@ -164,9 +165,9 @@ export function StoryCard({
                 <div className="flex items-start gap-3">
                     {displayRank && (
                         <div className="flex flex-col items-center mt-0.5 shrink-0">
-                            <span className="text-[13px] font-black text-slate-300 dark:text-slate-600 tabular-nums w-6 text-center">
+                            <div className="absolute left-[-45px] top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-slate-200/30 dark:bg-slate-800/30 text-[11px] font-bold text-slate-400/60 dark:text-slate-500/50 group-hover:bg-indigo-500/10 group-hover:text-indigo-400 transition-all">
                                 {displayRank}
-                            </span>
+                            </div>
                         </div>
                     )}
                     <div className="flex-1">

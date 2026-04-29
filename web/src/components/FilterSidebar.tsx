@@ -195,8 +195,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                                         style={isActive ? { 
                                                             backgroundColor: style.bg, 
                                                             color: style.color, 
-                                                            borderColor: style.border,
-                                                            ringColor: style.border 
+                                                            borderColor: style.border
                                                         } : {}}
                                                     >
                                                         {isActive ? '✓ ' : '#'}{topic}

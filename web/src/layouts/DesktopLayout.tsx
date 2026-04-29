@@ -265,10 +265,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     className="flex-1 overflow-hidden bg-slate-50 dark:bg-[#0c1222] flex flex-col" 
                     style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
                 >
-                    <div className="flex-1 flex flex-col overflow-hidden">
-                        {/* Feed Specific Toolbar */}
-                        {primaryTab === 'feed' && (
-                            <div className="px-6 py-2.5 border-b border-slate-700/50 bg-slate-900 dark:bg-[#080d1a] flex items-center justify-between gap-6 shrink-0 z-10 sticky top-0 shadow-[0_4px_20px_rgba(0,0,0,0.25)] dark:shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+                    <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+                        {/* Feed Filter Toolbar - Floating Glass Style */}
+                        {!loading && currentView === 'feed' && (
+                            <div className="h-[60px] flex items-center justify-between px-6 gap-4 z-20 glass-card mx-4 mt-3 rounded-2xl shadow-lg border-white/10 dark:border-slate-700/30">
                                 <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
                                     <button 
                                         onClick={() => setIsFilterActive(!isFilterActive)}
@@ -348,7 +348,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </div>
                             </div>
                         )}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-slate-50 dark:bg-[#0c1222]">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#f8fafc] dark:bg-[#080c14] pt-4">
                             {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-indigo-500 mx-auto" /></div>}
                             {!loading && (
                                 <div className="flex-1 flex flex-col min-h-full pb-8">
@@ -361,7 +361,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             const isRead = readIds.has(story.id) || !!story.is_read;
                                             return (
                                                 <div key={story.id} ref={el => storyRefs.current[index] = el}
-                                                    className="px-4 py-1.5"
+                                                    className="px-6 py-2.5"
                                                     onClick={() => setHighlightedStoryId(story.id)}
                                                     onDoubleClick={() => handleStorySelect(story.id, 'split')}
                                                 >
