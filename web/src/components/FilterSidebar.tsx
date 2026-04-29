@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, X, Download, ShieldCheck, Zap, Monitor, Copy, Check, RefreshCw, ChevronRight } from 'lucide-react';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
-import { getTagStyle } from '../utils/colors';
+import { getTagStyle, getNeutralTagStyle } from '../utils/colors';
 
 interface FilterSidebarProps {
     activeTopics: string[];
@@ -65,7 +65,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     const aiEnabled = user?.ai_summaries_enabled;
 
     return (
-        <div className="w-80 shrink-0 h-full border-l border-slate-100 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-950/40 backdrop-blur-xl hidden md:flex flex-col gap-0 overflow-hidden">
+        <div className="flex-1 shrink-0 h-full border-l border-slate-100 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-950/40 backdrop-blur-xl hidden md:flex flex-col gap-0 overflow-hidden">
 
             {/* ── AI Summary & Suggested Tags (Top 70%) ─────────────────────────────────── */}
             {(aiEnabled || hasSummary) ? (
@@ -177,7 +177,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                         <div className="flex flex-wrap gap-2">
                                             {highlightedStory.topics.map(topic => {
                                                 const isActive = activeTopics.includes(topic);
-                                                const style = getTagStyle(topic);
+                                                const style = isActive ? getTagStyle(topic) : getNeutralTagStyle();
                                                 return (
                                                     <button
                                                         key={`article-topic-${topic}`}
@@ -190,14 +190,14 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                                             }
                                                         }}
                                                         className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${isActive 
-                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950' 
-                                                            : 'opacity-70 hover:opacity-100'}`}
-                                                        style={{ 
+                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950 border-transparent shadow-md' 
+                                                            : 'opacity-60 hover:opacity-100 hover:border-slate-400 dark:hover:border-slate-500 bg-white/5 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50'}`}
+                                                        style={isActive ? { 
                                                             backgroundColor: style.bg, 
                                                             color: style.color, 
                                                             borderColor: style.border,
-                                                            ...(isActive ? { ringColor: style.border } : {})
-                                                        }}
+                                                            ringColor: style.border 
+                                                        } : {}}
                                                     >
                                                         {isActive ? '✓ ' : '#'}{topic}
                                                     </button>

@@ -91,7 +91,7 @@ export function StoryCard({
     // We want the current focus to be the most prominent.
     // Fallback: If no topic match, check if title contains the active topic keyword
     const matchingActiveTopic = activeTopics?.find(at => 
-        story.topics?.some(st => st.toLowerCase() === at.toLowerCase()) ||
+        story.topics?.some(st => st.toLowerCase().includes(at.toLowerCase())) ||
         story.title.toLowerCase().includes(at.toLowerCase())
     );
     const activeTopicStyle = matchingActiveTopic ? getTagStyle(matchingActiveTopic) : null;

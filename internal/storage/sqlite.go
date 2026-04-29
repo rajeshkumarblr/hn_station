@@ -255,8 +255,9 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 		var topicConditions []string
 		for _, t := range topics {
 			pattern := "%" + strings.ToLower(t) + "%"
-			topicConditions = append(topicConditions, "(LOWER(title) LIKE ? OR LOWER(topics) LIKE ?)")
-			args = append(args, pattern, pattern)
+			// Use json_each for exact matching in the topics array, and LIKE for the title
+			topicConditions = append(topicConditions, fmt.Sprintf("(LOWER(title) LIKE ? OR EXISTS (SELECT 1 FROM json_each(topics) WHERE LOWER(value) = '%s'))", strings.ReplaceAll(strings.ToLower(t), "'", "''")))
+			args = append(args, pattern)
 		}
 		whereClause += " AND (" + strings.Join(topicConditions, " OR ") + ")"
 	}

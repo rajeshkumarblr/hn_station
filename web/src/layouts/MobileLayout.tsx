@@ -121,7 +121,7 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                                         <StoryCard
                                             story={story} index={index} isSelected={false} isRead={isRead} isEven={index % 2 === 0}
                                             onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory}
-                                            activeTopics={activeTopics}
+                                            activeTopics={app.isFilterActive ? activeTopics.filter(t => !app.disabledTopics.includes(t)) : []}
                                         />
                                     </div>
                                 );
