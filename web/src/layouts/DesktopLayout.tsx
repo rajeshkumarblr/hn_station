@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-
+import pkg from '../../package.json';
 import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { getTagStyle } from '../utils/colors';
@@ -193,7 +193,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                         <span className="text-[13px] font-black tracking-[0.2em] bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent uppercase leading-none">HN Station</span>
-                        <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 ml-0.5 tracking-normal lowercase">v0.9.5</span>
+                        <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 ml-0.5 tracking-normal lowercase">v{pkg.version}</span>
                     </div>
                 </div>
 
