@@ -1,6 +1,6 @@
 # HN Station — Design Document
 
-> **Version**: 1.0.0-rc37 · **Last Updated**: 2026-04-25
+> **Version**: 0.9.6 · **Last Updated**: 2026-04-30
 > Live at [hnstation.dev](https://hnstation.dev)
 
 This document captures the **architectural decisions, design rationale, and operational constraints** that govern HN Station. It serves as the source of truth for the project's evolution from a cloud-first reader to a local-first productivity tool.
@@ -43,6 +43,18 @@ HN Station has transitioned from a cloud-centric service to a **Local-First Desk
 - **PDF Extraction**: Using the Go `pdf` package to extract text from the first 20 pages of linked documents.
 - **GitHub Integration**: Detecting repo-links in "Show HN" posts and fetching the `README.md` via the raw GitHub API.
 **Rationale**: Hacker News is increasingly a platform for sharing deep technical papers and new software repos. Standard "readability" parsers fail on these, leaving the AI with zero context.
+
+### 2.5 Hybrid FTS5 Search System
+**Decision**: Implementing a hybrid search model combining SQLite's Full-Text Search (FTS5) for keyword matching with JSON-indexed semantic topic filtering.
+**Rationale**: 
+- **Precision**: FTS5 allows for fast, multi-column search across titles, summaries, and topics.
+- **Flexibility**: The "ANY/ALL" match logic gives users control over the breadth of their feed (Union vs. Intersection of topics).
+
+### 2.6 Deterministic Global Tagging
+**Decision**: Assigning colors to topic tags using a hash-based deterministic palette.
+**Rationale**: 
+- **Cognitive Load**: If `#LLM` is blue in the toolbar, it's blue on every article card. This creates strong visual associations and reduces scanning time.
+- **No Mapping Required**: Colors are generated on-the-fly based on the tag string, removing the need for a central color-to-tag database.
 
 ---
 
