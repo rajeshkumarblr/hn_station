@@ -100,8 +100,8 @@ export function StoryCard({
     const activeBg = isHighlighted
         ? 'glass-card dark:from-lime-950/20 dark:to-slate-900/40 border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle'
         : isSelected
-            ? 'glass-card border-l-[3px] border-l-lime-400/50 shadow-md'
-            : `glass-card hover:bg-white dark:hover:bg-slate-800/40 hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 hover:-translate-y-0.5`;
+            ? 'glass-card border-l-[3px] border-l-orange-500 shadow-md'
+            : `glass-card hover:bg-white dark:hover:bg-slate-800/40 hover:border-orange-500/30 hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
 
     return (
         <div
@@ -190,7 +190,7 @@ export function StoryCard({
                                         className="w-3.5 h-3.5 rounded-sm grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all"
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                     />
-                                    <span className="truncate max-w-[120px]">{domain}</span>
+                                    <span className="truncate max-w-[120px] text-slate-300 dark:text-slate-400 font-bold">{domain}</span>
                                 </div>
                             )}
                             {!domain && story.title.startsWith('Ask HN') && (
@@ -199,15 +199,15 @@ export function StoryCard({
                                     <span>Ask HN</span>
                                 </div>
                             )}
-                            <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-500/80">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                            <span className="flex items-center gap-0.5 text-amber-500 dark:text-amber-400 font-bold">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
                                 {story.score}
                             </span>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
-                                className={`flex items-center gap-0.5 transition-colors ${story.descendants > 0 ? 'text-indigo-500 dark:text-indigo-400/80' : 'text-slate-400'}`}
+                                className={`flex items-center gap-0.5 transition-colors font-bold ${story.descendants > 0 ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400'}`}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 {story.descendants > 0 ? story.descendants : ''}
                             </button>
 

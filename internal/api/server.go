@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -37,6 +38,7 @@ type Server struct {
 	pendingAuthToken string
 	Status       *IngestStatus
 	Prioritizer  Prioritizer
+	ingestingComments sync.Map // storyID (int) -> bool
 }
 
 type IngestStatus struct {
@@ -672,16 +674,57 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[api] handleGetStoryDetails id=%d", id)
+
+	log.Printf("[api] story=%d fetching from store...", id)
 	story, err := s.store.GetStory(r.Context(), id)
 	if err != nil {
+		log.Printf("[api] story=%d GetStory error: %v", id, err)
 		http.Error(w, "Story not found", http.StatusNotFound)
 		return
 	}
 
+	log.Printf("[api] story=%d fetching comments from store...", id)
 	comments, err := s.store.GetComments(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Failed to fetch comments", http.StatusInternalServerError)
+		log.Printf("[api] story=%d GetComments error: %v", id, err)
+		http.Error(w, "Comments not found", http.StatusInternalServerError)
 		return
+	}
+	log.Printf("[api] story=%d found %d comments", id, len(comments))
+
+	isIngesting := false
+	if _, ok := s.ingestingComments.Load(id); ok {
+		isIngesting = true
+	} else if len(comments) < story.Descendants || len(comments) == 0 {
+		// If we have fewer comments than descendants, or none at all, trigger a background sync
+		isIngesting = true
+		go func() {
+			s.ingestingComments.Store(id, true)
+			defer s.ingestingComments.Delete(id)
+			
+			log.Printf("[api] story=%d local_comments=%d descendants=%d -> triggering background sync", id, len(comments), story.Descendants)
+			log.Printf("[api] Async checking HN for comments on story %d...", id)
+			item, err := s.hnClient.GetItem(context.Background(), id)
+			if err == nil {
+				// Update story metadata (descendants count) while we are at it
+				updatedStory := storage.Story{
+					ID:          int64(item.ID),
+					Title:       item.Title,
+					URL:         item.URL,
+					Score:       item.Score,
+					By:          item.By,
+					Descendants: item.Descendants,
+					PostedAt:    time.Unix(item.Time, 0),
+				}
+				_ = s.store.UpsertStory(context.Background(), updatedStory)
+
+				if len(item.Kids) > 0 {
+					log.Printf("[api] Found %d kids for story %d, starting recursive fetch...", len(item.Kids), id)
+					s.fetchCommentsRecursive(context.Background(), id, item.Kids, nil)
+				}
+			}
+		}()
 	}
 
 	if comments == nil {
@@ -689,15 +732,43 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := struct {
-		Story    *storage.Story    `json:"story"`
-		Comments []storage.Comment `json:"comments"`
+		Story               *storage.Story    `json:"story"`
+		Comments            []storage.Comment `json:"comments"`
+		IsIngestingComments bool              `json:"is_ingesting_comments"`
 	}{
-		Story:    story,
-		Comments: comments,
+		Story:               story,
+		Comments:            comments,
+		IsIngestingComments: isIngesting,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	log.Printf("[api] Responding for story %d with %d comments. is_ingesting=%v", id, len(comments), isIngesting)
 	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) fetchCommentsRecursive(ctx context.Context, storyID int, kids []int, parentID *int64) {
+	for _, kidID := range kids {
+		item, err := s.hnClient.GetItem(ctx, kidID)
+		if err != nil {
+			continue
+		}
+		if item.Type != "comment" || item.Deleted || item.Dead {
+			continue
+		}
+		comment := storage.Comment{
+			ID:       int64(item.ID),
+			StoryID:  int64(storyID),
+			ParentID: parentID,
+			Text:     item.Text,
+			By:       item.By,
+			PostedAt: time.Unix(item.Time, 0),
+		}
+		_ = s.store.UpsertComment(ctx, comment)
+		if len(item.Kids) > 0 {
+			pID := int64(item.ID)
+			s.fetchCommentsRecursive(ctx, storyID, item.Kids, &pID)
+		}
+	}
 }
 
 // ─── Interaction Handlers ───

@@ -162,12 +162,15 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         }
                                         setCurrentView('feed');
                                     }}
-                                    className={`text-[11px] font-bold tracking-tight transition-all outline-none px-3 py-1.5 rounded-full ${isSelected
-                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                                    className={`text-[11px] font-bold tracking-tight transition-all outline-none px-3 py-1.5 rounded-full relative group ${isSelected
+                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                                         : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'
                                         }`}
                                 >
                                     {m.label}
+                                    {isSelected && (
+                                        <div className="absolute -bottom-[14px] left-1/2 -translate-x-1/2 w-4 h-1 bg-orange-500 rounded-full" />
+                                    )}
                                 </button>
                             );
                         })}
@@ -191,7 +194,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                         <span className="text-[13px] font-black tracking-[0.2em] bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent uppercase leading-none">HN Station</span>
-                        <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 ml-0.5 tracking-normal lowercase">v{pkg.version}</span>
+                        <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 ml-0.5 tracking-normal lowercase">v0.9.5</span>
                     </div>
                 </div>
 

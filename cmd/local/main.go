@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	Version      = "v0.9.3"
+	Version      = "v0.9.5"
 	workerCount  = 1
 	totalStories = 100 // Keep top 100 front-page stories
 )
@@ -478,6 +478,11 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 	}
 	_ = store.UpsertStory(ctx, story)
 
+	// NEW: Fetch comments during ingestion
+	if len(item.Kids) > 0 {
+		processComments(ctx, client, store, item.Kids, int64(item.ID), nil)
+	}
+
 	if item.URL != "" && item.Score > 10 {
 		aiEnabled, _ := store.GetSetting(ctx, "ai_summaries_enabled")
 		autoEnabled, _ := store.GetSetting(ctx, "auto_summarize_enabled")
@@ -496,4 +501,36 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 		}
 	}
 	return nil
+}
+
+func processComments(ctx context.Context, client *hn.Client, store storage.DB, kids []int, storyID int64, parentID *int64) {
+	for _, kidID := range kids {
+		item, err := client.GetItem(ctx, kidID)
+		if err != nil {
+			log.Printf("[ingest] Failed to fetch comment %d: %v", kidID, err)
+			continue
+		}
+
+		if item.Type != "comment" || item.Deleted || item.Dead {
+			continue
+		}
+
+		comment := storage.Comment{
+			ID:       int64(item.ID),
+			StoryID:  storyID,
+			ParentID: parentID,
+			Text:     item.Text,
+			By:       item.By,
+			PostedAt: time.Unix(item.Time, 0),
+		}
+
+		if err := store.UpsertComment(ctx, comment); err != nil {
+			log.Printf("[ingest] Failed to upsert comment %d: %v", item.ID, err)
+		}
+
+		if len(item.Kids) > 0 {
+			pID := int64(item.ID)
+			processComments(ctx, client, store, item.Kids, storyID, &pID)
+		}
+	}
 }

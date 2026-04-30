@@ -52,20 +52,8 @@ export async function initApiBase(): Promise<void> {
         }
     }
 
-    // 2. Local Windows Service (Port 58090)
-    // Fallback if no spawned process (e.g. running as a background service)
-    if (typeof window !== 'undefined' && isElectron()) {
-        const isSvc = await probeService('http://127.0.0.1:58090');
-        if (isSvc) {
-            apiBase = 'http://127.0.0.1:58090';
-            console.log(`[apiBase] Connected to Windows Service: ${apiBase}`);
-            notifyListeners();
-            return;
-        }
-    }
-
-    // 3. Local Web Dev
-    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    // 2. Local Web Dev (Fallback for non-Electron localhost testing)
+    if (typeof window !== 'undefined' && !apiBase && window.location.hostname === 'localhost') {
         apiBase = 'http://localhost:8080';
         console.log(`[apiBase] Resolved Local Web API: ${apiBase}`);
         notifyListeners();

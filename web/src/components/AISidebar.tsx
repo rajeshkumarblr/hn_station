@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Check, RefreshCw, Sparkles, X, MessageSquare, Copy, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
@@ -30,16 +30,57 @@ interface AISidebarProps {
     onTabChange: (tab: 'discussion' | 'summary' | 'gemini') => void;
     containerRef?: React.RefObject<HTMLDivElement>;
     width?: number;
+    isIngesting?: boolean;
 }
 
 export function AISidebar({ 
     story, isOpen, onClose, user, onSetSummary, onSetDiscussionSummary,
-    comments, commentsLoading, activeCommentId, onFocusComment,
+    comments, commentsLoading, isIngesting, activeCommentId, onFocusComment,
     activeTab, onTabChange, containerRef, width = 480
 }: AISidebarProps) {
     const [summarizing, setSummarizing] = useState(false);
     const [discussSummarizing, setDiscussSummarizing] = useState(false);
     const [copied, setCopied] = useState(false);
+    const webviewRef = useRef<any>(null);
+
+    useEffect(() => {
+        const webview = webviewRef.current;
+        if (!webview) return;
+
+        const handleNavigate = (e: any) => {
+            const newUrl = e.url;
+            if (newUrl && newUrl.includes('gemini.google.com/app/')) {
+                const baseUrl = getApiBase();
+                if (baseUrl) {
+                    fetchWithAuth(`${baseUrl}/api/stories/${story.id}/gemini_url`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: newUrl })
+                    }).catch(err => console.error('Failed to save Gemini URL', err));
+                }
+            }
+        };
+
+        const handleDomReady = () => {
+            const scrollbarCSS = `
+                ::-webkit-scrollbar { width: 10px; height: 10px; }
+                ::-webkit-scrollbar-track { background: #0f172a; }
+                ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; border: 2px solid #0f172a; }
+                ::-webkit-scrollbar-thumb:hover { background: #475569; }
+            `;
+            webview.insertCSS(scrollbarCSS).catch((err: any) => console.error("Failed to inject CSS", err));
+        };
+
+        webview.addEventListener('did-navigate', handleNavigate);
+        webview.addEventListener('did-navigate-in-page', handleNavigate);
+        webview.addEventListener('dom-ready', handleDomReady);
+
+        return () => {
+            webview.removeEventListener('did-navigate', handleNavigate);
+            webview.removeEventListener('did-navigate-in-page', handleNavigate);
+            webview.removeEventListener('dom-ready', handleDomReady);
+        };
+    }, [story.id]);
 
     const handleCopy = () => {
         if (!story.summary) return;
@@ -192,13 +233,22 @@ export function AISidebar({
                     tabIndex={-1}
                 >
                     <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
-                        {commentsLoading ? (
+                        {((commentsLoading && comments.length === 0) || (isIngesting && comments.length === 0)) ? (
                             <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
                                 <RefreshCw size={24} className="animate-spin text-orange-500" />
-                                <span className="animate-pulse font-medium text-xs uppercase tracking-widest">Loading HN discussion...</span>
+                                <span className="animate-pulse font-medium text-[10px] uppercase tracking-widest">
+                                    {isIngesting ? "Syncing from HN..." : "Loading discussion..."}
+                                </span>
                             </div>
-                        ) : comments && comments.length > 0 ? (
+                        ) : (comments && comments.length > 0) || isIngesting ? (
                             <div className="pb-20 space-y-6">
+                                {isIngesting && (
+                                    <div className="flex items-center justify-center gap-2 py-2 px-4 bg-orange-500/10 border border-orange-500/20 rounded-xl animate-pulse">
+                                        <RefreshCw size={12} className="animate-spin text-orange-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">Updating discussion from Hacker News...</span>
+                                    </div>
+                                )}
+                                
                                 {/* Discussion Summary Section */}
                                 {story.discussion_summary ? (
                                     <div className="p-5 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
@@ -246,6 +296,7 @@ export function AISidebar({
                             <div className="flex flex-col items-center justify-center h-full text-center opacity-40">
                                 <MessageSquare size={48} className="text-slate-300 dark:text-slate-700 mb-4" />
                                 <p className="text-sm font-bold uppercase tracking-widest">No comments yet</p>
+                                <p className="text-[10px] mt-2 opacity-60 italic">Refreshing may trigger a sync if this is an old story.</p>
                             </div>
                         )}
                     </div>
@@ -349,14 +400,10 @@ export function AISidebar({
 
                 {/* Gemini View Container - Always Mounted to avoid reload */}
                 <div className={`flex-1 flex flex-col relative bg-white dark:bg-slate-950 ${activeTab !== 'gemini' ? 'hidden' : ''}`}>
-                    {/* Overlay Controls */}
-                    <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-                        <span className="text-[9px] font-black uppercase text-slate-400 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded-full backdrop-blur-sm border border-slate-200 dark:border-white/5">Manual Chat Mode</span>
-                    </div>
-
                     {/* Electron WebView Tag */}
                     {/* @ts-ignore */}
                     <webview 
+                        ref={webviewRef}
                         src={story.gemini_url || "https://gemini.google.com"} 
                         className="flex-1 w-full h-full border-none"
                         style={{ background: 'white' }}

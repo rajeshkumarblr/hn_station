@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { Story } from '../types';
-import { getApiBase } from '../utils/apiBase';
+import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
 import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, Home, MessageSquare, FileText } from 'lucide-react';
@@ -56,17 +56,58 @@ export function ReaderPane({
     // Self-managed comments state
     const [comments, setComments] = useState<any[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
+    const [isIngesting, setIsIngesting] = useState(false);
 
-    const loadContent = (id: number) => {
-        setComments([]);
+    const [baseUrl, setBaseUrl] = useState('');
+    const articleWebviewRef = useRef<any>(null);
+
+    useEffect(() => {
+        const webview = articleWebviewRef.current;
+        if (!webview) return;
+
+        const handleDomReady = () => {
+            const scrollbarCSS = `
+                ::-webkit-scrollbar { width: 10px; height: 10px; }
+                ::-webkit-scrollbar-track { background: #0f172a; }
+                ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; border: 2px solid #0f172a; }
+                ::-webkit-scrollbar-thumb:hover { background: #475569; }
+            `;
+            webview.insertCSS(scrollbarCSS).catch((err: any) => console.error("Failed to inject CSS", err));
+        };
+
+        webview.addEventListener('dom-ready', handleDomReady);
+        return () => {
+            webview.removeEventListener('dom-ready', handleDomReady);
+        };
+    }, [story.id]);
+
+    useEffect(() => {
+        return subscribeApiBase(url => {
+            if (url) setBaseUrl(url);
+        });
+    }, []);
+
+    const loadContent = (id: number, apiUrl: string) => {
+        if (!apiUrl) return;
+        // Only clear if switching stories, with safety check for empty array
+        setComments(prev => (prev && prev.length > 0 && prev[0].story_id === id) ? prev : []);
         setCommentsLoading(true);
-        const baseUrl = getApiBase();
         const controller = new AbortController();
-        fetchWithAuth(`${baseUrl}/api/stories/${id}`, { signal: controller.signal })
-            .then(res => res.ok ? res.json() : null)
+        fetchWithAuth(`${apiUrl}/api/stories/${id}`, { signal: controller.signal })
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    return res.json();
+                } else {
+                    throw new Error("Oops, we haven't got JSON!");
+                }
+            })
             .then(data => {
                 if (data) {
-                    setComments(data.comments || []);
+                    const commentsArr = data.comments || [];
+                    setComments(commentsArr);
+                    setIsIngesting(data.is_ingesting_comments || false);
                     if (data.story && data.story.iframe_blocked !== undefined) {
                         setIframeBlocked(data.story.iframe_blocked);
                         onSetIframeBlocked?.(id, data.story.iframe_blocked);
@@ -75,31 +116,57 @@ export function ReaderPane({
                 setCommentsLoading(false);
             })
             .catch(err => {
-                if (err.name !== 'AbortError') setCommentsLoading(false);
+                if (err.name !== 'AbortError') {
+                    console.error(`[ReaderPane] Load failed for ${id}:`, err);
+                    setCommentsLoading(false);
+                    setIsIngesting(false);
+                }
             });
         return controller;
     };
 
     useEffect(() => {
-        // Initial load
-        const controller = loadContent(story.id);
+        let controller: AbortController | undefined;
+        if (story.id && baseUrl) {
+            controller = loadContent(story.id, baseUrl);
 
-        // Also explicitly check iframe if not known
-        if (isWebMode && story.url && story.iframe_blocked === undefined) {
-            const baseUrl = getApiBase();
-            fetchWithAuth(`${baseUrl}/api/stories/${story.id}/check-iframe`)
-                .then(res => res.ok ? res.json() : null)
-                .then(data => {
-                    if (data && data.iframe_blocked !== undefined) {
-                        setIframeBlocked(data.iframe_blocked);
-                        onSetIframeBlocked?.(story.id, data.iframe_blocked);
-                    }
-                })
-                .catch(err => console.error('Iframe check failed:', err));
+            // Also explicitly check iframe if not known
+            if (isWebPreview() && story.url && story.iframe_blocked === undefined) {
+                fetchWithAuth(`${baseUrl}/api/stories/${story.id}/check-iframe`)
+                    .then(res => res.ok ? res.json() : null)
+                    .then(data => {
+                        if (data && data.iframe_blocked !== undefined) {
+                            setIframeBlocked(data.iframe_blocked);
+                            onSetIframeBlocked?.(story.id, data.iframe_blocked);
+                        }
+                    })
+                    .catch(err => console.error('Iframe check failed:', err));
+            }
         }
 
-        return () => controller.abort();
-    }, [story.id]);
+        return () => {
+            if (controller) controller.abort();
+        };
+    }, [story.id, baseUrl]);
+
+    // NEW: Poll for comments if backend is ingesting them
+    useEffect(() => {
+        if (isIngesting) {
+            const interval = setInterval(() => {
+                const baseUrl = getApiBase();
+                fetchWithAuth(`${baseUrl}/api/stories/${story.id}`)
+                    .then(res => res.ok ? res.json() : null)
+                    .then(data => {
+                        if (data) {
+                            setComments(data.comments || []);
+                            setIsIngesting(data.is_ingesting_comments || false);
+                        }
+                    })
+                    .catch(() => setIsIngesting(false));
+            }, 3000);
+            return () => clearInterval(interval);
+        }
+    }, [isIngesting, story.id]);
 
 
     // Handle iframe blocked transition
@@ -237,7 +304,8 @@ export function ReaderPane({
                     <button onClick={onBack} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="Back to previous tab/feed">
                         <ArrowLeft size={18} />
                     </button>
-                    <button onClick={onHome} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="Go to Feed">
+                    <button onClick={onHome} className="p-2 relative text-blue-500 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg transition-all" title="Go to Feed">
+                        <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-5 bg-blue-500 rounded-r-full"></div>
                         <Home size={18} />
                     </button>
                     <button 
@@ -247,13 +315,6 @@ export function ReaderPane({
                         title="Refresh Content"
                     >
                         <RefreshCw size={18} />
-                    </button>
-                    <button
-                        onClick={() => onHide?.(story.id)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all rounded-lg"
-                        title="Close Reader"
-                    >
-                        <X size={18} />
                     </button>
                 </div>
 
@@ -369,6 +430,7 @@ export function ReaderPane({
                             )
                         ) : (
                             <webview
+                                ref={articleWebviewRef}
                                 src={storyUrl}
                                 className="w-full h-full border-0 absolute inset-0 bg-white"
                                 title="Article Web View"
@@ -386,8 +448,7 @@ export function ReaderPane({
                         </div>
                     )}
 
-                    {/* Context Sidebar (Discussion + AI) */}
-                    <AISidebar 
+                    <AISidebar
                         story={story}
                         isOpen={isAISidebarOpen}
                         onClose={() => onToggleAISidebar?.(false)}
@@ -400,6 +461,7 @@ export function ReaderPane({
                         }}
                         comments={comments}
                         commentsLoading={commentsLoading}
+                        isIngesting={isIngesting}
                         activeCommentId={activeCommentId}
                         onFocusComment={(id) => {
                             setActiveCommentId(id);

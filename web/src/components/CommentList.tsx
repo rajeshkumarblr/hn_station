@@ -53,11 +53,11 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                             e.stopPropagation();
                             setIsCollapsed(!isCollapsed);
                         }}
-                        className={`hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded px-1 -ml-1 transition-colors cursor-pointer flex items-center gap-1.5 focus:outline-none ${isActive ? 'text-blue-600 dark:text-blue-300' : ''}`}
+                        className={`hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded px-1.5 py-0.5 -ml-1 transition-colors cursor-pointer flex items-center gap-1.5 focus:outline-none ${isActive ? 'text-blue-600 dark:text-blue-300' : ''}`}
                         aria-expanded={!isCollapsed}
                     >
-                        <span className="text-slate-400 dark:text-slate-500 font-mono w-3 text-center shrink-0">
-                            {isCollapsed ? '+' : '−'}
+                        <span className="text-slate-400 dark:text-slate-500 font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-1 rounded-sm border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center shrink-0">
+                            {isCollapsed ? '[+]' : '[-]'}
                         </span>
                         <span className={`font-bold ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-[#ff6600]'}`}>{comment.by}</span>
                         <span>{getTimeAgo(new Date(comment.time))}</span>
@@ -108,13 +108,15 @@ export function CommentList({ comments, parentId, depth = 0, onCollapse, activeC
             {/* Thread Line - Only for nested levels */}
             {depth > 0 && (
                 <div
-                    className="absolute left-0 top-0 bottom-0 w-[1px] bg-slate-300 dark:bg-slate-800 hover:bg-orange-400 dark:hover:bg-orange-500 cursor-pointer transition-colors z-10"
+                    className="absolute left-0 top-0 bottom-0 w-[2px] bg-slate-200 dark:bg-slate-800/60 hover:bg-orange-400 dark:hover:bg-orange-500/80 cursor-pointer transition-all z-10 group/line"
                     onClick={(e) => {
                         e.stopPropagation();
                         onCollapse?.();
                     }}
                     title="Collapse thread"
-                />
+                >
+                    <div className="absolute inset-y-0 -left-2 -right-2 bg-transparent" />
+                </div>
             )}
 
             {childComments.map(comment => (
