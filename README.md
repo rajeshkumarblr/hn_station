@@ -17,11 +17,12 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v0.9.5)
+## 🖥️ Electron Desktop App (v0.9.6)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
+- **Unlimited Historical Growth**: Disabled the automatic 7-day story pruning. Your local database now grows indefinitely, building a complete historical archive of your Hacker News feed.
 - **Hybrid FTS5 Search**: Integrated SQLite's Full-Text Search (FTS5) for lightning-fast, precise keyword queries across article titles, summaries, and topics.
 - **Dynamic Filter Logic**: Introducing "ANY/ALL" match logic for topic filtering. Choose between broad discovery (OR) or surgical precision (AND) when selecting multiple tags.
 - **Global Color-Coded Tagging**: A deterministic, consistent color system for article topics. A tag's color persists across the toolbar, feed cards, and AI sidebars for instant visual recognition.

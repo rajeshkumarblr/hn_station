@@ -1,7 +1,7 @@
 /**
  * Utility to manage the API Base URL across different environments.
  */
-import { isElectron } from './env';
+
 
 let apiBase = '';
 const listeners: ((url: string) => void)[] = [];
@@ -23,17 +23,7 @@ export function subscribeApiBase(callback: (url: string) => void): () => void {
     };
 }
 
-async function probeService(url: string): Promise<boolean> {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1000);
-        const resp = await fetch(`${url}/healthc`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        return resp.ok;
-    } catch (e) {
-        return false;
-    }
-}
+
 
 export async function initApiBase(): Promise<void> {
     // 1. Electron Environment (Spawned process)

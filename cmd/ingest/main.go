@@ -400,11 +400,13 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, aiCl
 	close(jobs)
 	wg.Wait()
 
-	// Prune DB: keep stories from the last 7 days (protected: saved stories)
+	// Pruning is disabled to allow the database to grow indefinitely.
+	/*
 	log.Println("Pruning stories older than 7 days...")
 	if err := store.PruneStories(ctx, 7); err != nil {
 		log.Printf("Failed to prune stories: %v", err)
 	}
+	*/
 
 	log.Println("Ingestion run completed successfully.")
 }

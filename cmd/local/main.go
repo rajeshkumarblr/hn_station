@@ -121,6 +121,14 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 	if err := clearPoisonedSummaries(ctx, store); err != nil {
 		log.Printf("[ingest] Failed to clear poisoned summaries: %v", err)
 	}
+    
+	// Pruning is disabled to allow the database to grow indefinitely.
+	/*
+	log.Println("Pruning stories older than 7 days...")
+	if err := store.PruneStories(ctx, 7); err != nil {
+		log.Printf("Failed to prune stories: %v", err)
+	}
+	*/
 
 	go func() {
 		log.Printf("[ingest] Starting worker loop...")
@@ -463,7 +471,8 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, summ
 	for _, id := range topIDs { jobs <- id }
 	close(jobs)
 	wg.Wait()
-	_ = store.PruneStories(ctx, 7)
+	// We no longer prune stories in the desktop app to allow the local DB to grow indefinitely.
+	// _ = store.PruneStories(ctx, 7)
 }
 
 func processStory(ctx context.Context, client *hn.Client, store storage.DB, id int, rank *int, summaryManager *SummaryManager) error {

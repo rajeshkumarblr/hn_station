@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import pkg from '../../package.json';
-import { RefreshCw, Home, Bookmark, Settings, X, Search, ToggleLeft, ToggleRight, Filter, Layout, Zap } from 'lucide-react';
+
+import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { getTagStyle } from '../utils/colors';
 import { ReaderPane } from '../components/ReaderPane';
@@ -29,7 +29,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         readIds, setReadIds, setHighlightedStoryId,
         primaryTab, setPrimaryTab,
         disabledTopics, setDisabledTopics,
-        isFilterActive, setIsFilterActive,
     } = app;
     const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -393,7 +392,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                         onSelect={() => setHighlightedStoryId(story.id)}
                                                         onOpenInTab={handleStorySelect}
                                                         onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory}
-                                                        activeTopics={isFilterActive ? activeTopics.filter(t => !disabledTopics.includes(t)) : []}
                                                     />
                                                 </div>
                                             );

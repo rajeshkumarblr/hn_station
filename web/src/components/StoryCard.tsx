@@ -30,7 +30,6 @@ interface StoryCardProps {
     isHighlighted?: boolean;
     isRead?: boolean;
     isEven?: boolean;
-    activeTopics?: string[];
 }
 
 
@@ -44,8 +43,7 @@ interface StoryCardProps {
 
 export function StoryCard({
     story, index, onSelect, onToggleSave, onHide, onOpenInTab,
-    isSelected, isHighlighted, isRead,
-    activeTopics
+    isSelected, isHighlighted, isRead
 }: StoryCardProps) {
     let domain = '';
     try {
@@ -90,11 +88,7 @@ export function StoryCard({
     // Focus (keyboard/hover) vs Selection (open tab)
     // We want the current focus to be the most prominent.
     // Fallback: If no topic match, check if title contains the active topic keyword
-    const matchingActiveTopic = activeTopics?.find(at => 
-        story.topics?.some(st => st.toLowerCase().includes(at.toLowerCase())) ||
-        story.title.toLowerCase().includes(at.toLowerCase())
-    );
-    const activeTopicStyle = matchingActiveTopic ? getTagStyle(matchingActiveTopic) : null;
+
 
     // Unified card styling with hover lifting effect
     const activeBg = isHighlighted
@@ -173,8 +167,7 @@ export function StoryCard({
                     <div className="flex-1">
                         <h3 className="text-[15px] leading-snug mb-1 font-bold whitespace-normal transition-all duration-200">
                             <span
-                                className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isHighlighted ? 'text-amber-600 dark:text-amber-400' : ''} ${!isHighlighted ? (dimmed && !isSelected ? 'text-slate-400 dark:text-slate-500 font-normal' : (!activeTopicStyle ? 'text-slate-800 dark:text-slate-100' : '')) : ''}`}
-                                style={!isHighlighted && activeTopicStyle ? { color: activeTopicStyle.color } : undefined}
+                                className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isHighlighted ? 'text-amber-600 dark:text-amber-400' : ''} ${!isHighlighted ? (dimmed && !isSelected ? 'text-slate-400 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-100') : ''}`}
                             >
                                 {story.title}
                             </span>

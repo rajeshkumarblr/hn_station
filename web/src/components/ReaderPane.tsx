@@ -3,7 +3,7 @@ import type { Story } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, X, ArrowLeft, Home, MessageSquare, FileText } from 'lucide-react';
+import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, ArrowLeft, Home, MessageSquare, FileText } from 'lucide-react';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { AISidebar } from './AISidebar';
 
@@ -31,7 +31,7 @@ interface ReaderPaneProps {
 }
 
 export function ReaderPane({ 
-    story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, onHide, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
+    story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
     isAISidebarOpen = true,
     onToggleAISidebar,
     onSetSummary,
@@ -309,7 +309,7 @@ export function ReaderPane({
                         <Home size={18} />
                     </button>
                     <button 
-                        onClick={() => loadContent(story.id)}
+                        onClick={() => loadContent(story.id, baseUrl)}
                         disabled={commentsLoading}
                         className={`p-2 rounded-lg transition-all text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${commentsLoading ? 'animate-spin' : ''}`}
                         title="Refresh Content"
