@@ -100,6 +100,8 @@ export function useAppState() {
     const [mode, setMode] = useState<ModeKey>('default');
     const [offset, setOffset] = useState(0);
     const [activeTopics, setActiveTopics] = useState<string[]>(loadTopicChips);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [topicMatch, setTopicMatch] = useState<'any' | 'all'>('any');
     const [disabledTopics, setDisabledTopics] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem('hn_disabled_topics');
@@ -318,10 +320,10 @@ export function useAppState() {
         } catch { }
     }, [disabledTopics]);
 
-    // Reset offset when search topics change
+    // Reset offset when search queries or topics change
     useEffect(() => {
         setOffset(0);
-    }, [activeTopics, disabledTopics]);
+    }, [activeTopics, disabledTopics, searchQuery, topicMatch]);
 
     useEffect(() => {
         try {
@@ -487,16 +489,21 @@ export function useAppState() {
         let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
         if (showHidden) url += `&show_hidden=true`;
 
-        if (isFilterActive) {
-            const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
-            if (enabledTopics.length > 0) {
-                enabledTopics.forEach(t => {
-                    url += `&topic=${encodeURIComponent(t)}`;
-                });
-            }
+        // Topic matching is implicitly always on if there are tags
+        const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
+        if (enabledTopics.length > 0) {
+            enabledTopics.forEach(t => {
+                url += `&topic=${encodeURIComponent(t)}`;
+            });
+            url += `&topic_match=${topicMatch}`;
         }
+        
+        if (searchQuery.trim() !== '') {
+            url += `&search=${encodeURIComponent(searchQuery.trim())}`;
+        }
+
         return url;
-    }, [mode, showHidden, apiBase, activeTopics, disabledTopics, isFilterActive]);
+    }, [mode, showHidden, apiBase, activeTopics, disabledTopics, topicMatch, searchQuery]);
 
     useEffect(() => {
         setLoading(true);
@@ -504,7 +511,7 @@ export function useAppState() {
         setHasMore(true);
         setStoryBuffer([]);
         setBufferOffset(0);
-    }, [mode, refreshKey, showHidden, activeTopics, disabledTopics, isFilterActive]);
+    }, [mode, refreshKey, showHidden, activeTopics, disabledTopics, topicMatch, searchQuery]);
 
     useEffect(() => {
         if (bufferOffset === 0) return;
@@ -663,6 +670,7 @@ export function useAppState() {
         tabs, activeTabId, showHidden,
         isSettingsOpen, currentView, isAdminModalOpen, user,
         hiddenStories, offset, globalWarning, backendStats, primaryTab, isFilterActive,
+        searchQuery, topicMatch,
         // Derived
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         isWebMode,
@@ -670,6 +678,7 @@ export function useAppState() {
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         setDisabledTopics, setGlobalWarning, setPrimaryTab, setIsFilterActive,
+        setSearchQuery, setTopicMatch,
         // Handlers
         handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, setStoryDiscussionSummary, handleHideStory,
         toggleAISidebar,

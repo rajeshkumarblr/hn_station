@@ -177,7 +177,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                         <div className="flex flex-wrap gap-2">
                                             {highlightedStory.topics.map(topic => {
                                                 const isActive = activeTopics.includes(topic);
-                                                const style = isActive ? getTagStyle(topic) : getNeutralTagStyle();
+                                                const style = getTagStyle(topic);
                                                 return (
                                                     <button
                                                         key={`article-topic-${topic}`}
@@ -190,13 +190,13 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                                             }
                                                         }}
                                                         className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${isActive 
-                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950 border-transparent shadow-md' 
-                                                            : 'opacity-60 hover:opacity-100 hover:border-slate-400 dark:hover:border-slate-500 bg-white/5 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/50'}`}
-                                                        style={isActive ? { 
+                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950 shadow-md' 
+                                                            : 'opacity-50 hover:opacity-100 hover:scale-105 bg-white/5 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50'}`}
+                                                        style={{ 
                                                             backgroundColor: style.bg, 
                                                             color: style.color, 
-                                                            borderColor: style.border
-                                                        } : {}}
+                                                            borderColor: isActive ? style.color : style.border
+                                                        }}
                                                     >
                                                         {isActive ? '✓ ' : '#'}{topic}
                                                     </button>

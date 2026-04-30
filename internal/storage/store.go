@@ -133,7 +133,7 @@ func (s *PostgresStore) UpsertStory(ctx context.Context, story Story) error {
 	return err
 }
 
-func (s *PostgresStore) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, int, error) {
+func (s *PostgresStore) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, topicMatch, searchQuery, userID string, showHidden bool) ([]Story, int, error) {
 	// 1. Build common WHERE clause
 	whereClause := " WHERE 1=1"
 	var args []interface{}
@@ -155,7 +155,17 @@ func (s *PostgresStore) GetStories(ctx context.Context, limit, offset int, sortS
 			args = append(args, t)
 			argID++
 		}
-		whereClause += ` AND s.search_vector @@ (` + strings.Join(tsqueryParts, " || ") + `)`
+		joiner := " || "
+		if topicMatch == "all" {
+			joiner = " && "
+		}
+		whereClause += ` AND s.search_vector @@ (` + strings.Join(tsqueryParts, joiner) + `)`
+	}
+
+	if searchQuery != "" {
+		whereClause += fmt.Sprintf(` AND s.search_vector @@ plainto_tsquery('english', $%d)`, argID)
+		args = append(args, searchQuery)
+		argID++
 	}
 
 	if sortStrategy == "show" {

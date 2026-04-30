@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import pkg from '../../package.json';
-import { RefreshCw, Home, Bookmark, Settings, X, Search, ToggleLeft, ToggleRight, Filter, Layout } from 'lucide-react';
+import { RefreshCw, Home, Bookmark, Settings, X, Search, ToggleLeft, ToggleRight, Filter, Layout, Zap } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { getTagStyle } from '../utils/colors';
 import { ReaderPane } from '../components/ReaderPane';
@@ -269,73 +269,93 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
                 >
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                        {/* Feed Filter Toolbar - Floating Glass Style */}
+                        {/* Feed Filter Toolbar - Sticky Sub-Header Style */}
                         {!loading && currentView === 'feed' && (
-                            <div className="h-[60px] flex items-center justify-between px-6 gap-4 z-20 glass-card mx-4 mt-3 rounded-2xl shadow-lg border-white/10 dark:border-slate-700/30">
+                            <div className="h-[60px] flex items-center justify-between px-6 gap-4 z-20 bg-slate-50 dark:bg-[#0c1222]/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800/80 sticky top-0 shrink-0">
                                 <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
-                                    <button 
-                                        onClick={() => setIsFilterActive(!isFilterActive)}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all border ${isFilterActive ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
-                                        title={isFilterActive ? "Topic filtering is active" : "Topic filtering is disabled (showing all)"}
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            {isFilterActive ? <ToggleRight size={18} className="text-emerald-500" /> : <ToggleLeft size={18} />}
-                                            <Filter size={14} className={isFilterActive ? 'opacity-100' : 'opacity-40'} />
-                                            <span className="text-[10px] font-black uppercase tracking-wider">Filter Topics</span>
-                                        </div>
-                                    </button>
-
-                                    <div className="flex items-center bg-slate-800 dark:bg-black/40 px-4 py-1.5 rounded-xl border border-slate-700 group focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-500/50 transition-all shadow-inner">
+                                    <div className="flex items-center bg-slate-800 dark:bg-black/40 px-4 py-1.5 rounded-xl border border-slate-700 group focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0">
                                         <Search size={13} className="text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
                                         <input
                                             type="text"
                                             placeholder="Quick filter..."
+                                            value={app.searchQuery}
+                                            onChange={(e) => app.setSearchQuery(e.target.value)}
                                             className="bg-transparent border-none outline-none text-[11px] font-bold ml-2 w-32 focus:w-48 transition-all placeholder:text-slate-600 text-slate-200"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    const val = e.currentTarget.value.trim();
-                                                    if (val) {
-                                                        setActiveTopics(prev => prev.includes(val) ? prev : [...prev, val]);
-                                                        setDisabledTopics(prev => prev.filter(x => x !== val));
-                                                        e.currentTarget.value = '';
-                                                    }
-                                                }
-                                            }}
                                         />
                                     </div>
 
-                                    <div className="h-6 w-px bg-slate-700/50 mx-1" />
-
                                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                                        {activeTopics.filter(t => !disabledTopics.includes(t)).map(t => {
+                                        {/* Pinned #All Tag - Styled uniquely as a green global reset */}
+                                        <div
+                                            onClick={() => {
+                                                setDisabledTopics([...activeTopics]);
+                                                app.setSearchQuery('');
+                                            }}
+                                            className={`flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-black border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
+                                                activeTopics.filter(t => !disabledTopics.includes(t)).length === 0
+                                                    ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/20' 
+                                                    : 'bg-slate-800 border-slate-700 text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
+                                            }`}
+                                        >
+                                            <Zap size={10} className={activeTopics.filter(t => !disabledTopics.includes(t)).length === 0 ? "text-emerald-500" : "text-slate-600"} />
+                                            <span>#ALL</span>
+                                        </div>
+
+                                        {activeTopics.map(t => {
+                                            const isActive = !disabledTopics.includes(t);
                                             const style = getTagStyle(t);
+                                            
                                             return (
                                                 <div
-                                                    key={`feed-active-${t}`}
-                                                    onClick={() => setDisabledTopics(prev => [...prev, t])}
-                                                    className="flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0"
-                                                    style={{ backgroundColor: `${style.bg}CC`, color: style.color, borderColor: style.border }}
+                                                    key={`feed-tag-${t}`}
+                                                    onClick={() => {
+                                                        const noActiveTags = activeTopics.filter(x => !disabledTopics.includes(x)).length === 0;
+                                                        if (noActiveTags) {
+                                                            // If #All was active, select ONLY this tag
+                                                            setDisabledTopics(activeTopics.filter(x => x !== t));
+                                                        } else {
+                                                            // Toggle this tag
+                                                            if (isActive) {
+                                                                setDisabledTopics(prev => [...prev, t]);
+                                                            } else {
+                                                                setDisabledTopics(prev => prev.filter(x => x !== t));
+                                                            }
+                                                        }
+                                                    }}
+                                                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${!isActive && 'opacity-50 hover:opacity-100 bg-slate-800 border-slate-700 text-slate-400'}`}
+                                                    style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
                                                 >
                                                     <span>#{t}</span>
-                                                    <X size={10} onClick={(e) => { e.stopPropagation(); setActiveTopics(prev => prev.filter(x => x !== t)); }} className="text-slate-400 hover:text-red-500 transition-colors" />
+                                                    {isActive && (
+                                                        <X size={10} onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            // Remove from preferences entirely
+                                                            setActiveTopics(prev => prev.filter(x => x !== t)); 
+                                                        }} className="text-slate-400 hover:text-red-500 transition-colors" />
+                                                    )}
                                                 </div>
                                             );
                                         })}
-                                        {activeTopics.filter(t => disabledTopics.includes(t)).map(t => (
-                                            <div
-                                                key={`feed-inactive-${t}`}
-                                                onClick={() => setDisabledTopics(prev => prev.filter(x => x !== t))}
-                                                className="px-3 py-1 rounded-full text-[11px] font-bold border border-slate-700 bg-slate-800 text-slate-500 opacity-60 cursor-pointer hover:opacity-100 transition-all shrink-0"
-                                            >
-                                                #{t}
-                                            </div>
-                                        ))}
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-3 shrink-0">
+                                    <div className="flex items-center bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner">
+                                        <button 
+                                            onClick={() => app.setTopicMatch('any')}
+                                            className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                        >
+                                            Any
+                                        </button>
+                                        <button 
+                                            onClick={() => app.setTopicMatch('all')}
+                                            className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                        >
+                                            All
+                                        </button>
+                                    </div>
 
-                                    <div className="h-4 w-px bg-slate-700/60" />
+                                    <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
 
                                     <button 
                                         onClick={() => {

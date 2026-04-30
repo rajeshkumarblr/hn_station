@@ -121,6 +121,31 @@ func (s *SQLiteStore) migrate() error {
 		_, _ = s.db.Exec(sql)
 	}
 
+	ftsSchema := `
+	CREATE VIRTUAL TABLE IF NOT EXISTS stories_fts USING fts5(title, summary, topics, content='stories', content_rowid='id');
+
+	CREATE TRIGGER IF NOT EXISTS stories_ai AFTER INSERT ON stories BEGIN
+		INSERT INTO stories_fts(rowid, title, summary, topics) VALUES (new.id, new.title, new.summary, new.topics);
+	END;
+	CREATE TRIGGER IF NOT EXISTS stories_ad AFTER DELETE ON stories BEGIN
+		INSERT INTO stories_fts(stories_fts, rowid, title, summary, topics) VALUES('delete', old.id, old.title, old.summary, old.topics);
+	END;
+	CREATE TRIGGER IF NOT EXISTS stories_au AFTER UPDATE ON stories BEGIN
+		INSERT INTO stories_fts(stories_fts, rowid, title, summary, topics) VALUES('delete', old.id, old.title, old.summary, old.topics);
+		INSERT INTO stories_fts(rowid, title, summary, topics) VALUES (new.id, new.title, new.summary, new.topics);
+	END;
+	`
+	if _, err := s.db.Exec(ftsSchema); err != nil {
+		return err
+	}
+
+	// Initialize FTS if empty
+	var ftsCount int
+	s.db.QueryRow("SELECT COUNT(*) FROM stories_fts").Scan(&ftsCount)
+	if ftsCount == 0 {
+		s.db.Exec("INSERT INTO stories_fts(stories_fts) VALUES('rebuild')")
+	}
+
 	return nil
 }
 
@@ -239,8 +264,8 @@ func (s *SQLiteStore) GetStory(ctx context.Context, id int) (*Story, error) {
 	return &story, nil
 }
 
-func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, int, error) {
-	// Build WHERE for topic filtering (simple client-friendly LIKE matching)
+func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, topicMatch, searchQuery, userID string, showHidden bool) ([]Story, int, error) {
+	// Build WHERE for topic filtering and FTS
 	whereClause := "WHERE 1=1"
 	var args []interface{}
 
@@ -251,15 +276,24 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 		whereClause += " AND is_hidden = 0"
 	}
 
+	if searchQuery != "" {
+		// SQLite FTS5 syntax supports prefix matching and more
+		whereClause += " AND id IN (SELECT rowid FROM stories_fts WHERE stories_fts MATCH ?)"
+		args = append(args, searchQuery)
+	}
+
 	if len(topics) > 0 {
 		var topicConditions []string
 		for _, t := range topics {
-			pattern := "%" + strings.ToLower(t) + "%"
-			// Use json_each for exact matching in the topics array, and LIKE for the title
-			topicConditions = append(topicConditions, fmt.Sprintf("(LOWER(title) LIKE ? OR EXISTS (SELECT 1 FROM json_each(topics) WHERE LOWER(value) = '%s'))", strings.ReplaceAll(strings.ToLower(t), "'", "''")))
-			args = append(args, pattern)
+			// Exact match in topics JSON array
+			topicConditions = append(topicConditions, fmt.Sprintf("EXISTS (SELECT 1 FROM json_each(topics) WHERE LOWER(value) = '%s')", strings.ReplaceAll(strings.ToLower(t), "'", "''")))
 		}
-		whereClause += " AND (" + strings.Join(topicConditions, " OR ") + ")"
+		
+		joiner := " OR "
+		if topicMatch == "all" {
+			joiner = " AND "
+		}
+		whereClause += " AND (" + strings.Join(topicConditions, joiner) + ")"
 	}
 
 	// Build ORDER BY

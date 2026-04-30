@@ -211,6 +211,24 @@ export function StoryCard({
                                 {story.descendants > 0 ? story.descendants : ''}
                             </button>
 
+                            {/* Deterministic Topic Tags */}
+                            {story.topics && story.topics.length > 0 && (
+                                <div className="flex items-center gap-1.5 ml-1">
+                                    {story.topics.slice(0, 3).map(topic => {
+                                        const style = getTagStyle(topic);
+                                        return (
+                                            <span 
+                                                key={topic}
+                                                className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight border"
+                                                style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
+                                            >
+                                                #{topic}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
                             {/* 1-line AI Summary Preview */}
                             {story.summary && story.summary.trim().length > 0 && (
                                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 line-clamp-1 italic leading-relaxed">

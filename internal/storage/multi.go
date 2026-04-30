@@ -48,8 +48,8 @@ func (m *MultiStore) GetStory(ctx context.Context, id int) (*Story, error) {
 	return m.Primary.GetStory(ctx, id)
 }
 
-func (m *MultiStore) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, int, error) {
-	return m.Primary.GetStories(ctx, limit, offset, sortStrategy, topics, userID, showHidden)
+func (m *MultiStore) GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, topicMatch, searchQuery, userID string, showHidden bool) ([]Story, int, error) {
+	return m.Primary.GetStories(ctx, limit, offset, sortStrategy, topics, topicMatch, searchQuery, userID, showHidden)
 }
 
 func (m *MultiStore) GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, error) {

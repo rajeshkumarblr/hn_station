@@ -13,7 +13,7 @@ type DB interface {
 	// Story CRUD
 	UpsertStory(ctx context.Context, story Story) error
 	GetStory(ctx context.Context, id int) (*Story, error)
-	GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, userID string, showHidden bool) ([]Story, int, error)
+	GetStories(ctx context.Context, limit, offset int, sortStrategy string, topics []string, topicMatch, searchQuery, userID string, showHidden bool) ([]Story, int, error)
 	GetStoriesStatus(ctx context.Context, ids []int) (map[int]bool, error)
 	UpdateStorySummary(ctx context.Context, id int, summary string) error
 	UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error

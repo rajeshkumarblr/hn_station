@@ -17,16 +17,17 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v0.9.4)
+## 🖥️ Electron Desktop App (v0.9.5)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
-- **Premium "SaaS" UI Refinement**: Introducing a high-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
-- **Interactive Tactility**: Story cards now feature a "Floating Lift" hover effect, staggered entry animations, and smooth CSS transitions.
-- **Enhanced Sidebar Layout**: A resizable and fully collapsible sidebar with dedicated "Article Insight" and "Article Topics" sections for better discovery.
-- **Strict Topic Filtering**: Re-engineered the backend storage query to use exact `json_each` matching, eliminating fuzzy results and ensuring your feed is perfectly targeted.
-- **Zero-Login Reader**: Local SQLite persistence for your bookmarks, read history, and topic filters—no account required.
+- **Hybrid FTS5 Search**: Integrated SQLite's Full-Text Search (FTS5) for lightning-fast, precise keyword queries across article titles, summaries, and topics.
+- **Dynamic Filter Logic**: Introducing "ANY/ALL" match logic for topic filtering. Choose between broad discovery (OR) or surgical precision (AND) when selecting multiple tags.
+- **Global Color-Coded Tagging**: A deterministic, consistent color system for article topics. A tag's color persists across the toolbar, feed cards, and AI sidebars for instant visual recognition.
+- **#ALL Global Reset**: A dedicated, uniquely styled "Global Reset" tag that instantly clears all filters and searches, returning the feed to its default state.
+- **Premium "SaaS" UI Refinement**: High-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
+- **Interactive Tactility**: Story cards feature a "Floating Lift" hover effect, staggered entry animations, and smooth CSS transitions.
 - **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view.
 - **High-Performance Background Ingestion**: The Go-based local agent handles continuous HN ingestion while the app is open, ensuring your feed is always fresh.
 

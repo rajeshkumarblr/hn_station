@@ -645,11 +645,17 @@ func (s *Server) handleGetStories(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	topicMatch := r.URL.Query().Get("topic_match")
+	if topicMatch != "all" {
+		topicMatch = "any"
+	}
+	searchQuery := strings.TrimSpace(r.URL.Query().Get("search"))
+
 	// Pass user ID for interaction flags (empty string = anonymous)
 	userID := s.auth.GetUserIDFromRequest(r)
 	showHidden := r.URL.Query().Get("show_hidden") == "true"
 
-	stories, total, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics, userID, showHidden)
+	stories, total, err := s.store.GetStories(r.Context(), limit, offset, sortParam, topics, topicMatch, searchQuery, userID, showHidden)
 	if err != nil {
 		http.Error(w, "Failed to fetch stories", http.StatusInternalServerError)
 		return
