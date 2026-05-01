@@ -14,7 +14,6 @@ const AI_COLORS = [
     'text-purple-500 dark:text-purple-400',
     'text-rose-500 dark:text-rose-400'
 ];
-
 interface AISidebarProps {
     story: Story;
     isOpen: boolean;
@@ -31,12 +30,13 @@ interface AISidebarProps {
     containerRef?: React.RefObject<HTMLDivElement>;
     width?: number;
     isIngesting?: boolean;
+    activeTopics?: string[];
 }
 
 export function AISidebar({ 
     story, isOpen, onClose, user, onSetSummary, onSetDiscussionSummary,
     comments, commentsLoading, isIngesting, activeCommentId, onFocusComment,
-    activeTab, onTabChange, containerRef, width = 480
+    activeTab, onTabChange, containerRef, width = 480, activeTopics = []
 }: AISidebarProps) {
     const [summarizing, setSummarizing] = useState(false);
     const [discussSummarizing, setDiscussSummarizing] = useState(false);
@@ -381,7 +381,14 @@ export function AISidebar({
                             {story.topics && story.topics.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-8 mb-6 animate-in fade-in slide-in-from-bottom-2">
                                     {story.topics.map(t => {
-                                        const ts = getTagStyle(t);
+                                        // Find a matching top-level topic for color consistency
+                                        const tLow = t.toLowerCase();
+                                        const matchingActive = activeTopics.find(at => {
+                                            const atLow = at.toLowerCase();
+                                            return tLow === atLow || tLow === atLow + 's' || atLow === tLow + 's';
+                                        });
+
+                                        const ts = getTagStyle(matchingActive || t);
                                         return (
                                             <span 
                                                 key={t}

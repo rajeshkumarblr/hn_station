@@ -5,9 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/rajeshkumarblr/hn_station/internal/tags"
 	_ "modernc.org/sqlite"
 )
 
@@ -122,7 +126,7 @@ func (s *SQLiteStore) migrate() error {
 	}
 
 	ftsSchema := `
-	CREATE VIRTUAL TABLE IF NOT EXISTS stories_fts USING fts5(title, summary, topics, content='stories', content_rowid='id');
+	CREATE VIRTUAL TABLE IF NOT EXISTS stories_fts USING fts5(title, summary, topics, content='stories', content_rowid='id', tokenize='porter unicode61');
 
 	CREATE TRIGGER IF NOT EXISTS stories_ai AFTER INSERT ON stories BEGIN
 		INSERT INTO stories_fts(rowid, title, summary, topics) VALUES (new.id, new.title, new.summary, new.topics);
@@ -137,6 +141,17 @@ func (s *SQLiteStore) migrate() error {
 	`
 	if _, err := s.db.Exec(ftsSchema); err != nil {
 		return err
+	}
+
+	// Step 4: Force FTS rebuild if transitioning to Porter stemmer
+	configDir, _ := os.UserConfigDir()
+	porterMarker := filepath.Join(configDir, "HN Station", ".migrated_fts_porter_v2")
+	if _, err := os.Stat(porterMarker); os.IsNotExist(err) {
+		log.Printf("SQLiteStore: Rebuilding FTS index with Porter stemmer...")
+		s.db.Exec("DROP TABLE IF EXISTS stories_fts")
+		s.db.Exec(ftsSchema)
+		s.db.Exec("INSERT INTO stories_fts(stories_fts) VALUES('rebuild')")
+		os.WriteFile(porterMarker, []byte("ok"), 0644)
 	}
 
 	// Initialize FTS if empty
@@ -277,16 +292,39 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 	}
 
 	if searchQuery != "" {
+		// Step 3: Query Expansion for FTS5
+		tagMgr := tags.GetManager()
+		expanded := tagMgr.ExpandTag(searchQuery)
+		if len(expanded) > 1 {
+			var matchParts []string
+			for _, v := range expanded {
+				// Escape double quotes and wrap multi-word synonyms
+				v = strings.ReplaceAll(v, "\"", "\"\"")
+				if strings.Contains(v, " ") {
+					matchParts = append(matchParts, fmt.Sprintf("\"%s\"", v))
+				} else {
+					matchParts = append(matchParts, v)
+				}
+			}
+			searchQuery = strings.Join(matchParts, " OR ")
+		}
+
 		// SQLite FTS5 syntax supports prefix matching and more
 		whereClause += " AND id IN (SELECT rowid FROM stories_fts WHERE stories_fts MATCH ?)"
 		args = append(args, searchQuery)
 	}
 
 	if len(topics) > 0 {
+		tagMgr := tags.GetManager()
 		var topicConditions []string
 		for _, t := range topics {
-			// Exact match in topics JSON array
-			topicConditions = append(topicConditions, fmt.Sprintf("EXISTS (SELECT 1 FROM json_each(topics) WHERE LOWER(value) = '%s')", strings.ReplaceAll(strings.ToLower(t), "'", "''")))
+			// Step 3: Expand tag filtering to include synonyms
+			expanded := tagMgr.ExpandTag(t)
+			var variants []string
+			for _, v := range expanded {
+				variants = append(variants, fmt.Sprintf("EXISTS (SELECT 1 FROM json_each(topics) WHERE LOWER(value) = '%s')", strings.ReplaceAll(strings.ToLower(v), "'", "''")))
+			}
+			topicConditions = append(topicConditions, "("+strings.Join(variants, " OR ")+")")
 		}
 		
 		joiner := " OR "
@@ -309,6 +347,7 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 
 	// Get total count
 	countQ := "SELECT COUNT(*) FROM stories " + whereClause
+	log.Printf("SQLiteStore: Query: %s, Args: %v", countQ, args)
 	var total int
 	if err := s.db.QueryRowContext(ctx, countQ, args...).Scan(&total); err != nil {
 		return nil, 0, err

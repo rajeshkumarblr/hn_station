@@ -17,7 +17,6 @@ export interface Story {
     summary?: string;
     topics?: string[];
 }
-
 interface StoryCardProps {
     story: Story;
     index?: number;
@@ -30,6 +29,8 @@ interface StoryCardProps {
     isHighlighted?: boolean;
     isRead?: boolean;
     isEven?: boolean;
+    activeTopics?: string[];
+    selectedTopics?: string[];
 }
 
 
@@ -43,7 +44,7 @@ interface StoryCardProps {
 
 export function StoryCard({
     story, index, onSelect, onToggleSave, onHide, onOpenInTab,
-    isSelected, isHighlighted, isRead
+    isSelected, isHighlighted, isRead, activeTopics = [], selectedTopics = []
 }: StoryCardProps) {
     let domain = '';
     try {
@@ -204,21 +205,44 @@ export function StoryCard({
                                 {story.descendants > 0 ? story.descendants : ''}
                             </button>
 
-                            {/* Deterministic Topic Tags */}
+                            {/* Promoted Topic Tags (Filter Matches Only) */}
                             {story.topics && story.topics.length > 0 && (
                                 <div className="flex items-center gap-1.5 ml-1">
-                                    {story.topics.slice(0, 3).map(topic => {
-                                        const style = getTagStyle(topic);
-                                        return (
-                                            <span 
-                                                key={topic}
-                                                className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight border"
-                                                style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
-                                            >
-                                                #{topic}
-                                            </span>
-                                        );
-                                    })}
+                                    {(() => {
+                                        // If no filter selected, show all active toolbar topics
+                                        // If filters are selected, only show the ones that match selection
+                                        const filterBase = selectedTopics.length > 0 ? selectedTopics : activeTopics;
+                                        
+                                        // Unique set of matched filter labels to display
+                                        const matchedLabels = new Set<string>();
+                                        
+                                        story.topics.forEach(t => {
+                                            const tLow = t.toLowerCase();
+                                            filterBase.forEach(f => {
+                                                const fLow = f.toLowerCase();
+                                                // Check direct, plural, or common synonyms (LLM/Language Model)
+                                                const isMatch = tLow === fLow || 
+                                                               tLow === fLow + 's' || 
+                                                               fLow === tLow + 's' ||
+                                                               (fLow === 'llm' && tLow === 'language models') ||
+                                                               (fLow === 'llm' && tLow === 'language model');
+                                                if (isMatch) matchedLabels.add(f);
+                                            });
+                                        });
+
+                                        return Array.from(matchedLabels).slice(0, 3).map(label => {
+                                            const style = getTagStyle(label);
+                                            return (
+                                                <span 
+                                                    key={label}
+                                                    className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight border shadow-sm"
+                                                    style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
+                                                >
+                                                    #{label}
+                                                </span>
+                                            );
+                                        });
+                                    })()}
                                 </div>
                             )}
 

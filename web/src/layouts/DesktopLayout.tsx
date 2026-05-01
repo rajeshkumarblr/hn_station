@@ -16,13 +16,13 @@ import { fetchWithAuth } from '../utils/api';
 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
-        loading, mode, activeTopics,
+        loading, mode, activeTopics, selectedTopics,
         tabs, activeTabId,
         currentView, isAdminModalOpen, user,
         offset, setOffset, totalStories, hasMore,
         selectedStoryId, stories,
         highlightedStoryId, isSettingsOpen,
-        setMode, setActiveTopics,
+        setMode, setActiveTopics, setSelectedTopics,
         setCurrentView, setIsAdminModalOpen, setIsSettingsOpen,
         handleRefresh, closeTab, handleHideStory,
         handleStorySelect, handleToggleSave,
@@ -392,6 +392,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                         onSelect={() => setHighlightedStoryId(story.id)}
                                                         onOpenInTab={handleStorySelect}
                                                         onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory}
+                                                        activeTopics={activeTopics}
+                                                        selectedTopics={selectedTopics}
                                                     />
                                                 </div>
                                             );
@@ -487,6 +489,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 onSetIframeBlocked={app.setStoryIframeBlocked}
                                 onOpenSettings={() => setIsSettingsOpen(true)}
                                 isAISidebarOpen={tab.isAISidebarOpen || false}
+                                activeTopics={activeTopics}
                             />
                         </div>
                     ))}

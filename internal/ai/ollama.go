@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rajeshkumarblr/hn_station/internal/tags"
 )
 
 // OllamaClient handles interactions with a local Ollama server.
@@ -49,6 +51,7 @@ func (c *OllamaClient) GenerateSummary(ctx context.Context, apiURL string, model
 
 	log.Printf("OllamaClient: Starting summarization for %q using model %q. Input text length: %d", title, model, len(text))
 
+	tagInstructions := tags.GetManager().GetPromptInstructions()
 	prompt := fmt.Sprintf(`Analyze the following article and return a high-quality summary and tags.
 <Title>%s</Title>
 <ArticleText>%s</ArticleText>
@@ -57,8 +60,8 @@ INSTRUCTIONS:
 - You MUST return a valid JSON object.
 - Use ONLY these two keys: "summary" and "topics".
 - "summary" MUST be an array of 5 short, impactful bullet points.
-- "topics" MUST be an array of 5 one-word technical tags.
-- Output NOTHING except the JSON.`, title, text)
+- "topics" MUST be an array of 5 one-word technical tags. %s
+- Output NOTHING except the JSON.`, title, text, tagInstructions)
 
 	return c.generateWithRetry(ctx, apiURL, model, prompt)
 }

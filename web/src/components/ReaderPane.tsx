@@ -7,7 +7,6 @@ import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, ArrowLeft, Ho
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { AISidebar } from './AISidebar';
 
-
 interface ReaderPaneProps {
     story: Story;
     onBack?: () => void;
@@ -28,6 +27,7 @@ interface ReaderPaneProps {
     onToggleAISidebar?: (open: boolean) => void;
     onSetSummary?: (id: number, summary: string, topics: string[]) => void;
     onSetDiscussionSummary?: (id: number, summary: string) => void;
+    activeTopics?: string[];
 }
 
 export function ReaderPane({ 
@@ -35,7 +35,8 @@ export function ReaderPane({
     isAISidebarOpen = true,
     onToggleAISidebar,
     onSetSummary,
-    onSetDiscussionSummary
+    onSetDiscussionSummary,
+    activeTopics = []
 }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
@@ -471,6 +472,7 @@ export function ReaderPane({
                         onTabChange={setSidebarTab}
                         containerRef={containerRef}
                         width={sidebarWidth}
+                        activeTopics={activeTopics}
                     />
                 </div>
             </div>

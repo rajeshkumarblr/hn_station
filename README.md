@@ -22,15 +22,16 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
+- **Canonical Tag Mapping**: Implement a user-editable `tag_mappings.json` to group fragmented topics (e.g., mapping "LLM" to "Language Model", "MoE", "Transformers"). The backend automatically expands searches to catch all relevant synonyms.
+- **Hot-Reloading Engine**: Mapping changes are picked up by the Go backend every 5 seconds, allowing for instant filtering updates without restarting the application.
+- **"Smart Selection" Feed UI**: Story cards now dynamically filter their displayed tags based on your active selection, eliminating "distracting" unrelated tags while you are focused on a specific topic.
+- **Visual Color Synchronization**: Article synonyms (like "#LanguageModels") automatically inherit the color of their canonical parent filter ("#LLM"), ensuring a consistent visual language across the feed.
 - **Unlimited Historical Growth**: Disabled the automatic 7-day story pruning. Your local database now grows indefinitely, building a complete historical archive of your Hacker News feed.
 - **Hybrid FTS5 Search**: Integrated SQLite's Full-Text Search (FTS5) for lightning-fast, precise keyword queries across article titles, summaries, and topics.
 - **Dynamic Filter Logic**: Introducing "ANY/ALL" match logic for topic filtering. Choose between broad discovery (OR) or surgical precision (AND) when selecting multiple tags.
-- **Global Color-Coded Tagging**: A deterministic, consistent color system for article topics. A tag's color persists across the toolbar, feed cards, and AI sidebars for instant visual recognition.
 - **#ALL Global Reset**: A dedicated, uniquely styled "Global Reset" tag that instantly clears all filters and searches, returning the feed to its default state.
 - **Premium "SaaS" UI Refinement**: High-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
-- **Interactive Tactility**: Story cards feature a "Floating Lift" hover effect, staggered entry animations, and smooth CSS transitions.
-- **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view.
-- **High-Performance Background Ingestion**: The Go-based local agent handles continuous HN ingestion while the app is open, ensuring your feed is always fresh.
+- **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view. All article-level tags are neatly moved here to keep the main feed clean.
 
 ### ⌨️ Keyboard Shortcuts
 
