@@ -70,6 +70,71 @@ app.setName('HN Station');
 // Fake standard Chrome user agent but keep Electron for detection
 const originalUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 app.userAgentFallback = `${originalUA} Electron/${process.versions.electron}`;
+ 
+// ── Ad Blocker ──────────────────────────────────────────────────────────────
+const AD_BLOCK_LIST = [
+    "*://*.doubleclick.net/*",
+    "*://*.google-analytics.com/*",
+    "*://*.googlesyndication.com/*",
+    "*://*.googleadservices.com/*",
+    "*://*.googletagmanager.com/*",
+    "*://*.taboola.com/*",
+    "*://*.outbrain.com/*",
+    "*://*.zedo.com/*",
+    "*://*.carbonads.net/*",
+    "*://*.adnxs.com/*",
+    "*://*.ads-twitter.com/*",
+    "*://*.amazon-adsystem.com/*",
+    "*://*.adroll.com/*",
+    "*://*.adservice.google.com/*",
+    "*://*.adservice.google.ad/*",
+    "*://*.adform.net/*",
+    "*://*.adsafeprotected.com/*",
+    "*://*.servedby-buysellads.com/*",
+    "*://*.pubmatic.com/*",
+    "*://*.rubiconproject.com/*",
+    "*://*.openx.net/*",
+];
+
+function setupAdBlocker() {
+    const ses = session.defaultSession;
+
+    // 1. Block Ads and Trackers
+    ses.webRequest.onBeforeRequest(
+        { urls: AD_BLOCK_LIST },
+        (details, callback) => {
+            logToFile(`[adblock] Blocked: ${details.url}`);
+            callback({ cancel: true });
+        }
+    );
+
+    // 2. Privacy: Strip Cookies for all external domains
+    // This prevents tracking and hides many cookie consent banners
+    ses.webRequest.onBeforeSendHeaders((details, callback) => {
+        const { requestHeaders } = details;
+        const url = new URL(details.url);
+        
+        // Only strip for external sites, keep internal API clean
+        if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') {
+            delete requestHeaders['Cookie'];
+            delete requestHeaders['cookie'];
+        }
+        
+        callback({ cancel: false, requestHeaders });
+    });
+
+    ses.webRequest.onHeadersReceived((details, callback) => {
+        const responseHeaders = details.responseHeaders || {};
+        const url = new URL(details.url);
+
+        if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') {
+            delete responseHeaders['Set-Cookie'];
+            delete responseHeaders['set-cookie'];
+        }
+
+        callback({ cancel: false, responseHeaders });
+    });
+}
 
 // ── Local backend (hn-local binary) ──────────────────────────────────────────
 function getLocalBinaryPath(): string | null {
@@ -311,6 +376,7 @@ function createWindow() {
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+    setupAdBlocker();
     try {
         // We no longer check for external services on 8050. 
         // HN Station is now strictly app-bound.

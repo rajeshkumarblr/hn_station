@@ -66,19 +66,71 @@ export function ReaderPane({
         const webview = articleWebviewRef.current;
         if (!webview) return;
 
-        const handleDomReady = () => {
+        const injectStyles = () => {
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // Inject Scrollbars (Native dark mode doesn't always theme scrollbars)
             const scrollbarCSS = `
-                ::-webkit-scrollbar { width: 10px; height: 10px; }
-                ::-webkit-scrollbar-track { background: #0f172a; }
-                ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; border: 2px solid #0f172a; }
-                ::-webkit-scrollbar-thumb:hover { background: #475569; }
+                ::-webkit-scrollbar { width: 10px !important; height: 10px !important; }
+                ::-webkit-scrollbar-track { background: ${isDark ? '#0f172a' : '#f1f5f9'} !important; }
+                ::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'} !important; border-radius: 9999px !important; border: 2px solid ${isDark ? '#0f172a' : '#f1f5f9'} !important; }
+                ::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'} !important; }
             `;
-            webview.insertCSS(scrollbarCSS).catch((err: any) => console.error("Failed to inject CSS", err));
+            webview.insertCSS(scrollbarCSS).catch(() => {});
+
+            // 2. Safe Dark Mode: Forced Selective Colors (More readable than inversion)
+            if (isDark) {
+                const js = `
+                    (function() {
+                        const id = 'hn-station-safe-dark';
+                        if (document.getElementById(id)) return;
+                        const style = document.createElement('style');
+                        style.id = id;
+                        style.textContent = \`
+                            /* Force dark background on root and body */
+                            html, body {
+                                background-color: #0f172a !important;
+                                color: #cbd5e1 !important;
+                            }
+                            /* Targeted selection to darken generic containers */
+                            div, section, main, article, header, footer, nav, aside {
+                                background-color: transparent !important;
+                            }
+                            /* Ensure text is light and readable */
+                            p, span, li, a, b, strong, i, em, h1, h2, h3, h4, h5, h6 {
+                                color: #cbd5e1 !important;
+                            }
+                            h1, h2, h3, h4, h5, h6 {
+                                color: #f8fafc !important;
+                            }
+                            a {
+                                color: #38bdf8 !important;
+                            }
+                            /* Code and Preformatted blocks */
+                            pre, code {
+                                background-color: #1e293b !important;
+                                color: #e2e8f0 !important;
+                                padding: 4px !important;
+                                border-radius: 4px !important;
+                            }
+                            /* Handle common transparent issues */
+                            * {
+                                border-color: #334155 !important;
+                            }
+                        \`;
+                        document.head.appendChild(style);
+                    })();
+                `;
+                webview.executeJavaScript(js).catch(() => {});
+            }
         };
 
-        webview.addEventListener('dom-ready', handleDomReady);
+        webview.addEventListener('dom-ready', injectStyles);
+        webview.addEventListener('did-finish-load', injectStyles);
+        
         return () => {
-            webview.removeEventListener('dom-ready', handleDomReady);
+            webview.removeEventListener('dom-ready', injectStyles);
+            webview.removeEventListener('did-finish-load', injectStyles);
         };
     }, [story.id]);
 

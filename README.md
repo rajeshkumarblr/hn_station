@@ -22,6 +22,8 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
+- **Built-in Privacy Engine**: Integrated high-performance Ad Blocker and "Ghost Mode" Cookie Stripper. Intercepts and blocks tracking/ad networks at the engine level for faster, private browsing.
+- **"Safe Dark Mode" for Articles**: Intelligent, selective CSS injection that forces external articles into a high-contrast dark theme while preserving media quality and text readability.
 - **Canonical Tag Mapping**: Implement a user-editable `tag_mappings.json` to group fragmented topics (e.g., mapping "LLM" to "Language Model", "MoE", "Transformers"). The backend automatically expands searches to catch all relevant synonyms.
 - **Hot-Reloading Engine**: Mapping changes are picked up by the Go backend every 5 seconds, allowing for instant filtering updates without restarting the application.
 - **"Smart Selection" Feed UI**: Story cards now dynamically filter their displayed tags based on your active selection, eliminating "distracting" unrelated tags while you are focused on a specific topic.
