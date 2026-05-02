@@ -1,30 +1,36 @@
-# HN Station Makefile
-# Use 'make' to build all components
+# Makefile for HN Station (macOS/Linux)
 
-.PHONY: all build-backend build-frontend run dev clean
+.PHONY: all dev build clean backend frontend
 
-all: build-backend build-frontend
+all: build
 
-build-backend:
-	@echo "Building Backend..."
-	go build -o bin/hn-backend.exe ./cmd/local/main.go
+# 🏗️ Build both backend and frontend
+build: backend frontend
 
-build-frontend:
-	@echo "Building Frontend..."
-	cd web && npm install && npm run build
+backend:
+	@echo "Building backend..."
+	@mkdir -p web/resources
+	@GOOS=darwin go build -o web/resources/hn-local ./cmd/local
 
-run: build-backend
-	@echo "Starting Backend..."
-	./bin/hn-backend.exe -port 58090
+frontend:
+	@echo "Building frontend..."
+	@cd web && npm install && npm run build
 
-dev-backend:
-	@echo "Starting Backend in Dev Mode..."
-	go run ./cmd/local/main.go -port 58090
+# 🌟 Run the desktop app in dev mode
+dev:
+	@echo "Starting HN Station Desktop (Dev Mode)..."
+	@chmod +x scripts/start-desktop.sh
+	@./scripts/start-desktop.sh
 
-dev-frontend:
-	@echo "Starting Frontend in Dev Mode..."
-	cd web && npm run dev
-
+# 🧹 Clean up binaries and logs
 clean:
-	@echo "Cleaning up binaries..."
-	rm -rf bin/
+	@echo "Cleaning up..."
+	@rm -rf web/resources/hn-local
+	@rm -rf web/dist
+	@rm -rf web/dist-electron
+	@rm -rf web/release
+	@find . -name "*.log" -type f -delete
+
+# 🧪 Run tests
+test:
+	@go test ./...

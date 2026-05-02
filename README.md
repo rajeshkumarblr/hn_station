@@ -103,7 +103,16 @@ You can use the provided automation scripts or the Makefile:
 .\scripts\run.ps1
 ```
 
-**Linux/macOS (Makefile):**
+**macOS (Zsh/Bash):**
+```bash
+# Make the startup script executable
+chmod +x scripts/start-desktop.sh
+
+# Build and run the desktop app
+make dev
+```
+
+**Linux (Makefile):**
 ```bash
 # Build everything
 make all
