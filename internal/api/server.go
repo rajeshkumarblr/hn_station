@@ -1215,6 +1215,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Always update provider if provided
 	if body.AIProvider != "" {
 		if err := s.store.SetSetting(r.Context(), "ai_provider", body.AIProvider); err != nil {
 			log.Printf("Failed to update AI provider setting: %v", err)
@@ -1223,12 +1224,17 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if body.GeminiModel != "" {
-		if err := s.store.SetSetting(r.Context(), "gemini_model", body.GeminiModel); err != nil {
-			log.Printf("Failed to update Gemini model setting: %v", err)
-			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
-			return
-		}
+	// Always update models and interval to allow clearing/resetting to default
+	if err := s.store.SetSetting(r.Context(), "ollama_model", body.OllamaModel); err != nil {
+		log.Printf("Failed to update Ollama model setting: %v", err)
+		http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.store.SetSetting(r.Context(), "gemini_model", body.GeminiModel); err != nil {
+		log.Printf("Failed to update Gemini model setting: %v", err)
+		http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+		return
 	}
 
 	if body.RefreshInterval != "" {
@@ -1246,14 +1252,6 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := s.store.SetSetting(r.Context(), "auto_summarize_enabled", val); err != nil {
 			log.Printf("Failed to update auto-summarize setting: %v", err)
-			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if body.OllamaModel != "" {
-		if err := s.store.SetSetting(r.Context(), "ollama_model", body.OllamaModel); err != nil {
-			log.Printf("Failed to update Ollama model setting: %v", err)
 			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
 			return
 		}

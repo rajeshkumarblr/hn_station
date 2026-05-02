@@ -17,7 +17,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v0.9.6)
+## 🖥️ Electron Desktop App (v0.9.7)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
@@ -34,6 +34,7 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 - **#ALL Global Reset**: A dedicated, uniquely styled "Global Reset" tag that instantly clears all filters and searches, returning the feed to its default state.
 - **Premium "SaaS" UI Refinement**: High-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
 - **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view. All article-level tags are neatly moved here to keep the main feed clean.
+- **AI Model Persistence**: Seamlessly save and restore your preferred local AI model (Ollama) or cloud provider (Gemini). Your model choices are now persisted across sessions in the local SQLite database, ensuring consistency between background ingestion and manual summaries.
 
 ### ⌨️ Keyboard Shortcuts
 
