@@ -208,9 +208,10 @@ func (m *TagManager) GetPromptInstructions() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("\nCRITICAL: Use these CANONICAL tags only. If an article matches a synonym, use the Canonical Tag instead:\n")
+	sb.WriteString("\nCRITICAL: Use these CANONICAL tags only if relevant. If an article matches a synonym, use the Canonical Tag instead. If no tags apply, return an empty array [].\n")
 	for tag, synonyms := range m.mappings {
 		sb.WriteString(fmt.Sprintf("- %s (Synonyms: %s)\n", tag, strings.Join(synonyms, ", ")))
 	}
+	sb.WriteString("\nDO NOT add tags that are not in this list. DO NOT force 3 tags if fewer or none are relevant.\n")
 	return sb.String()
 }

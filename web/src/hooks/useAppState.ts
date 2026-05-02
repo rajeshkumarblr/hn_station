@@ -3,15 +3,8 @@ import { PAGE_SIZE, MAX_READ_IDS } from '../types';
 import type { Story, ReaderTab, ModeKey, User } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview, isElectron } from '../utils/env';
+import { fetchWithAuth } from '../utils/api';
 
-async function fetchWithAuth(url: string, init?: RequestInit): Promise<Response> {
-    const token = localStorage.getItem('hn_jwt_token');
-    const headers = new Headers(init?.headers || {});
-    if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-    }
-    return fetch(url, { ...init, headers });
-}
 
 function loadReadIds(): Set<number> {
     try {
@@ -91,7 +84,6 @@ export function getStoryTopicMatch(storyTitle: string | undefined, storyTopics: 
 
 export function useAppState() {
     const [storyBuffer, setStoryBuffer] = useState<Story[]>([]);
-    const [bufferOffset, setBufferOffset] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [backendStats, setBackendStats] = useState<BackendStats | null>(null);
@@ -369,7 +361,6 @@ export function useAppState() {
 
     const handleHideStory = useCallback((id: number) => {
         setStoryBuffer(prev => prev.filter(s => s.id !== id));
-        setBufferOffset(prev => prev);
         if (user) {
             const baseUrl = getApiBase();
             fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
@@ -489,7 +480,6 @@ export function useAppState() {
         let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
         if (showHidden) url += `&show_hidden=true`;
 
-        // Topic matching is implicitly always on if there are tags
         const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
         if (enabledTopics.length > 0) {
             enabledTopics.forEach(t => {
@@ -505,78 +495,67 @@ export function useAppState() {
         return url;
     }, [mode, showHidden, apiBase, activeTopics, disabledTopics, topicMatch, searchQuery]);
 
-    useEffect(() => {
-        setLoading(true);
-        setError(null);
-        setHasMore(true);
-        setStoryBuffer([]);
-        setBufferOffset(0);
-    }, [mode, refreshKey, showHidden, activeTopics, disabledTopics, topicMatch, searchQuery]);
-
-    useEffect(() => {
-        if (bufferOffset === 0) return;
-        if (!hasMore || fetchingMore) return;
-        const url = buildUrl(bufferOffset);
-        if (!url) return;
-        setFetchingMore(true);
-        fetchWithAuth(url)
-            .then(res => { if (!res.ok) throw new Error('Failed'); return res.json(); })
-            .then(data => {
-                const incoming: Story[] = data.stories || [];
-                setStoryBuffer(prev => {
-                    const existingIds = new Set(prev.map(s => s.id));
-                    const fresh = incoming.filter(s => !existingIds.has(s.id));
-                    return [...prev, ...fresh];
-                });
-                setHasMore(incoming.length >= PAGE_SIZE);
-                setFetchingMore(false);
-            })
-            .catch(() => setFetchingMore(false));
-    }, [bufferOffset]);
-
-    useEffect(() => {
-        setLoading(true);
-        setError(null);
-        if (isElectron() && !apiBase) return;
-        const url = buildUrl(offset);
+    // Consolidated fetcher
+    const fetchPage = useCallback(async (currentOffset: number, isInitial: boolean = false) => {
+        const url = buildUrl(currentOffset);
         if (!url) return;
 
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+        if (isInitial) {
+            setLoading(true);
+            setStoryBuffer([]);
+            setOffset(0);
+        } else {
+            setFetchingMore(true);
+        }
+        setError(null);
 
-        fetchWithAuth(url, { signal: controller.signal })
-            .then(res => {
-                clearTimeout(timeout);
-                if (!res.ok) throw new Error('Could not connect to backend. Please check if the local server is running.');
-                return res.json();
-            })
-            .then(data => {
-                const incoming: Story[] = data.stories || [];
-                setStoryBuffer(incoming);
-                setTotalStories(data.total || 0);
-                setLoading(false);
-                setHasMore(incoming.length >= PAGE_SIZE);
-                if (incoming.length > 0 && !selectedStoryId) {
-                    const lastId = localStorage.getItem('hn_last_story_id');
-                    if (lastId) {
-                        const id = parseInt(lastId);
-                        const exists = incoming.find((s: Story) => s.id === id);
-                        if (exists) handleStorySelect(id);
-                        else handleStorySelect(incoming[0].id);
-                    } else {
-                        handleStorySelect(incoming[0].id);
-                    }
-                    setCurrentView('feed');
-                }
-            })
-            .catch(err => {
-                clearTimeout(timeout);
-                console.error('[useAppState] fetch error:', err);
-                const msg = err.name === 'AbortError' ? 'Backend connection timed out. Retrying...' : err.message;
-                setError(msg);
-                setLoading(false);
+        try {
+            const res = await fetchWithAuth(url);
+            if (!res.ok) throw new Error('Failed to fetch stories');
+            const data = await res.json();
+            const incoming: Story[] = data.stories || [];
+            
+            setStoryBuffer(prev => {
+                if (isInitial) return incoming;
+                const existingIds = new Set(prev.map(s => s.id));
+                const fresh = incoming.filter(s => !existingIds.has(s.id));
+                return [...prev, ...fresh];
             });
-    }, [mode, refreshKey, showHidden, offset, apiBase, activeTopics, disabledTopics, isFilterActive]);
+
+            setTotalStories(data.total || 0);
+            setHasMore(incoming.length >= PAGE_SIZE);
+
+            if (isInitial && incoming.length > 0 && !selectedStoryId) {
+                const lastId = localStorage.getItem('hn_last_story_id');
+                if (lastId) {
+                    const id = parseInt(lastId);
+                    const exists = incoming.find((s: Story) => s.id === id);
+                    if (exists) handleStorySelect(id);
+                    else handleStorySelect(incoming[0].id);
+                } else {
+                    handleStorySelect(incoming[0].id);
+                }
+                setCurrentView('feed');
+            }
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+            setFetchingMore(false);
+        }
+    }, [buildUrl, selectedStoryId, handleStorySelect]);
+
+    const fetchNextPage = useCallback(() => {
+        if (!hasMore || fetchingMore || loading) return;
+        const nextOffset = storyBuffer.length;
+        fetchPage(nextOffset);
+    }, [hasMore, fetchingMore, loading, storyBuffer.length, fetchPage]);
+
+    // Initial load and filter resets
+    useEffect(() => {
+        if (isElectron() && !apiBase) return;
+        fetchPage(0, true);
+    }, [mode, refreshKey, showHidden, activeTopics, disabledTopics, topicMatch, searchQuery, apiBase, isFilterActive]);
 
     useEffect(() => {
         if (!apiBase || storyBuffer.length === 0) return;
@@ -621,17 +600,7 @@ export function useAppState() {
         };
     }, [apiBase, isAdminModalOpen, stories.length === 0, loading]);
 
-    useEffect(() => {
-        // Only trigger the "refill" logic if we are on the first page (offset 0).
-        // If the user uses explicit pagination (offset > 0), we disable refill to avoid conflicts.
-        if (offset > 0) return;
-
-        const REFILL_THRESHOLD = PAGE_SIZE - 2;
-        const visibleCount = storyBuffer.filter(s => !hiddenStories.has(s.id)).length;
-        if (!fetchingMore && hasMore && visibleCount < REFILL_THRESHOLD && storyBuffer.length > 0) {
-            setBufferOffset(storyBuffer.length);
-        }
-    }, [storyBuffer, hiddenStories, hasMore, fetchingMore, offset]);
+    // Removed refill logic as we now use infinite scroll with fetchNextPage
 
     const availableTags = useMemo(() => {
         const tags = new Set<string>();
@@ -678,7 +647,7 @@ export function useAppState() {
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         setDisabledTopics, setGlobalWarning, setPrimaryTab, setIsFilterActive,
-        setSearchQuery, setTopicMatch,
+        setSearchQuery, setTopicMatch, fetchNextPage,
         // Handlers
         handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, setStoryDiscussionSummary, handleHideStory,
         toggleAISidebar,

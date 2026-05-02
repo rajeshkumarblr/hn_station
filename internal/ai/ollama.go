@@ -60,7 +60,9 @@ INSTRUCTIONS:
 - You MUST return a valid JSON object.
 - Use ONLY these two keys: "summary" and "topics".
 - "summary" MUST be an array of 5 short, impactful bullet points.
-- "topics" MUST be an array of 5 one-word technical tags. %s
+- "topics" MUST be an array of up to 3 one-word technical tags. %s
+- PRIORITIZE RELEVANCE: If no technical tags from the provided list apply, return an empty array [].
+- DO NOT hallucinate or force unrelated tags.
 - Output NOTHING except the JSON.`, title, text, tagInstructions)
 
 	return c.generateWithRetry(ctx, apiURL, model, prompt)

@@ -4,7 +4,7 @@ import type { Story, ReaderTab } from '../types';
 
 export function useGlobalKeyboardNav(
     app: ReturnType<typeof useAppState>,
-    storyRefs: React.MutableRefObject<(HTMLDivElement | null)[]>
+    scrollToIndex?: (index: number) => void
 ) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -14,21 +14,24 @@ export function useGlobalKeyboardNav(
             if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'].includes(e.key) && app.currentView === 'feed') {
                 e.preventDefault();
 
-                // Handle Pagination Keys (PageDown/PageUp or Ctrl+Home/Ctrl+End)
-                if (e.key === 'PageDown' || e.key === 'PageUp' || (e.ctrlKey && (e.key === 'Home' || e.key === 'End'))) {
-                    const PAGE_SIZE = 10;
-                    if (e.key === 'PageDown' && app.hasMore) {
-                        app.setOffset?.(app.offset + PAGE_SIZE);
-                    } else if (e.key === 'PageUp' && app.offset > 0) {
-                        app.setOffset?.(Math.max(0, app.offset - PAGE_SIZE));
-                    } else if (e.ctrlKey && e.key === 'Home') {
-                        app.setOffset?.(0);
-                    } else if (e.ctrlKey && e.key === 'End') {
-                        const total = app.totalStories || 0;
-                        if (total > 0) {
-                            const lastPageOffset = Math.max(0, Math.floor((total - 1) / PAGE_SIZE) * PAGE_SIZE);
-                            app.setOffset?.(lastPageOffset);
-                        }
+                // Handle Pagination Keys (PageDown/PageUp jump by 10)
+                if (e.key === 'PageDown' || e.key === 'PageUp') {
+                    const JUMP = 10;
+                    const visibleStories = app.stories.filter((s: Story) => app.showHidden || (!app.hiddenStories.has(s.id) && !s.is_hidden));
+                    let currentIndex = visibleStories.findIndex((s: Story) => s.id === app.highlightedStoryId);
+                    
+                    if (e.key === 'PageDown') {
+                        currentIndex = Math.min(visibleStories.length - 1, currentIndex + JUMP);
+                        if (currentIndex === visibleStories.length - 1 && app.hasMore) app.fetchNextPage();
+                    } else {
+                        currentIndex = Math.max(0, currentIndex - JUMP);
+                    }
+
+                    const nextStory = visibleStories[currentIndex];
+                    if (nextStory) {
+                        app.setHighlightedStoryId(nextStory.id);
+                        const originalIndex = app.stories.findIndex(s => s.id === nextStory.id);
+                        if (originalIndex !== -1) scrollToIndex?.(originalIndex);
                     }
                     return;
                 }
@@ -53,11 +56,8 @@ export function useGlobalKeyboardNav(
                 const nextStory = visibleStories[currentIndex];
                 if (nextStory) {
                     app.setHighlightedStoryId(nextStory.id);
-                    // Scroll to the element
-                    const el = document.getElementById(`story-${nextStory.id}`);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
+                    const originalIndex = app.stories.findIndex(s => s.id === nextStory.id);
+                    if (originalIndex !== -1) scrollToIndex?.(originalIndex);
                 }
                 return;
             }
@@ -204,5 +204,5 @@ export function useGlobalKeyboardNav(
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [app, storyRefs]);
+    }, [app, scrollToIndex]);
 }

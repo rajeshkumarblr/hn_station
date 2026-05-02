@@ -429,6 +429,11 @@ func (s *SQLiteStore) UpdateStoryIframeStatus(ctx context.Context, id int, block
 	return err
 }
 
+func (s *SQLiteStore) ResetAllSummaries(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE stories SET summary = NULL, topics = '[]'")
+	return err
+}
+
 func (s *SQLiteStore) ClearRanksNotIn(ctx context.Context, ids []int) error {
 	if len(ids) == 0 {
 		return nil

@@ -369,6 +369,11 @@ func (s *PostgresStore) UpdateStoryIframeStatus(ctx context.Context, id int, blo
 	return err
 }
 
+func (s *PostgresStore) ResetAllSummaries(ctx context.Context) error {
+	_, err := s.db.Exec(ctx, "UPDATE stories SET summary = NULL, topics = '{}'")
+	return err
+}
+
 // UpsertAuthUser creates or updates a user based on their Google ID.
 // Returns the user (with ID) after upsert.
 func (s *PostgresStore) UpsertAuthUser(ctx context.Context, googleID, email, name, avatarURL string) (*AuthUser, error) {

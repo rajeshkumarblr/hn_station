@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import pkg from '../../package.json';
-import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap } from 'lucide-react';
+import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap, ChevronDown } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { getTagStyle } from '../utils/colors';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
@@ -16,23 +17,35 @@ import { fetchWithAuth } from '../utils/api';
 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
-        loading, mode, activeTopics, selectedTopics,
+        loading, mode, activeTopics,
         tabs, activeTabId,
         currentView, isAdminModalOpen, user,
-        offset, setOffset, totalStories, hasMore,
+        hasMore,
         selectedStoryId, stories,
         highlightedStoryId, isSettingsOpen,
-        setMode, setActiveTopics, setSelectedTopics,
+        setMode, setActiveTopics,
         setCurrentView, setIsAdminModalOpen, setIsSettingsOpen,
         handleRefresh, closeTab, handleHideStory,
         handleStorySelect, handleToggleSave,
         readIds, setReadIds, setHighlightedStoryId,
         primaryTab, setPrimaryTab,
         disabledTopics, setDisabledTopics,
+        fetchNextPage, fetchingMore,
     } = app;
-    const storyRefs = useRef<(HTMLDivElement | null)[]>([]);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
-    const PAGE_SIZE = 10;
+    const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
+    const articlesMenuRef = useRef<HTMLDivElement>(null);
+    
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (articlesMenuRef.current && !articlesMenuRef.current.contains(event.target as Node)) {
+                setIsArticlesMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
     const isElectron = getIsElectron();
 
     // --- Sidebar Resizing State ---
@@ -95,10 +108,31 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         };
     }, [isResizing, resize, stopResizing]);
 
+    const parentRef = useRef<HTMLDivElement>(null);
+
+    const virtualizer = useVirtualizer({
+        count: stories.length,
+        getScrollElement: () => parentRef.current,
+        estimateSize: () => 120, // Estimated height of a StoryCard
+        overscan: 5,
+    });
+
+    const virtualItems = virtualizer.getVirtualItems();
+
+    // Trigger infinite scroll when nearing the end
+    useEffect(() => {
+        const lastItem = virtualItems[virtualItems.length - 1];
+        if (!lastItem) return;
+
+        if (lastItem.index >= stories.length - 1 && hasMore && !fetchingMore && !loading) {
+            fetchNextPage();
+        }
+    }, [virtualItems, stories.length, hasMore, fetchingMore, loading, fetchNextPage]);
+
     // Resolve the story object for the highlighted (keyboard/hovered) card
     const highlightedStory = stories.find(s => s.id === highlightedStoryId) ?? null;
 
-    useGlobalKeyboardNav(app, storyRefs);
+    useGlobalKeyboardNav(app, (index) => virtualizer.scrollToIndex(index, { align: 'center' }));
 
     useEffect(() => {
         if (!loading && stories.length > 0) {
@@ -157,7 +191,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         else {
                                             setPrimaryTab('feed');
                                             if (mode === m.key && primaryTab === 'feed') handleRefresh();
-                                            else { setMode(m.key as any); setOffset?.(0); }
+                                            else { setMode(m.key as any); }
                                         }
                                         setCurrentView('feed');
                                     }}
@@ -173,16 +207,59 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </button>
                             );
                         })}
+
+                        {/* Articles Dropdown Menu (Relocated from Tab Bar) */}
+                        <div className="relative h-full flex items-center ml-1" ref={articlesMenuRef}>
+                            <button
+                                onClick={() => setIsArticlesMenuOpen(!isArticlesMenuOpen)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
+                                    isArticlesMenuOpen 
+                                    ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' 
+                                    : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white border-transparent'
+                                }`}
+                            >
+                                <span>Articles</span>
+                                <div className="flex items-center justify-center bg-black/10 dark:bg-white/10 rounded-full w-4 h-4 text-[9px]">
+                                    {tabs.length}
+                                </div>
+                                <ChevronDown size={12} className={`transition-transform duration-200 ${isArticlesMenuOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {isArticlesMenuOpen && (
+                                <div className="absolute left-0 top-[48px] w-[320px] max-h-[400px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-[200] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
+                                    <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Open Articles</span>
+                                        <span className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full">{tabs.length}</span>
+                                    </div>
+                                    <div className="overflow-y-auto max-h-[350px] custom-scrollbar p-1">
+                                        {tabs.map((t) => (
+                                            <button
+                                                key={`menu-${t.id}`}
+                                                onClick={() => {
+                                                    app.handleStorySelect?.(t.storyId);
+                                                    setCurrentView('reader');
+                                                    setIsArticlesMenuOpen(false);
+                                                }}
+                                                className={`w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors group ${
+                                                    activeTabId === t.id && currentView === 'reader'
+                                                    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
+                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                                                }`}
+                                            >
+                                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeTabId === t.id && currentView === 'reader' ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 group-hover:bg-slate-400'}`} />
+                                                <span className="text-[12px] font-medium truncate flex-1">{t.story.title}</span>
+                                            </button>
+                                        ))}
+                                        {tabs.length === 0 && (
+                                            <div className="p-8 text-center text-slate-400 text-[12px]">No open articles</div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </nav>
 
                     <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 shrink-0" />
-                    
-                    <button
-                        onClick={handleRefresh}
-                        className={`p-2 rounded-full text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all ${loading ? 'animate-spin' : ''}`}
-                    >
-                        <RefreshCw size={15} />
-                    </button>
                 </div>
 
                 {/* Center Branding */}
@@ -218,46 +295,49 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
             {/* Global Tab Bar Container */}
             {tabs.length > 0 && (
-                <div className="flex bg-slate-50 dark:bg-[#020617] overflow-hidden border-b border-slate-200 dark:border-slate-800 shrink-0 gap-px">
-                    <button
-                        onClick={() => { setPrimaryTab('feed'); setCurrentView('feed'); }}
-                        className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[40px] min-w-[140px] shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed' && primaryTab === 'feed'
-                            ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
-                            : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
-                    >
-                        <Home size={14} className={currentView === 'feed' && primaryTab === 'feed' ? 'text-indigo-500' : 'text-slate-400'} /> 
-                        <span className="text-[12px]">Feed(Top)</span>
-                    </button>
-                    <button
-                        onClick={() => { setPrimaryTab('bookmarks'); setCurrentView('feed'); }}
-                        className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[40px] min-w-[140px] shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed' && primaryTab === 'bookmarks'
-                            ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
-                            : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
-                    >
-                        <Bookmark size={14} className={currentView === 'feed' && primaryTab === 'bookmarks' ? 'text-indigo-500' : 'text-slate-400'} /> 
-                        <span className="text-[12px]">Bookmarks</span>
-                    </button>
-                    {tabs.map(t => (
-                        <div
-                            key={t.id}
-                            className={`flex min-w-[160px] max-w-[240px] shrink-0 items-center justify-between px-4 h-[40px] border-r border-slate-200 dark:border-slate-800 transition-all ${currentView === 'reader' && activeTabId === t.id
+                <div className="flex items-center bg-slate-50 dark:bg-[#020617] border-b border-slate-200 dark:border-slate-800 shrink-0 relative">
+                    <div className="flex flex-1 min-w-0 overflow-hidden gap-px">
+                        <button
+                            onClick={() => { setPrimaryTab('feed'); setCurrentView('feed'); }}
+                            className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[40px] min-w-[120px] max-w-[160px] flex-1 shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed' && primaryTab === 'feed'
                                 ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
                                 : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
                         >
-                            <button
-                                onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
-                                className="truncate text-[12px] flex-1 text-left"
+                            <Home size={14} className={currentView === 'feed' && primaryTab === 'feed' ? 'text-indigo-500' : 'text-slate-400'} /> 
+                            <span className="text-[12px] truncate">Feed(Top)</span>
+                        </button>
+                        <button
+                            onClick={() => { setPrimaryTab('bookmarks'); setCurrentView('feed'); }}
+                            className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[40px] min-w-[120px] max-w-[160px] flex-1 shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed' && primaryTab === 'bookmarks'
+                                ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
+                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
+                        >
+                            <Bookmark size={14} className={currentView === 'feed' && primaryTab === 'bookmarks' ? 'text-indigo-500' : 'text-slate-400'} /> 
+                            <span className="text-[12px] truncate">Bookmarks</span>
+                        </button>
+                        {tabs.map(t => (
+                            <div
+                                key={t.id}
+                                title={t.story.title}
+                                className={`flex min-w-[60px] max-w-[240px] flex-1 shrink items-center justify-between px-3 h-[40px] border-r border-slate-200 dark:border-slate-800 transition-all ${currentView === 'reader' && activeTabId === t.id
+                                    ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
+                                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
                             >
-                                {t.story.title}
-                            </button>
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); closeTab(t.id); }}
-                                className="ml-2 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-red-500 transition-colors"
-                            >
-                                <X size={12} />
-                            </button>
-                        </div>
-                    ))}
+                                <button
+                                    onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
+                                    className="truncate text-[12px] flex-1 text-left"
+                                >
+                                    {t.story.title}
+                                </button>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); closeTab(t.id); }}
+                                    className="ml-1 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                                >
+                                    <X size={10} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -370,101 +450,70 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </div>
                             </div>
                         )}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#f8fafc] dark:bg-[#080c14] pt-4">
-                            {loading && <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-indigo-500 mx-auto" /></div>}
-                            {!loading && (
-                                <div className="flex-1 flex flex-col min-h-full pb-8">
-                                    {stories.length === 0 ? (
-                                        <div className="flex-1 flex items-center justify-center p-20 text-slate-400 font-medium">No stories found in this view.</div>
-                                    ) : (
-                                        stories.slice(0, PAGE_SIZE).map((story, index) => {
-                                            const isSelected = selectedStoryId === story.id;
-                                            const isHighlighted = app.highlightedStoryId === story.id;
-                                            const isRead = readIds.has(story.id) || !!story.is_read;
-                                            return (
-                                                <div key={story.id} ref={el => storyRefs.current[index] = el}
-                                                    className="px-6 py-2.5"
-                                                    onClick={() => setHighlightedStoryId(story.id)}
-                                                    onDoubleClick={() => handleStorySelect(story.id, 'split')}
-                                                >
-                                                    <StoryCard
-                                                        story={story} index={offset + index} isSelected={isSelected} isHighlighted={isHighlighted} isRead={isRead} isEven={index % 2 === 0}
-                                                        onSelect={() => setHighlightedStoryId(story.id)}
-                                                        onOpenInTab={handleStorySelect}
-                                                        onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory}
-                                                        activeTopics={activeTopics}
-                                                        selectedTopics={selectedTopics}
-                                                    />
-                                                </div>
-                                            );
-                                        })
+                        <div 
+                            ref={parentRef}
+                            className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#f8fafc] dark:bg-[#080c14]"
+                        >
+                            {loading && stories.length === 0 ? (
+                                <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-indigo-500 mx-auto" /></div>
+                            ) : (
+                                <div 
+                                    className="relative w-full"
+                                    style={{ height: `${virtualizer.getTotalSize()}px` }}
+                                >
+                                    {virtualItems.map((virtualItem) => {
+                                        const story = stories[virtualItem.index];
+                                        if (!story) return null;
+
+                                        const isSelected = selectedStoryId === story.id;
+                                        const isHighlighted = app.highlightedStoryId === story.id;
+                                        const isRead = readIds.has(story.id) || !!story.is_read;
+
+                                        return (
+                                            <div
+                                                key={story.id}
+                                                data-index={virtualItem.index}
+                                                ref={virtualizer.measureElement}
+                                                className="absolute top-0 left-0 w-full px-6 py-2.5"
+                                                style={{
+                                                    transform: `translateY(${virtualItem.start}px)`,
+                                                }}
+                                                onClick={() => setHighlightedStoryId(story.id)}
+                                                onDoubleClick={() => handleStorySelect(story.id, 'split')}
+                                            >
+                                                <StoryCard
+                                                    story={story} 
+                                                    index={virtualItem.index} 
+                                                    isSelected={isSelected} 
+                                                    isHighlighted={isHighlighted} 
+                                                    isRead={isRead} 
+                                                    isEven={virtualItem.index % 2 === 0}
+                                                    onSelect={() => setHighlightedStoryId(story.id)}
+                                                    onOpenInTab={handleStorySelect}
+                                                    onToggleSave={user ? handleToggleSave : undefined} 
+                                                    onHide={handleHideStory}
+                                                    activeTopics={activeTopics}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                    
+                                    {/* Loading more spinner at the end of the list */}
+                                    {fetchingMore && (
+                                        <div 
+                                            className="absolute left-0 w-full flex justify-center py-8"
+                                            style={{ transform: `translateY(${virtualizer.getTotalSize()}px)` }}
+                                        >
+                                            <RefreshCw size={24} className="animate-spin text-indigo-500/50" />
+                                        </div>
                                     )}
                                 </div>
-                                            )}
+                            )}
+
+                            {!loading && stories.length === 0 && (
+                                <div className="flex-1 flex items-center justify-center p-20 text-slate-400 font-medium">No stories found in this view.</div>
+                            )}
                         </div>
-
-                        {/* Pagination - Floating Style */}
-                        {totalStories > PAGE_SIZE && !loading && (
-                            <div className="py-2.5 px-6 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-center gap-1 shrink-0 bg-white/80 dark:bg-[#0c1222]/80 backdrop-blur-sm z-20">
-                                <button 
-                                    onClick={() => setOffset?.(Math.max(0, offset - PAGE_SIZE))} 
-                                    disabled={offset === 0} 
-                                    className="px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-30 transition-all"
-                                >
-                                    &lt; Previous
-                                </button>
-                                
-                                <div className="flex items-center gap-1 mx-4">
-                                    {(() => {
-                                        const totalPages = Math.ceil(totalStories / PAGE_SIZE);
-                                        const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
-                                        const pages = [];
-                                        
-                                        const maxButtons = 5;
-                                        let start = Math.max(1, currentPage - 2);
-                                        let end = Math.min(totalPages, start + maxButtons - 1);
-                                        if (end === totalPages) start = Math.max(1, end - maxButtons + 1);
-
-                                        if (start > 1) {
-                                            pages.push(1);
-                                            if (start > 2) pages.push('...');
-                                        }
-
-                                        for (let i = start; i <= end; i++) pages.push(i);
-
-                                        if (end < totalPages) {
-                                            if (end < totalPages - 1) pages.push('...');
-                                            pages.push(totalPages);
-                                        }
-
-                                        return pages.map((p, idx) => {
-                                            if (p === '...') return <span key={`dots-${idx}`} className="px-1 text-slate-300 text-xs">...</span>;
-                                            const isActive = p === currentPage;
-                                            return (
-                                                <button
-                                                    key={`page-${p}`}
-                                                    onClick={() => setOffset?.((Number(p) - 1) * PAGE_SIZE)}
-                                                    className={`w-8 h-8 flex items-center justify-center rounded-full text-[11px] font-bold transition-all ${isActive 
-                                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
-                                                        : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
-                                                >
-                                                    {p}
-                                                </button>
-                                            );
-                                        });
-                                    })()}
-                                </div>
-
-                                <button 
-                                    onClick={() => setOffset?.(offset + PAGE_SIZE)} 
-                                    disabled={!hasMore} 
-                                    className="px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-30 transition-all"
-                                >
-                                    Next &gt;
-                                </button>
-                            </div>
-                        )}
-
                     </div>
                 </main>
 

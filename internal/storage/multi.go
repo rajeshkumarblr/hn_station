@@ -119,6 +119,21 @@ func (m *MultiStore) UpdateStoryIframeStatus(ctx context.Context, id int, blocke
 	return nil
 }
 
+func (m *MultiStore) ResetAllSummaries(ctx context.Context) error {
+	err := m.Primary.ResetAllSummaries(ctx)
+	if err != nil {
+		return err
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, sec := range m.Secondaries {
+		if sErr := sec.ResetAllSummaries(ctx); sErr != nil {
+			log.Printf("MultiStore: Secondary ResetAllSummaries failed: %v", sErr)
+		}
+	}
+	return nil
+}
+
 func (m *MultiStore) ClearRanksNotIn(ctx context.Context, ids []int) error {
 	err := m.Primary.ClearRanksNotIn(ctx, ids)
 	if err != nil {

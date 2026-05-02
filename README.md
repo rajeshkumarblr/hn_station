@@ -35,6 +35,10 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 - **Premium "SaaS" UI Refinement**: High-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
 - **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view. All article-level tags are neatly moved here to keep the main feed clean.
 - **AI Model Persistence**: Seamlessly save and restore your preferred local AI model (Ollama) or cloud provider (Gemini). Your model choices are now persisted across sessions in the local SQLite database, ensuring consistency between background ingestion and manual summaries.
+- **DOM-Virtualized Infinite Scroll**: Replaced traditional pagination with a high-performance virtualization engine, allowing seamless scrolling through thousands of local articles without UI lag.
+- **Selective AI Tagging**: Transitions from mandatory tagging to a relevance-based model. AI now provides up to 3 high-precision technical tags only if they truly apply, effectively eliminating "hallucinated" topics.
+- **Chrome-Style Flexible Tabs**: Implemented an intelligent tab management system where tabs automatically shrink and truncate as more are opened, preserving the layout even under heavy load.
+- **"Articles" Quick-Switch Menu**: A dedicated navigation menu in the top header providing a unified list of all open articles for instant switching.
 
 ### ⌨️ Keyboard Shortcuts
 

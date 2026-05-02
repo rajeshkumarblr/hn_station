@@ -60,7 +60,7 @@ export const MODES = [
 
 export type ModeKey = typeof MODES[number]['key'];
 
-export const PAGE_SIZE = 10;
+export const PAGE_SIZE = 30;
 export const MAX_READ_IDS = 500;
 
 export interface ChatMessage {

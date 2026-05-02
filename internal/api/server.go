@@ -131,6 +131,7 @@ func (s *Server) routes() {
 		r.Use(s.adminMiddleware)
 		r.Get("/api/admin/stats", s.handleGetAdminStats)
 		r.Get("/api/admin/users", s.handleGetAdminUsers)
+		r.Post("/api/admin/reset-tags", s.handleAdminResetTags)
 	})
 
 	// SPA catch-all
@@ -1316,6 +1317,11 @@ func (s *Server) adminMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := s.auth.GetUserIDFromRequest(r)
 		if userID == "" {
+			if s.localMode {
+				// In local mode, we allow admin actions without explicit JWT auth
+				next.ServeHTTP(w, r)
+				return
+			}
 			http.Error(w, "Authentication required", http.StatusUnauthorized)
 			return
 		}
@@ -1345,6 +1351,16 @@ func (s *Server) handleGetAdminStats(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+func (s *Server) handleAdminResetTags(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[admin] Resetting all story summaries and tags for regeneration...")
+	if err := s.store.ResetAllSummaries(r.Context()); err != nil {
+		http.Error(w, "Failed to reset summaries: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "reset triggered", "message": "All summaries and tags have been cleared. Background workers will re-summarize stories with the new tagging logic."})
 }
 
 func (s *Server) handleGetAdminUsers(w http.ResponseWriter, r *http.Request) {

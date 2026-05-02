@@ -50,7 +50,7 @@ func (c *GeminiClient) GenerateSummary(ctx context.Context, apiKey string, prefe
 		}
 
 		tagInstructions := tags.GetManager().GetPromptInstructions()
-		prompt := fmt.Sprintf("Summarize this in exactly 5 ULTRA-BRIEF, high-impact bullet points. Use crisp sentence fragments. Be brutally concise. Also extract 3-5 one-word technical tags NO HASHTAGS. %s\n\nOutput ONLY valid JSON:\n{\n  \"summary\": \"- Point 1\\n- Point 2\\n- Point 3\\n- Point 4\\n- Point 5\",\n  \"topics\": [\"tag1\", \"tag2\"]\n}\n\nArticle Text: %s", tagInstructions, text)
+		prompt := fmt.Sprintf("Summarize this in exactly 5 ULTRA-BRIEF, high-impact bullet points. Use crisp sentence fragments. Be brutally concise. Also extract up to 3 one-word technical tags NO HASHTAGS. %s\n\nPRIORITIZE RELEVANCE: If no technical tags from the provided list apply, return an empty array []. DO NOT hallucinate or force unrelated tags.\n\nOutput ONLY valid JSON:\n{\n  \"summary\": [\"Point 1\", \"Point 2\", \"Point 3\", \"Point 4\", \"Point 5\"],\n  \"topics\": [\"tag1\", \"tag2\"]\n}\n\nArticle Text: %s", tagInstructions, text)
 
 		resp, err := model.GenerateContent(ctx, genai.Text(prompt))
 		if err != nil {
