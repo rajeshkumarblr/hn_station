@@ -33,10 +33,8 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 - **Dynamic Filter Logic**: Introducing "ANY/ALL" match logic for topic filtering. Choose between broad discovery (OR) or surgical precision (AND) when selecting multiple tags.
 - **#ALL Global Reset**: A dedicated, uniquely styled "Global Reset" tag that instantly clears all filters and searches, returning the feed to its default state.
 - **Premium "SaaS" UI Refinement**: High-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
-- **Integrated AI Workspace**: A high-performance sidebar hosting **Discussion**, **Gemini Chat**, and **AI Summaries** in a unified view. All article-level tags are neatly moved here to keep the main feed clean.
-- **AI Model Persistence**: Seamlessly save and restore your preferred local AI model (Ollama) or cloud provider (Gemini). Your model choices are now persisted across sessions in the local SQLite database, ensuring consistency between background ingestion and manual summaries.
-- **DOM-Virtualized Infinite Scroll**: Replaced traditional pagination with a high-performance virtualization engine, allowing seamless scrolling through thousands of local articles without UI lag.
-- **Selective AI Tagging**: Transitions from mandatory tagging to a relevance-based model. AI now provides up to 3 high-precision technical tags only if they truly apply, effectively eliminating "hallucinated" topics.
+- **Native Browser Architecture**: Transformed the article view into a fully-functional browser with a dedicated URL bar, real-time navigation history (Back/Forward), and an instant "Home" reset button. Integrated all previously scattered tools (Bookmarks, Reader Mode, Discussion) into a single, cohesive header.
+- **Native Local AI Assistant**: Replaced unreliable remote webviews with a robust, native integration for **Ollama**. Features token-by-token real-time streaming via SSE, persistent conversation history (stored in SQLite), and instant Markdown rendering for formatted technical content.
 - **Chrome-Style Flexible Tabs**: Implemented an intelligent tab management system where tabs automatically shrink and truncate as more are opened, preserving the layout even under heavy load.
 - **"Articles" Quick-Switch Menu**: A dedicated navigation menu in the top header providing a unified list of all open articles for instant switching.
 
@@ -64,7 +62,7 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 | `Ctrl + Q` | Toggle Sidebar Visibility (Show/Hide) |
 | `Ctrl + H` | Direct switch to **Discussion** Tab |
 | `Ctrl + K` | Direct switch to **AI Summary** Tab |
-| `Ctrl + G` | Direct switch to **Gemini Chat** Tab |
+| `Ctrl + G` | Direct switch to **Local AI Chat** Tab |
 
 ---
 

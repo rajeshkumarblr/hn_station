@@ -581,6 +581,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 onBack={app.handleBack}
                                 onHome={app.handleHome}
                                 onToggleAISidebar={(open) => app.toggleAISidebar(tab.id, open)}
+                                onToggleSave={handleToggleSave}
                                 user={user}
                                 onHide={(id) => { handleHideStory(id); app.handleHome(); }}
                                 onSetGlobalWarning={app.setGlobalWarning}

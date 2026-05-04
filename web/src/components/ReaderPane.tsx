@@ -3,7 +3,7 @@ import type { Story } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, ArrowLeft, Home, MessageSquare, FileText } from 'lucide-react';
+import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, ArrowLeft, Home, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { AISidebar } from './AISidebar';
 
@@ -59,8 +59,12 @@ export function ReaderPane({
     const [commentsLoading, setCommentsLoading] = useState(false);
     const [isIngesting, setIsIngesting] = useState(false);
 
-    const [baseUrl, setBaseUrl] = useState('');
     const articleWebviewRef = useRef<any>(null);
+    const [baseUrl, setBaseUrl] = useState('');
+    const [currentUrl, setCurrentUrl] = useState(storyUrl);
+    const [canGoBack, setCanGoBack] = useState(false);
+    const [canGoForward, setCanGoForward] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         const webview = articleWebviewRef.current;
@@ -125,12 +129,34 @@ export function ReaderPane({
             }
         };
 
+        const updateNavigation = () => {
+            try {
+                setCanGoBack(webview.canGoBack());
+                setCanGoForward(webview.canGoForward());
+                setCurrentUrl(webview.getURL());
+            } catch (e) {}
+        };
+
+        const handleLoadStart = () => setIsLoading(true);
+        const handleLoadStop = () => {
+            setIsLoading(false);
+            updateNavigation();
+        };
+
         webview.addEventListener('dom-ready', injectStyles);
         webview.addEventListener('did-finish-load', injectStyles);
+        webview.addEventListener('did-navigate', updateNavigation);
+        webview.addEventListener('did-navigate-in-page', updateNavigation);
+        webview.addEventListener('did-start-loading', handleLoadStart);
+        webview.addEventListener('did-stop-loading', handleLoadStop);
         
         return () => {
             webview.removeEventListener('dom-ready', injectStyles);
             webview.removeEventListener('did-finish-load', injectStyles);
+            webview.removeEventListener('did-navigate', updateNavigation);
+            webview.removeEventListener('did-navigate-in-page', updateNavigation);
+            webview.removeEventListener('did-start-loading', handleLoadStart);
+            webview.removeEventListener('did-stop-loading', handleLoadStop);
         };
     }, [story.id]);
 
@@ -348,185 +374,196 @@ export function ReaderPane({
 
 
     return (
-        <div className="relative h-full flex flex-row bg-white dark:bg-[#111d2e] border-t border-slate-200 dark:border-white/5 shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] overflow-hidden">
-
-            {/* NEW: Left Vertical Sidebar Toolbar */}
-            <div className="w-12 flex flex-col items-center py-4 bg-slate-50 dark:bg-slate-900/30 border-r border-slate-200 dark:border-white/5 shrink-0 gap-4">
-                {/* 1. Navigation & Quick Utilities */}
-                <div className="flex flex-col gap-2">
-                    <button onClick={onBack} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="Back to previous tab/feed">
-                        <ArrowLeft size={18} />
-                    </button>
-                    <button onClick={onHome} className="p-2 relative text-blue-500 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg transition-all" title="Go to Feed">
-                        <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-5 bg-blue-500 rounded-r-full"></div>
+        <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] overflow-hidden">
+            
+            {/* Horizontal Browser Chrome (URL Bar & Controls) */}
+            <div className="flex items-center gap-4 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-white/5 shrink-0">
+                {/* 1. Main Navigation */}
+                <div className="flex items-center gap-1.5">
+                    <button 
+                        onClick={() => {
+                            if (articleWebviewRef.current) {
+                                articleWebviewRef.current.src = storyUrl;
+                            }
+                        }} 
+                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" 
+                        title="Reset to Original Article"
+                    >
                         <Home size={18} />
-                    </button>
-                    <button 
-                        onClick={() => loadContent(story.id, baseUrl)}
-                        disabled={commentsLoading}
-                        className={`p-2 rounded-lg transition-all text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${commentsLoading ? 'animate-spin' : ''}`}
-                        title="Refresh Content"
-                    >
-                        <RefreshCw size={18} />
-                    </button>
-                </div>
-
-                <div className="h-px w-6 bg-slate-200 dark:bg-slate-800"></div>
-
-                {/* 2. Mode Selectors - Updated for Sidebar Focus */}
-                <div className="flex flex-col gap-2">
-                    <button 
-                        onClick={() => onToggleAISidebar?.(false)}
-                        className={`p-2 rounded-lg transition-all ${!isAISidebarOpen ? 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/40 shadow-sm' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
-                        title="Focus Article (Hide Sidebar)"
-                    >
-                        <FileText size={18} />
-                    </button>
-                    <button 
-                        onClick={() => { setSidebarTab('discussion'); onToggleAISidebar?.(true); }}
-                        className={`p-2 rounded-lg transition-all ${isAISidebarOpen && sidebarTab === 'discussion' ? 'text-orange-500 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/40 shadow-sm' : 'text-slate-400 hover:text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20'}`}
-                        title="Show Discussion"
-                    >
-                        <MessageSquare size={18} />
-                    </button>
-
-                    <button 
-                        onClick={() => { setSidebarTab('gemini'); onToggleAISidebar?.(true); }}
-                        className={`p-2 rounded-lg transition-all ${isAISidebarOpen && sidebarTab === 'gemini' ? 'text-blue-500 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/40 shadow-sm focus:outline-none' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
-                        title="Chat with Gemini (Ctrl+G)"
-                    >
-                        <div className="w-[18px] h-[18px] rounded-full bg-slate-400 flex items-center justify-center text-[10px] text-white font-bold group-hover:bg-blue-500">G</div>
-                    </button>
-
-                    <button 
-                        onClick={() => { setSidebarTab('summary'); onToggleAISidebar?.(true); }}
-                        className={`p-2 rounded-lg transition-all ${isAISidebarOpen && sidebarTab === 'summary' ? 'text-amber-500 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/40 shadow-sm focus:outline-none' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'}`}
-                        title="AI Summary (Ctrl+K)"
-                    >
-                        <Sparkles size={18} />
-                    </button>
-                </div>
-
-                <div className="h-px w-6 bg-slate-200 dark:bg-slate-800"></div>
-
-                {/* 3. Story Actions */}
-                <div className="flex flex-col gap-2">
-                    <a href={storyUrl} target="_blank" rel="noreferrer" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" title="Open in new tab">
-                        <ExternalLink size={18} />
-                    </a>
-                    
-                    <button 
-                        onClick={handleCopyLink} 
-                        className={`p-2 rounded-lg transition-all ${isCopied ? 'text-green-500 bg-green-50 dark:bg-green-900/10' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
-                        title={isCopied ? 'Copied!' : 'Copy Link'}
-                    >
-                        {isCopied ? <Check size={18} /> : <Link size={18} />}
                     </button>
 
                     {onToggleSave && (
                         <button 
-                            onClick={() => {
-                                const nextSaved = !story.is_saved;
-                                onToggleSave(story.id, nextSaved);
-                            }} 
-                            className={`p-2 rounded-lg transition-all group ${story.is_saved ? 'text-yellow-500 bg-yellow-500/10 dark:bg-yellow-500/20 border border-yellow-500/50' : 'text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'}`} 
+                            onClick={() => onToggleSave(story.id, !story.is_saved)} 
+                            className={`p-1.5 rounded-lg transition-all ${story.is_saved ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-slate-400 hover:text-yellow-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`} 
                             title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
                         >
-                            <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} className={story.is_saved ? "drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" : ""} />
+                            <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
                         </button>
                     )}
+
+                    <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+                    <button 
+                        onClick={() => articleWebviewRef.current?.goBack()} 
+                        disabled={!canGoBack}
+                        className={`p-1.5 rounded-lg transition-all ${canGoBack ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800' : 'text-slate-300 dark:text-slate-700 opacity-50'}`}
+                        title="Go Back"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <button 
+                        onClick={() => articleWebviewRef.current?.goForward()} 
+                        disabled={!canGoForward}
+                        className={`p-1.5 rounded-lg transition-all ${canGoForward ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800' : 'text-slate-300 dark:text-slate-700 opacity-50'}`}
+                        title="Go Forward"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                    <button 
+                        onClick={() => articleWebviewRef.current?.reload()} 
+                        className={`p-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 ${isLoading ? 'animate-spin' : ''}`}
+                        title="Reload"
+                    >
+                        <RefreshCw size={16} />
+                    </button>
                 </div>
 
-                <div className="flex-1"></div>
+                {/* 2. URL Address Bar */}
+                <div className="flex-1 max-w-2xl flex items-center bg-white dark:bg-black/20 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 gap-2 group transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/50">
+                    <div className="text-green-500/70">
+                        <Lock size={12} />
+                    </div>
+                    <div className="flex-1 text-[13px] text-slate-600 dark:text-slate-400 truncate select-all">
+                        {currentUrl}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                            onClick={handleCopyLink}
+                            className={`p-1 rounded-md transition-all ${isCopied ? 'text-green-500 bg-green-50' : 'text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                            title="Copy URL"
+                        >
+                            {isCopied ? <Check size={14} /> : <Link size={14} />}
+                        </button>
+                        <a 
+                            href={currentUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="p-1 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all"
+                            title="Open in Browser"
+                        >
+                            <ExternalLink size={14} />
+                        </a>
+                    </div>
+                </div>
+
+                {/* 3. Integrated Tools */}
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5">
+                        <button 
+                            onClick={() => onToggleAISidebar?.(false)}
+                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${!isAISidebarOpen ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            title="Reader View"
+                        >
+                            <FileText size={14} />
+                            Reader
+                        </button>
+                        <button 
+                            onClick={() => { setSidebarTab('discussion'); onToggleAISidebar?.(true); }}
+                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'discussion' ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            title="Discussion"
+                        >
+                            <MessageSquare size={14} />
+                            Chat
+                        </button>
+                        <button 
+                            onClick={() => { setSidebarTab('gemini'); onToggleAISidebar?.(true); }}
+                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'gemini' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            title="AI Assistant"
+                        >
+                            <Sparkles size={14} />
+                            AI
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* Main Content Area Container */}
-            <div className="flex-1 flex flex-col min-w-0 h-full relative">
-                {/* Resizing Overlay - Captures mouse events during resize to prevent iframe swallowing */}
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-row min-w-0 h-full relative overflow-hidden">
+                {/* Resizing Overlay */}
                 {isResizing && (
                     <div 
                         className="fixed inset-0 z-[9999] cursor-col-resize bg-transparent"
                         onMouseUp={stopResizing}
                     />
                 )}
-
-                <div className="flex-1 flex flex-row min-h-0 overflow-hidden relative">
-                    
-                    {/* Article view is now the ONLY main content area */}
-                    <div ref={paneRef} className="flex-1 bg-white relative overflow-hidden h-full">
-                        {isWebMode ? (
-                            iframeBlocked ? (
-                                <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-900/50">
-                                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
-                                        <ExternalLink size={32} className="text-red-500" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Iframe Preview Blocked</h3>
-                                    <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm text-sm">
-                                        This website prohibits being nested in other apps. Please use the Discussion tab on the right to read the conversation.
-                                    </p>
-                                    <a
-                                        href={storyUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all"
-                                    >
-                                        Open Original Article <ExternalLink size={14} />
-                                    </a>
-                                </div>
-                            ) : (
-                                <iframe
-                                    src={storyUrl}
-                                    className="w-full h-full border-0 absolute inset-0 bg-white"
-                                    title="Article Web View"
-                                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                                />
-                            )
-                        ) : (
-                            <webview
-                                ref={articleWebviewRef}
-                                src={storyUrl}
-                                className="w-full h-full border-0 absolute inset-0 bg-white"
-                                title="Article Web View"
-                            />
-                        )}
-                    </div>
-                                    
-                    {/* Resizer Handle */}
-                    {isAISidebarOpen && (
-                        <div 
-                            onMouseDown={startResizing}
-                            className={`w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors z-50 flex items-center justify-center group ${isResizing ? 'bg-blue-500' : 'bg-transparent'}`}
-                        >
-                            <div className="w-[1px] h-8 bg-slate-300 dark:bg-slate-700 group-hover:bg-blue-400"></div>
+                
+                {/* Article Content */}
+                <div ref={paneRef} className="flex-1 bg-white relative overflow-hidden h-full">
+                    {!isWebMode ? (
+                        <webview
+                            ref={articleWebviewRef}
+                            src={storyUrl}
+                            className="w-full h-full border-0 absolute inset-0 bg-white"
+                            title="Article Web View"
+                        />
+                    ) : iframeBlocked ? (
+                        <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-900/50">
+                            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                                <ExternalLink size={32} className="text-red-500" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Iframe Preview Blocked</h3>
+                            <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm text-sm">
+                                This website prohibits being nested in other apps. Please use the Discussion tab on the right to read the conversation.
+                            </p>
+                            <a href={storyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all">
+                                Open Original Article <ExternalLink size={14} />
+                            </a>
                         </div>
+                    ) : (
+                        <iframe
+                            src={storyUrl}
+                            className="w-full h-full border-0 absolute inset-0 bg-white"
+                            title="Article Web View"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                        />
                     )}
-
-                    <AISidebar
-                        story={story}
-                        isOpen={isAISidebarOpen}
-                        onClose={() => onToggleAISidebar?.(false)}
-                        user={user}
-                        onSetSummary={(summary, topics) => {
-                            onSetSummary?.(story.id, summary, topics);
-                        }}
-                        onSetDiscussionSummary={(summary) => {
-                            onSetDiscussionSummary?.(story.id, summary);
-                        }}
-                        comments={comments}
-                        commentsLoading={commentsLoading}
-                        isIngesting={isIngesting}
-                        activeCommentId={activeCommentId}
-                        onFocusComment={(id) => {
-                            setActiveCommentId(id);
-                            onTakeFocus?.();
-                        }}
-                        activeTab={sidebarTab}
-                        onTabChange={setSidebarTab}
-                        containerRef={containerRef}
-                        width={sidebarWidth}
-                        activeTopics={activeTopics}
-                    />
                 </div>
+                                
+                {/* Resizer Handle */}
+                {isAISidebarOpen && (
+                    <div 
+                        onMouseDown={startResizing}
+                        className={`w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors z-50 flex items-center justify-center group ${isResizing ? 'bg-blue-500' : 'bg-transparent'}`}
+                    >
+                        <div className="w-[1px] h-8 bg-slate-300 dark:bg-slate-700 group-hover:bg-blue-400"></div>
+                    </div>
+                )}
+
+                <AISidebar
+                    story={story}
+                    isOpen={isAISidebarOpen}
+                    onClose={() => onToggleAISidebar?.(false)}
+                    user={user}
+                    onSetSummary={(summary, topics) => {
+                        onSetSummary?.(story.id, summary, topics);
+                    }}
+                    onSetDiscussionSummary={(summary) => {
+                        onSetDiscussionSummary?.(story.id, summary);
+                    }}
+                    comments={comments}
+                    commentsLoading={commentsLoading}
+                    isIngesting={isIngesting}
+                    activeCommentId={activeCommentId}
+                    onFocusComment={(id) => {
+                        setActiveCommentId(id);
+                        onTakeFocus?.();
+                    }}
+                    activeTab={sidebarTab}
+                    onTabChange={setSidebarTab}
+                    containerRef={containerRef}
+                    width={sidebarWidth}
+                    activeTopics={activeTopics}
+                />
             </div>
         </div>
     );
