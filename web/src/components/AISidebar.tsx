@@ -17,8 +17,8 @@ interface AISidebarProps {
     commentsLoading: boolean;
     activeCommentId?: string | null;
     onFocusComment?: (id: string) => void;
-    activeTab: 'discussion' | 'summary' | 'gemini';
-    onTabChange: (tab: 'discussion' | 'summary' | 'gemini') => void;
+    activeTab: 'discussion' | 'summary' | 'ai';
+    onTabChange: (tab: 'discussion' | 'summary' | 'ai') => void;
     containerRef?: React.RefObject<HTMLDivElement>;
     width?: number;
     isIngesting?: boolean;
@@ -45,8 +45,8 @@ export function AISidebar({
 
     // Load chat history when story changes
     useEffect(() => {
-        if (story.id && isOpen) {
-            const baseUrl = getApiBase();
+        const baseUrl = getApiBase();
+        if (story.id && isOpen && baseUrl) {
             fetchWithAuth(`${baseUrl}/api/stories/${story.id}/chat`)
                 .then(res => res.ok ? res.json() : [])
                 .then(data => {
@@ -58,7 +58,7 @@ export function AISidebar({
                 })
                 .catch(err => console.error('Failed to load chat history', err));
         }
-    }, [story.id, isOpen]);
+    }, [story.id, isOpen, getApiBase()]);
 
     // Scroll to bottom when messages change
     useEffect(() => {
@@ -144,7 +144,7 @@ export function AISidebar({
 
     useEffect(() => {
         // If we already have a summary, or the AI Assistant tab isn't active, do not poll
-        if (story.summary || activeTab !== 'gemini' || !isOpen) return;
+        if (story.summary || activeTab !== 'ai' || !isOpen) return;
 
         let isPolling = true;
         const pollSummary = async () => {
@@ -219,9 +219,9 @@ export function AISidebar({
                         <MessageSquare size={14} /> <span className="font-black">Discussion</span>
                     </button>
                     <button 
-                        onClick={() => onTabChange('gemini')}
+                        onClick={() => onTabChange('ai')}
                         title="Chat with local AI assistant (Privacy First)"
-                        className={`flex items-center gap-2 px-4 py-3 text-[12px] font-black uppercase tracking-widest border-b-2 transition-all shrink-0 ${activeTab === 'gemini' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-500'}`}
+                        className={`flex items-center gap-2 px-4 py-3 text-[12px] font-black uppercase tracking-widest border-b-2 transition-all shrink-0 ${activeTab === 'ai' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-500'}`}
                     >
                         <MessageSquare size={14} /> <span className="font-black">AI Assistant</span>
                     </button>
@@ -230,12 +230,12 @@ export function AISidebar({
                 <div className="flex items-center gap-2 mr-2">
                     <button 
                         onClick={() => {
-                            if (activeTab === 'gemini') {
+                            if (activeTab === 'ai') {
                                 setMessages([]);
                                 setChatInput('');
                             }
                         }}
-                        title={activeTab === 'gemini' ? "Clear Chat History" : "Refresh Tab"}
+                        title={activeTab === 'ai' ? "Clear Chat History" : "Refresh Tab"}
                         className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
                     >
                         <RefreshCw size={14} />
@@ -285,12 +285,20 @@ export function AISidebar({
                                         <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
                                             <ReactMarkdown
                                                 components={{
-                                                    li: ({node, ...props}) => (
-                                                        <li className="flex gap-2 items-start mb-2">
-                                                            <span className="mt-1.5 w-1 h-1 rounded-full bg-indigo-400 shrink-0" />
-                                                            <span {...props} />
-                                                        </li>
-                                                    ),
+                                                    li: ({node, ...props}) => {
+                                                        // Check if this is a numbered list item by looking at the raw content string
+                                                        const rawText = node?.children?.map((c: any) => c.value || c.children?.[0]?.value || '').join('') || '';
+                                                        const isNumbered = /^\s*\d+\./.test(rawText);
+                                                        
+                                                        return (
+                                                            <li className="flex gap-3 items-start mb-3 group">
+                                                                {!isNumbered && (
+                                                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400/50 group-hover:bg-indigo-500 shrink-0 transition-colors" />
+                                                                )}
+                                                                <span className="flex-1 m-0 p-0" {...props} />
+                                                            </li>
+                                                        );
+                                                    },
                                                     ul: ({node, ...props}) => <ul className="pl-0 list-none" {...props} />,
                                                 }}
                                             >
@@ -329,7 +337,7 @@ export function AISidebar({
                 </div>
 
                 {/* Local AI Assistant Tab Content */}
-                <div className={`flex-1 flex flex-col min-h-0 relative bg-white dark:bg-[#0f172a] ${activeTab !== 'gemini' ? 'hidden' : ''}`}>
+                <div className={`flex-1 flex flex-col min-h-0 relative bg-white dark:bg-[#0f172a] ${activeTab !== 'ai' ? 'hidden' : ''}`}>
                     {/* Chat Messages */}
                     <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar space-y-6 min-h-0">
                         {messages.length === 0 ? (

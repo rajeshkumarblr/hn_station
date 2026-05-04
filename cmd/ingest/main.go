@@ -150,7 +150,6 @@ type SummaryJob struct {
 	URL      string
 	Title    string
 	Model    string
-	Provider string
 }
 
 func startWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, jobs <-chan SummaryJob, limiter *time.Ticker) {
@@ -193,47 +192,24 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 		textContent = textContent[:8000] + "..."
 	}
 
-	// ─── Summarization Logic with Fallback ───
+	// ─── Summarization Logic ───
 	var summary string
 	var topics []string
 	var summarizeErr error
 
-	// 1. Try Local Ollama if provider is "local" or "both"
-	if job.Provider == "local" || job.Provider == "both" {
-		if aiClient.CheckAvailability(workCtx, ollamaURL) {
-			responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Model, job.Title, textContent)
-			if err == nil {
-				// Success with local
-				summary, _ = parseOllamaResponse(responseStr)
-			} else {
-				summarizeErr = err
-				log.Printf("Worker: Ollama failed for story %d: %v", job.ID, err)
-			}
+	// Try Local Ollama
+	if aiClient.CheckAvailability(workCtx, ollamaURL) {
+		responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, job.Model, job.Title, textContent)
+		if err == nil {
+			// Success with local
+			summary, _ = parseOllamaResponse(responseStr)
 		} else {
-			log.Printf("Worker: Ollama unreachable at %s, skipping local summary for %d", ollamaURL, job.ID)
+			summarizeErr = err
+			log.Printf("Worker: Ollama failed for story %d: %v", job.ID, err)
 		}
+	} else {
+		log.Printf("Worker: Ollama unreachable at %s, skipping local summary for %d", ollamaURL, job.ID)
 	}
-
-	// 2. Fallback to Gemini if:
-	// - Local failed/unreachable OR provider is "gemini"
-	// - AND (provider is "gemini" OR provider is "both" OR (provider is "local" AND Ollama was unreachable))
-	/*
-	canFallback := job.Provider == "gemini" || job.Provider == "both" || (job.Provider == "local" && summary == "")
-	if summary == "" && canFallback {
-		geminiKey := os.Getenv("GEMINI_API_KEY")
-		if geminiKey != "" {
-			log.Printf("Worker: Attempting fallback/primary Gemini summarization for story %d", job.ID)
-			geminiClient := ai.NewGeminiClient() // One-off client for now
-			resp, err := geminiClient.GenerateSummary(workCtx, geminiKey, textContent)
-			if err == nil {
-				summary = resp
-			} else {
-				summarizeErr = err
-				log.Printf("Worker: Gemini failed for story %d: %v", job.ID, err)
-			}
-		}
-	}
-	*/
 
 	if summary == "" {
 		log.Printf("Worker: All summarization attempts failed for story %d. Last error: %v", job.ID, summarizeErr)
@@ -334,10 +310,6 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, aiCl
 	}
 
 	ollamaModel, _ := store.GetSetting(ctx, "ollama_model")
-	aiProvider, _ := store.GetSetting(ctx, "ai_provider")
-	if aiProvider == "" {
-		aiProvider = "local"
-	}
 
 	// Fetch Top Stories (Ranked) - only top 20
 	topIDs, err := client.GetTopStories(ctx)
@@ -386,7 +358,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, aiCl
 					rank := rankMap[id]
 					// Always summarize for top 20 in clean re-ingest
 					rankPtr := &rank
-					if err := processStory(ctx, client, store, id, rankPtr, summaryQueue, aiEnabled, ollamaModel, aiProvider); err != nil {
+					if err := processStory(ctx, client, store, id, rankPtr, summaryQueue, aiEnabled, ollamaModel); err != nil {
 						log.Printf("Worker %d: Failed to process story %d: %v", workerID, id, err)
 					}
 				}
@@ -411,7 +383,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, aiCl
 	log.Println("Ingestion run completed successfully.")
 }
 
-func processStory(ctx context.Context, client *hn.Client, store storage.DB, id int, rank *int, summaryQueue chan<- SummaryJob, aiEnabled bool, ollamaModel string, aiProvider string) error {
+func processStory(ctx context.Context, client *hn.Client, store storage.DB, id int, rank *int, summaryQueue chan<- SummaryJob, aiEnabled bool, ollamaModel string) error {
 	item, err := client.GetItem(ctx, id)
 	if err != nil {
 		return err
@@ -445,7 +417,7 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 		needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0
 		if needsSummary || needsTopics {
 			select {
-			case summaryQueue <- SummaryJob{ID: id, URL: item.URL, Title: item.Title, Model: ollamaModel, Provider: aiProvider}:
+			case summaryQueue <- SummaryJob{ID: id, URL: item.URL, Title: item.Title, Model: ollamaModel}:
 				if needsTopics {
 					log.Printf("Re-queuing story %d for topic tagging", id)
 				}

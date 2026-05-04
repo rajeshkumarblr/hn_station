@@ -18,7 +18,6 @@ type DB interface {
 	UpdateStorySummary(ctx context.Context, id int, summary string) error
 	UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error
 	UpdateStoryDiscussionSummary(ctx context.Context, id int, summary string) error
-	UpdateStoryGeminiURL(ctx context.Context, id int64, url string) error
 	UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error
 	ResetAllSummaries(ctx context.Context) error
 	ClearRanksNotIn(ctx context.Context, ids []int) error
@@ -36,11 +35,9 @@ type DB interface {
 	// Auth Users (cloud only — local returns stubs/errors)
 	UpsertAuthUser(ctx context.Context, googleID, email, name, avatarURL string) (*AuthUser, error)
 	GetAuthUser(ctx context.Context, userID string) (*AuthUser, error)
-	UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error
 	UpdateUserTopics(ctx context.Context, userID string, topics []string) error
 	GetActiveTopics(ctx context.Context) ([]string, error)
 	GetAllUsers(ctx context.Context) ([]*AuthUser, error)
-	GetAnyAdminAPIKey(ctx context.Context) (string, error)
 	GetAppStats(ctx context.Context) (*AppStats, error)
 
 	// Interactions (cloud only — local is no-op)
@@ -75,7 +72,6 @@ type Story struct {
 	DiscussionSummary *string          `json:"discussion_summary,omitempty"`
 	Topics            []string         `json:"topics,omitempty"`
 	IframeBlocked     *bool            `json:"iframe_blocked,omitempty"`
-	GeminiURL         *string          `json:"gemini_url,omitempty"`
 	Embedding     *pgvector.Vector `json:"-"`
 	Similarity    *float64         `json:"similarity,omitempty"`
 }
@@ -109,7 +105,6 @@ type AuthUser struct {
 	Topics           []string   `json:"topics"` // User-preferred filters (synced)
 	TotalViews   int        `json:"total_views"`
 	LastSeen     *time.Time `json:"last_seen"` // Pointer to handle nulls
-	GeminiAPIKey string     `json:"-"`         // Never expose to frontend
 	CreatedAt    time.Time  `json:"created_at"`
 }
 

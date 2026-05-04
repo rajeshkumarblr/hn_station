@@ -17,7 +17,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v0.9.8)
+## 🖥️ Electron Desktop App (v0.9.9)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
@@ -39,6 +39,8 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 - **"Articles" Quick-Switch Menu**: A dedicated navigation menu in the top header providing a unified list of all open articles for instant switching.
 - **Search-to-Filter Workflow**: Type a search term and press **Enter** to promote it into a persistent `#Topic` filter chip. Press **Escape** to clear the search. Topic chips feature hover-visible close buttons for easy removal.
 - **Safe FTS5 Query Expansion**: All synonym expansions are now properly quoted in FTS5 MATCH queries, preventing special characters (hyphens, dots) from being misinterpreted as operators and causing silent query failures.
+- **Global Shortcut Relay**: Implemented an advanced IPC-based keyboard interception system. Critical navigation shortcuts (`Ctrl+W`, `Ctrl+Tab`, `Alt+D`) now work globally across the app, even when focus is inside a third-party article webview.
+- **Chrome-Inspired Reader UI**: Rebuilt the article toolbar with a professional, neutral grey theme and improved navigation controls (Back/Forward/Refresh/Home) matching industry-standard browser layouts.
 
 ### ⌨️ Keyboard Shortcuts
 
@@ -59,6 +61,7 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 | `Ctrl + Home` | First page of current feed |
 | `Enter` | Open story in **Split Mode** |
 | **Reader Control** | |
+| `Alt + D` | Focus Address Bar (and select URL) |
 | `Ctrl + Space` | Cycle layout: **Article → Discussion → Split** |
 | `Ctrl + Alt + Arrows` | Incremental layout cycling |
 | `Ctrl + Q` | Toggle Sidebar Visibility (Show/Hide) |

@@ -11,11 +11,9 @@ export interface User {
     auto_summarize_enabled: boolean;
     refresh_interval: string;
     ai_provider: string;
-    gemini_model: string;
     ollama_available: boolean;
     ollama_model?: string;
     ollama_models?: string[];
-    gemini_api_key?: string;
     total_views?: number;
     last_seen?: string | null;
     created_at?: string;
@@ -38,7 +36,6 @@ export interface Story {
     discussion_summary?: string;
     topics?: string[];
     iframe_blocked?: boolean;
-    gemini_url?: string;
 }
 
 export interface ReaderTab {

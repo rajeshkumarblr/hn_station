@@ -10,4 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getLocalApiUrl: () => ipcRenderer.invoke('get-local-api-url'),
     openExternal: (url: string) => ipcRenderer.send('open-external', url),
     hackSummarize: (url: string) => ipcRenderer.invoke('hack-summarize', url),
+    onGlobalShortcut: (callback: (data: any) => void) => {
+        ipcRenderer.on('global-shortcut', (_event, data) => callback(data));
+    }
 });

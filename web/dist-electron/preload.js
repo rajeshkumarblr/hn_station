@@ -7,5 +7,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Local backend port — set once on startup, null if binary not found
   getLocalApiUrl: () => ipcRenderer.invoke("get-local-api-url"),
   openExternal: (url) => ipcRenderer.send("open-external", url),
-  hackSummarize: (url) => ipcRenderer.invoke("hack-summarize", url)
+  hackSummarize: (url) => ipcRenderer.invoke("hack-summarize", url),
+  onGlobalShortcut: (callback) => {
+    ipcRenderer.on("global-shortcut", (_event, data) => callback(data));
+  }
 });

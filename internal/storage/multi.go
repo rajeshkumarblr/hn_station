@@ -250,16 +250,6 @@ func (m *MultiStore) GetAuthUser(ctx context.Context, userID string) (*AuthUser,
 	return m.Primary.GetAuthUser(ctx, userID)
 }
 
-func (m *MultiStore) UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	for _, sec := range m.Secondaries {
-		if sErr := sec.UpdateUserGeminiKey(ctx, userID, apiKey); sErr != nil {
-			log.Printf("MultiStore: Secondary UpdateUserGeminiKey failed: %v", sErr)
-		}
-	}
-	return m.Primary.UpdateUserGeminiKey(ctx, userID, apiKey)
-}
 
 func (m *MultiStore) UpdateUserTopics(ctx context.Context, userID string, topics []string) error {
 	m.mu.RLock()
@@ -281,14 +271,6 @@ func (m *MultiStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
 	return m.Primary.GetAllUsers(ctx)
 }
 
-func (m *MultiStore) GetAnyAdminAPIKey(ctx context.Context) (string, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	for _, sec := range m.Secondaries {
-		return sec.GetAnyAdminAPIKey(ctx)
-	}
-	return m.Primary.GetAnyAdminAPIKey(ctx)
-}
 
 func (m *MultiStore) GetAppStats(ctx context.Context) (*AppStats, error) {
 	return m.Primary.GetAppStats(ctx)
@@ -352,6 +334,21 @@ func (m *MultiStore) SetSetting(ctx context.Context, key, value string) error {
 	for _, sec := range m.Secondaries {
 		if sErr := sec.SetSetting(ctx, key, value); sErr != nil {
 			log.Printf("MultiStore: Secondary SetSetting failed: %v", sErr)
+		}
+	}
+	return nil
+}
+
+func (m *MultiStore) ClearPoisonedSummaries(ctx context.Context) error {
+	err := m.Primary.ClearPoisonedSummaries(ctx)
+	if err != nil {
+		return err
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, sec := range m.Secondaries {
+		if sErr := sec.ClearPoisonedSummaries(ctx); sErr != nil {
+			log.Printf("MultiStore: Secondary ClearPoisonedSummaries failed: %v", sErr)
 		}
 	}
 	return nil

@@ -111,12 +111,11 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 
 	hnClient := hn.NewClient()
 	ollamaClient := ai.NewOllamaClient()
-	geminiClient := ai.NewGeminiClient()
 
 	authCfg := auth.NewLocalConfig()
 	status := &api.IngestStatus{AIStatus: "Ready"}
 	summaryManager := NewSummaryManager(status)
-	srv := api.NewServer(store, authCfg, ollamaClient, geminiClient, true, summaryManager, status)
+	srv := api.NewServer(store, authCfg, ollamaClient, true, summaryManager, status)
 
 	if err := clearPoisonedSummaries(ctx, store); err != nil {
 		log.Printf("[ingest] Failed to clear poisoned summaries: %v", err)
@@ -158,7 +157,7 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 	limiter := time.NewTicker(6 * time.Second)
 	defer limiter.Stop()
 	for i := 0; i < workerCount; i++ {
-		go runSummaryWorker(i, ctx, store, ollamaClient, geminiClient, ollamaURL, summaryManager, limiter)
+		go runSummaryWorker(i, ctx, store, ollamaClient, ollamaURL, summaryManager, limiter)
 	}
 
 	httpSrv := &http.Server{
@@ -272,8 +271,7 @@ func (sm *SummaryManager) Pop() (summaryJob, bool) {
 	for sm.heap.Len() == 0 {
 		sm.cond.Wait()
 	}
-	// Skip backoff for local provider (Ollama)
-	// We only backoff for Gemini (non-local) if needed.
+	// Local provider (Ollama) doesn't need backoff.
 	
 	if sm.heap.Len() == 0 { return summaryJob{}, false }
 	job := heap.Pop(&sm.heap).(summaryJob)
@@ -321,7 +319,7 @@ func (sm *SummaryManager) CancelOngoing() {
 	}
 }
 
-func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, ollamaURL string, manager *SummaryManager, limiter *time.Ticker) {
+func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, manager *SummaryManager, limiter *time.Ticker) {
 	log.Printf("[worker %d] Started successfully", id)
 	for {
 		job, ok := manager.Pop()
@@ -334,12 +332,10 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 			enabled, _ := store.GetSetting(ctx, "auto_summarize_enabled")
 			if enabled == "false" { return }
 
-			provider, _ := store.GetSetting(ctx, "ai_provider")
-			if provider != "local" {
-				select {
-				case <-ctx.Done(): return
-				case <-limiter.C:
-				}
+			// Always check limiter for consistent processing
+			select {
+			case <-ctx.Done(): return
+			case <-limiter.C:
 			}
 
 			manager.status.AIStatus = "Busy"
@@ -347,40 +343,12 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 			jobCtx, jobCancel := context.WithCancel(ctx)
 			manager.RegisterCancel(jobCancel)
 
-			err := processSummary(jobCtx, store, aiClient, geminiClient, ollamaURL, job)
+			err := processSummary(jobCtx, store, aiClient, ollamaURL, job)
 			jobCancel()
 			manager.RegisterCancel(nil)
 
 			if err != nil {
-				wait := 5 * time.Minute
-				isQuota := false
-				if re, ok := err.(*ai.RateLimitError); ok {
-					isQuota = true
-					log.Printf("[ingest] Gemini error for story %d: %v", job.ID, err)
-					if re.RetryAfter > 0 {
-						wait = re.RetryAfter + 5*time.Second
-					}
-				} else if strings.Contains(strings.ToLower(err.Error()), "429") || strings.Contains(strings.ToLower(err.Error()), "quota") {
-					isQuota = true
-					log.Printf("[ingest] Gemini quota reached for story %d: %v", job.ID, err)
-				}
-
-				if isQuota {
-					// Pushing it back will re-add to pendingIDs via Push()
-					// But we are about to call MarkDone via defer.
-					// So we need to be careful.
-					// Actually, calling Push() will return early if it's still in pendingIDs.
-					// And then defer will remove it.
-					// Best to call MarkDone BEFORE Push if retrying?
-					// No, if we call MarkDone then Push, it's safe.
-					manager.MarkDone(job.ID)
-					manager.Push(job)
-					manager.mu.Lock()
-					manager.BackoffUntil = time.Now().Add(wait)
-					manager.mu.Unlock()
-				} else {
-					log.Printf("[ingest] Summary failed for story %d: %v", job.ID, err)
-				}
+				log.Printf("[ingest] Summary failed for story %d: %v", job.ID, err)
 			}
 			manager.status.AIStatus = "Ready"
 			manager.status.CurrentTask = ""
@@ -388,7 +356,7 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 	}
 }
 
-func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, ollamaURL string, job summaryJob) error {
+func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, job summaryJob) error {
 	// FINAL DEDUPLICATION: Check if already summarized in DB
 	existing, err := store.GetStory(ctx, job.ID)
 	if err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) > 0 {
@@ -396,9 +364,7 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 		return nil
 	}
 
-	provider, _ := store.GetSetting(ctx, "ai_provider")
-	if provider == "" { provider = "local" }
-	log.Printf("[ingest] STUB: processSummary starting for story %d. Provider: %s", job.ID, provider)
+	log.Printf("[ingest] processSummary starting for story %d. Provider: local-only", job.ID)
 
 	workCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
@@ -414,14 +380,10 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 	}
 
 	var responseStr string
-	if provider == "local" || provider == "both" {
-		if aiClient.CheckAvailability(workCtx, ollamaURL) {
-			model, _ := store.GetSetting(workCtx, "ollama_model")
-			responseStr, _ = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
-		}
+	if aiClient.CheckAvailability(workCtx, ollamaURL) {
+		model, _ := store.GetSetting(workCtx, "ollama_model")
+		responseStr, _ = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
 	}
-
-	// Gemini fallback has been COMPLETELY REMOVED as per user request to enforce local-only.
 
 	if responseStr == "" { return nil }
 

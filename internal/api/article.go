@@ -127,72 +127,32 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 3. Summarize with Gemini (now Ollama)
-	// Truncate content for CPU inference speed (6000 chars ~ 1500 words)
+	// 3. Summarize with Ollama
+	// Truncate content for CPU inference speed (20000 chars)
 	finalContent := textContent
 	if len(finalContent) > 20000 {
 		finalContent = finalContent[:20000] + "..."
-	}
-	// If it's raw HTML, we might want to strip script/style tags if possible, but Gemini handles it okay.
-	// For now, raw HTML is better than nothing.
-
-	// Determine provider preference
-	provider, _ := s.store.GetSetting(r.Context(), "ai_provider")
-	if provider == "" {
-		provider = "local"
 	}
 
 	var responseStr string
 	var summarizeErr error
 
-	// 1. Try Local Ollama if provider is "local" or "both"
-	if provider == "local" || provider == "both" {
-		ollamaURL := os.Getenv("OLLAMA_URL")
-		if ollamaURL == "" {
-			ollamaURL = "http://localhost:11434"
-		}
-		model, _ := s.store.GetSetting(r.Context(), "ollama_model")
-		responseStr, err = s.aiClient.GenerateSummary(r.Context(), ollamaURL, model, story.Title, finalContent)
-		if err != nil {
-			summarizeErr = err
-			log.Printf("Ollama article summarization failed: %v", err)
-		}
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://localhost:11434"
 	}
-
-	// 2. Fallback to Gemini if:
-	// - Local failed OR provider is "gemini"
-	// - AND provider is "gemini" or "both"
-	if responseStr == "" && (provider == "gemini" || provider == "both") {
-		geminiKey := os.Getenv("GEMINI_API_KEY")
-		if geminiKey == "" {
-			geminiKey, _ = s.store.GetSetting(r.Context(), "gemini_api_key")
-		}
-		if geminiKey != "" {
-			model, _ := s.store.GetSetting(r.Context(), "gemini_model")
-			responseStr, err = s.geminiClient.GenerateSummary(r.Context(), geminiKey, model, story.Title, finalContent)
-			if err != nil {
-				summarizeErr = err
-				log.Printf("Gemini article summarization failed: %v", err)
-			}
-		}
+	model, _ := s.store.GetSetting(r.Context(), "ollama_model")
+	responseStr, err = s.aiClient.GenerateSummary(r.Context(), ollamaURL, model, story.Title, finalContent)
+	if err != nil {
+		summarizeErr = err
+		log.Printf("Ollama article summarization failed: %v", err)
 	}
-
 	if responseStr == "" {
 		var errMsg string
 		if summarizeErr != nil {
 			errMsg = summarizeErr.Error()
 		} else {
-			errMsg = "No AI provider succeeded (Check Ollama/Gemini availability)"
-		}
-		
-		if strings.Contains(errMsg, "429") || strings.Contains(strings.ToLower(errMsg), "quota") {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusTooManyRequests)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Gemini API Quota Exceeded. Please wait a minute or check your billing plan.",
-				"code": "RATE_LIMIT_EXCEEDED",
-			})
-			return
+			errMsg = "AI provider (Ollama) failed to generate response."
 		}
 		
 		w.Header().Set("Content-Type", "application/json")

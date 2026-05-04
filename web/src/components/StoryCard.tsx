@@ -252,7 +252,7 @@ export function StoryCard({
                             {story.summary && story.summary.trim().length > 0 && (
                                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 line-clamp-1 italic leading-relaxed">
                                     <Sparkles size={10} className="inline mr-1 text-indigo-400/60" />
-                                    {story.summary.replace(/^[-*•]\s+/, '').split('\n')[0].replace(/^[-*•]\s+/, '').slice(0, 120)}
+                                    {story.summary.replace(/^([-*•]|\d+\.)\s+/, '').split('\n')[0].replace(/^([-*•]|\d+\.)\s+/, '').slice(0, 120)}
                                 </p>
                             )}
                         </div>

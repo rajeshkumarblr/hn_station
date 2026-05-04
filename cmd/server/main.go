@@ -45,12 +45,11 @@ func main() {
 	authCfg := auth.NewConfig()
 	log.Printf("OAuth2 callback URL: %s", authCfg.OAuth2Config.RedirectURL)
 
-	// Initialize AI clients
+	// Initialize AI client (Local Ollama only)
 	aiClient := ai.NewOllamaClient()
-	geminiClient := ai.NewGeminiClient()
-	log.Println("AI clients initialized")
+	log.Println("Local AI client initialized")
 
-	server := api.NewServer(store, authCfg, aiClient, geminiClient, false /* cloud mode */)
+	server := api.NewServer(store, authCfg, aiClient, false /* cloud mode */, nil, nil)
 
 	srv := &http.Server{
 		Addr:    ":" + port,

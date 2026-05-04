@@ -33,7 +33,6 @@ type Server struct {
 	router       *chi.Mux
 	auth         *auth.Config
 	aiClient     *ai.OllamaClient
-	geminiClient *ai.GeminiClient
 	hnClient     *hn.Client
 	localMode    bool // true = SQLite local mode, auth disabled
 	pendingAuthToken string
@@ -51,13 +50,12 @@ type IngestStatus struct {
 	CurrentTask        string    `json:"current_task"`
 }
 
-func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient, geminiClient *ai.GeminiClient, localMode bool, prioritizer Prioritizer, status *IngestStatus) *Server {
+func NewServer(store storage.DB, authCfg *auth.Config, aiClient *ai.OllamaClient, localMode bool, prioritizer Prioritizer, status *IngestStatus) *Server {
 	s := &Server{
 		store:        store,
 		router:       chi.NewRouter(),
 		auth:         authCfg,
 		aiClient:     aiClient,
-		geminiClient: geminiClient,
 		hnClient:     hn.NewClient(),
 		localMode:    localMode,
 		Status:       status,
@@ -110,7 +108,7 @@ func (s *Server) routes() {
 	s.router.Get("/api/status", s.handleGetStatus)
 	s.router.Post("/api/summary/prioritize", s.handlePrioritizeSummaries)
 	s.router.Get("/api/download/latest", s.handleDownloadLatest)
-	s.router.Patch("/api/stories/{id}/gemini_url", s.handleUpdateStoryGeminiURL)
+	s.router.Get("/api/stories/{id}/check-iframe", s.handleCheckIframe)
 	s.router.Patch("/api/stories/{id}/summary", s.handlePatchStorySummary)
 
 	// Auth routes
@@ -504,12 +502,6 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ollamaModel, _ := s.store.GetSetting(r.Context(), "ollama_model")
-	geminiModel, _ := s.store.GetSetting(r.Context(), "gemini_model")
-	aiProvider, _ := s.store.GetSetting(r.Context(), "ai_provider")
-	if aiProvider == "" {
-		aiProvider = "local" // Default to local
-	}
-
 	refreshInterval, _ := s.store.GetSetting(r.Context(), "refresh_interval")
 	if refreshInterval == "" {
 		refreshInterval = "5m"
@@ -528,7 +520,6 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 			topics = []string{}
 		}
 
-		geminiKey, _ := s.store.GetSetting(r.Context(), "gemini_api_key")
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -542,9 +533,6 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 			"ai_summaries_enabled":   aiEnabled,
 			"auto_summarize_enabled": autoSummarizeEnabled,
 			"refresh_interval":       refreshInterval,
-			"ai_provider":            aiProvider,
-			"gemini_api_key":         geminiKey,
-			"gemini_model":           geminiModel,
 			"ollama_available":       ollamaAvailable,
 			"ollama_model":           ollamaModel,
 			"ollama_models":          ollamaModels,
@@ -583,8 +571,6 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 		OllamaAvailable        bool     `json:"ollama_available"`
 		OllamaModel            string   `json:"ollama_model"`
 		OllamaModels           []string `json:"ollama_models"`
-		AIProvider             string   `json:"ai_provider"`
-		GeminiModel            string   `json:"gemini_model"`
 		JWTToken               string   `json:"jwt_token,omitempty"`
 	}{
 		AuthUser:               user,
@@ -595,8 +581,6 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 		OllamaAvailable:        ollamaAvailable,
 		OllamaModel:            ollamaModel,
 		OllamaModels:           ollamaModels,
-		AIProvider:             aiProvider,
-		GeminiModel:            geminiModel,
 		JWTToken:               claimedToken,
 	}
 
@@ -893,25 +877,6 @@ func (s *Server) handleGetSavedStories(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleUpdateStoryGeminiURL(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, _ := strconv.ParseInt(idStr, 10, 64)
-
-	var payload struct {
-		URL string `json:"url"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := s.store.UpdateStoryGeminiURL(r.Context(), id, payload.URL); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
 
 
 
@@ -954,33 +919,10 @@ func (s *Server) handleSummarizeDiscussion(w http.ResponseWriter, r *http.Reques
 		sb.WriteString(fmt.Sprintf("- %s: %s\n", c.By, c.Text))
 	}
 
-	// 3. Determine provider
-	provider, _ := s.store.GetSetting(r.Context(), "ai_provider")
-	if provider == "" {
-		provider = "local"
-	}
 
 	var summary string
 	var summarizeErr error
 
-	// We ONLY use Gemini/Cloud for Discussion summary for now as it handles large context better,
-	// but we check the provider setting.
-	/*
-	if provider == "gemini" || provider == "both" {
-		var geminiKey string
-		if s.localMode {
-			geminiKey = os.Getenv("GEMINI_API_KEY")
-		}
-		geminiModel, _ := s.store.GetSetting(r.Context(), "gemini_model")
-		if u, err := s.store.GetAuthUser(r.Context(), userID); err == nil && u != nil && u.GeminiAPIKey != "" {
-			geminiKey = u.GeminiAPIKey
-		}
-
-		if geminiKey != "" {
-			summary, summarizeErr = s.geminiClient.GenerateDiscussionSummary(r.Context(), geminiKey, geminiModel, sb.String())
-		}
-	}
-	*/
 
 	if summary == "" {
 		// If Gemini failed or wasn't configured, try Ollama with specific prompt
@@ -1061,40 +1003,17 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		aiHistory[i] = ai.ChatMessage{Role: m.Role, Content: m.Content}
 	}
 
-	// 3. Generate AI Response
-	provider, _ := s.store.GetSetting(r.Context(), "ai_provider")
-	if provider == "" {
-		provider = "local"
-	}
-
 	var response string
 	var chatErr error
 
-	if provider == "local" || provider == "both" {
+	// 3. Generate AI Response
 		ollamaURL := os.Getenv("OLLAMA_URL")
 		if ollamaURL == "" {
 			ollamaURL = "http://localhost:11434"
 		}
 		model, _ := s.store.GetSetting(r.Context(), "ollama_model")
-		response, chatErr = s.aiClient.GenerateChatResponse(r.Context(), ollamaURL, model, sb.String(), aiHistory, req.Message)
-	}
+	response, chatErr = s.aiClient.GenerateChatResponse(r.Context(), ollamaURL, model, sb.String(), aiHistory, req.Message)
 
-	/*
-	if response == "" && (provider == "gemini" || provider == "both") {
-		var geminiKey string
-		if s.localMode {
-			geminiKey = os.Getenv("GEMINI_API_KEY")
-		}
-		geminiModel, _ := s.store.GetSetting(r.Context(), "gemini_model")
-		if u, err := s.store.GetAuthUser(r.Context(), userID); err == nil && u != nil && u.GeminiAPIKey != "" {
-			geminiKey = u.GeminiAPIKey
-		}
-
-		if geminiKey != "" {
-			response, chatErr = s.geminiClient.GenerateChatResponse(r.Context(), geminiKey, geminiModel, sb.String(), aiHistory, req.Message)
-		}
-	}
-	*/
 
 	if chatErr != nil {
 		log.Printf("Chat generation failed: %v", chatErr)
@@ -1281,11 +1200,8 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		GeminiAPIKey       string `json:"gemini_api_key"`
-		GeminiModel        string `json:"gemini_model"`
 		AISummariesEnabled *bool  `json:"ai_summaries_enabled"`
 		OllamaModel        string `json:"ollama_model"`
-		AIProvider         string `json:"ai_provider"`
 		RefreshInterval    string `json:"refresh_interval"`
 		AutoSummarize      *bool  `json:"auto_summarize_enabled"`
 	}
@@ -1294,13 +1210,6 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if body.GeminiAPIKey != "" {
-		if err := s.store.UpdateUserGeminiKey(r.Context(), userID, body.GeminiAPIKey); err != nil {
-			log.Printf("Failed to update gemini key: %v", err)
-			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
-			return
-		}
-	}
 
 	if body.AISummariesEnabled != nil {
 		val := "false"
@@ -1314,14 +1223,6 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Always update provider if provided
-	if body.AIProvider != "" {
-		if err := s.store.SetSetting(r.Context(), "ai_provider", body.AIProvider); err != nil {
-			log.Printf("Failed to update AI provider setting: %v", err)
-			http.Error(w, "Failed to update settings", http.StatusInternalServerError)
-			return
-		}
-	}
 
 	// Always update models and interval to allow clearing/resetting to default
 	if err := s.store.SetSetting(r.Context(), "ollama_model", body.OllamaModel); err != nil {
@@ -1330,11 +1231,6 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.store.SetSetting(r.Context(), "gemini_model", body.GeminiModel); err != nil {
-		log.Printf("Failed to update Gemini model setting: %v", err)
-		http.Error(w, "Failed to update settings", http.StatusInternalServerError)
-		return
-	}
 
 	if body.RefreshInterval != "" {
 		if err := s.store.SetSetting(r.Context(), "refresh_interval", body.RefreshInterval); err != nil {

@@ -87,7 +87,7 @@ function setupAdBlocker() {
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
     const { requestHeaders } = details;
     const url = new URL(details.url);
-    const isWhitelisted = url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname.endsWith(".google.com") || url.hostname === "google.com";
+    const isWhitelisted = url.hostname === "127.0.0.1" || url.hostname === "localhost";
     if (!isWhitelisted) {
       delete requestHeaders["Cookie"];
       delete requestHeaders["cookie"];
@@ -97,7 +97,7 @@ function setupAdBlocker() {
   ses.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = details.responseHeaders || {};
     const url = new URL(details.url);
-    const isWhitelisted = url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname.endsWith(".google.com") || url.hostname === "google.com";
+    const isWhitelisted = url.hostname === "127.0.0.1" || url.hostname === "localhost";
     if (!isWhitelisted) {
       delete responseHeaders["Set-Cookie"];
       delete responseHeaders["set-cookie"];
@@ -290,6 +290,77 @@ function createWindow() {
   ];
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+  app.on("web-contents-created", (_event, contents) => {
+    contents.on("before-input-event", (event, input) => {
+      if (input.type === "keyDown") {
+        const key = input.key.toLowerCase();
+        const isShortcut = input.control && (key === "w" || key === "tab" || key === "r" || key === " " || key === "0" || key === "d") || input.alt && key === "d" || key === "f5";
+        if (isShortcut) {
+          if (win && !win.isDestroyed()) {
+            win.webContents.send("global-shortcut", {
+              key: input.key,
+              code: input.code,
+              ctrlKey: input.control,
+              shiftKey: input.shift,
+              altKey: input.alt,
+              metaKey: input.meta
+            });
+          }
+          if (input.control && (key === "w" || key === "r")) {
+            event.preventDefault();
+          }
+        }
+      }
+    });
+    contents.on("context-menu", (_event2, params) => {
+      const menuTemplate = [];
+      if (params.linkURL) {
+        menuTemplate.push({
+          label: "Open link in external browser",
+          click: () => shell.openExternal(params.linkURL)
+        });
+        menuTemplate.push({
+          label: "Copy link address",
+          click: () => contents.copy()
+          // This actually copies selection, but we want link
+        });
+        menuTemplate[menuTemplate.length - 1].click = () => {
+          import("electron").then(({ clipboard }) => {
+            clipboard.writeText(params.linkURL);
+          });
+        };
+        menuTemplate.push({ type: "separator" });
+      }
+      if (params.hasImageContents) {
+        menuTemplate.push({
+          label: "Copy image",
+          click: () => contents.copyImageAt(params.x, params.y)
+        });
+        menuTemplate.push({ type: "separator" });
+      }
+      if (params.editFlags.canCopy) {
+        menuTemplate.push({ role: "copy" });
+      }
+      if (params.editFlags.canPaste) {
+        menuTemplate.push({ role: "paste" });
+      }
+      if (params.editFlags.canCut) {
+        menuTemplate.push({ role: "cut" });
+      }
+      if (params.editFlags.canSelectAll) {
+        menuTemplate.push({ role: "selectall" });
+      }
+      if (menuTemplate.length > 0) {
+        menuTemplate.push({ type: "separator" });
+      }
+      menuTemplate.push({
+        label: "Inspect Element",
+        click: () => contents.inspectElement(params.x, params.y)
+      });
+      const contextMenu = Menu.buildFromTemplate(menuTemplate);
+      contextMenu.popup();
+    });
+  });
 }
 app.whenReady().then(async () => {
   setupAdBlocker();

@@ -3,7 +3,7 @@ import type { Story } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, Home, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, Home, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock, Sun, Moon } from 'lucide-react';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { AISidebar } from './AISidebar';
 
@@ -18,6 +18,7 @@ interface ReaderPaneProps {
     onTabChange?: (tab: 'discussion' | 'article' | 'split') => void;
     onHide?: (id: number) => void;
     isActive?: boolean;
+    onClose?: () => void;
     onSetGlobalWarning?: (msg: string | null) => void;
     onSetIframeBlocked?: (storyId: number, blocked: boolean) => void;
     user?: any;
@@ -30,7 +31,7 @@ interface ReaderPaneProps {
 }
 
 export function ReaderPane({ 
-    story, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
+    story, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, isActive, onClose, onSetGlobalWarning, onSetIframeBlocked, user,
     isAISidebarOpen = true,
     onToggleAISidebar,
     onSetSummary,
@@ -45,7 +46,7 @@ export function ReaderPane({
     const paneRef = useRef<HTMLDivElement>(null);
     const isWebMode = isWebPreview();
     const [iframeBlocked, setIframeBlocked] = useState<boolean>(story.iframe_blocked || false);
-    const [sidebarTab, setSidebarTab] = useState<'discussion' | 'summary' | 'gemini'>('discussion');
+    const [sidebarTab, setSidebarTab] = useState<'discussion' | 'summary' | 'ai'>('discussion');
 
     const [isCopied, setIsCopied] = useState(false);
     
@@ -57,10 +58,17 @@ export function ReaderPane({
     const [comments, setComments] = useState<any[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
     const [isIngesting, setIsIngesting] = useState(false);
+    const [articleDarkMode, setArticleDarkMode] = useState<boolean | null>(null);
+    const [urlInput, setUrlInput] = useState(storyUrl);
+    const addressInputRef = useRef<HTMLInputElement>(null);
 
     const articleWebviewRef = useRef<any>(null);
     const [baseUrl, setBaseUrl] = useState('');
     const [currentUrl, setCurrentUrl] = useState(storyUrl);
+
+    useEffect(() => {
+        setUrlInput(currentUrl);
+    }, [currentUrl]);
     const [canGoBack, setCanGoBack] = useState(false);
     const [canGoForward, setCanGoForward] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -70,61 +78,55 @@ export function ReaderPane({
         if (!webview) return;
 
         const injectStyles = () => {
-            const isDark = document.documentElement.classList.contains('dark');
+            const isGlobalDark = document.documentElement.classList.contains('dark');
+            const isDark = articleDarkMode !== null ? articleDarkMode : isGlobalDark;
             
-            // Inject Scrollbars (Native dark mode doesn't always theme scrollbars)
-            const scrollbarCSS = `
-                ::-webkit-scrollbar { width: 10px !important; height: 10px !important; }
-                ::-webkit-scrollbar-track { background: ${isDark ? '#0f172a' : '#f1f5f9'} !important; }
-                ::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'} !important; border-radius: 9999px !important; border: 2px solid ${isDark ? '#0f172a' : '#f1f5f9'} !important; }
-                ::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'} !important; }
-            `;
-            webview.insertCSS(scrollbarCSS).catch(() => {});
+            const js = `
+                (function() {
+                    const darkId = 'hn-station-safe-dark';
+                    const scrollId = 'hn-station-scrollbar';
+                    
+                    // 1. Handle Scrollbars
+                    let scrollStyle = document.getElementById(scrollId);
+                    if (!scrollStyle) {
+                        scrollStyle = document.createElement('style');
+                        scrollStyle.id = scrollId;
+                        document.head.appendChild(scrollStyle);
+                    }
+                    scrollStyle.textContent = \`
+                        ::-webkit-scrollbar { width: 10px !important; height: 10px !important; }
+                        ::-webkit-scrollbar-track { background: ${isDark ? '#0f172a' : '#f1f5f9'} !important; }
+                        ::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'} !important; border-radius: 9999px !important; border: 2px solid ${isDark ? '#0f172a' : '#f1f5f9'} !important; }
+                        ::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'} !important; }
+                    \`;
 
-            // 2. Safe Dark Mode: Forced Selective Colors (More readable than inversion)
-            if (isDark) {
-                const js = `
-                    (function() {
-                        const id = 'hn-station-safe-dark';
-                        if (document.getElementById(id)) return;
-                        const style = document.createElement('style');
-                        style.id = id;
-                        style.textContent = \`
-                            /* Force dark background on root and body */
-                            html, body {
-                                background-color: #0f172a !important;
-                                color: #cbd5e1 !important;
-                            }
-                            /* Targeted selection to darken generic containers */
-                            div, section, main, article, header, footer, nav, aside {
-                                background-color: transparent !important;
-                            }
-                            /* Ensure text is light and readable */
-                            p, span, li, a, b, strong, i, em, h1, h2, h3, h4, h5, h6 {
-                                color: #cbd5e1 !important;
-                            }
-                            h1, h2, h3, h4, h5, h6 {
-                                color: #f8fafc !important;
-                            }
-                            a {
-                                color: #38bdf8 !important;
-                            }
-                            /* Code and Preformatted blocks */
-                            pre, code {
-                                background-color: #1e293b !important;
-                                color: #e2e8f0 !important;
-                                padding: 4px !important;
-                                border-radius: 4px !important;
-                            }
-                            /* Handle common transparent issues */
-                            * {
-                                border-color: #334155 !important;
-                            }
-                        \`;
-                        document.head.appendChild(style);
-                    })();
-                `;
+                    // 2. Handle Safe Dark Mode
+                    let darkStyle = document.getElementById(darkId);
+                    if (${isDark}) {
+                        if (!darkStyle) {
+                            darkStyle = document.createElement('style');
+                            darkStyle.id = darkId;
+                            darkStyle.textContent = \`
+                                html, body { background-color: #0f172a !important; color: #cbd5e1 !important; }
+                                div, section, main, article, header, footer, nav, aside { background-color: transparent !important; }
+                                p, span, li, a, b, strong, i, em, h1, h2, h3, h4, h5, h6 { color: #cbd5e1 !important; }
+                                h1, h2, h3, h4, h5, h6 { color: #f8fafc !important; }
+                                a { color: #38bdf8 !important; }
+                                pre, code { background-color: #1e293b !important; color: #e2e8f0 !important; padding: 4px !important; border-radius: 4px !important; }
+                                * { border-color: #334155 !important; }
+                            \`;
+                            document.head.appendChild(darkStyle);
+                        }
+                    } else {
+                        if (darkStyle) darkStyle.remove();
+                    }
+                })();
+            `;
+            try {
                 webview.executeJavaScript(js).catch(() => {});
+            } catch (e) {
+                // Ignore errors if webview is not yet ready or attached
+                // It will be re-injected via the dom-ready event listener
             }
         };
 
@@ -142,6 +144,23 @@ export function ReaderPane({
             updateNavigation();
         };
 
+        const handleWillNavigate = (e: any) => {
+            const url = e.url;
+            // If it's a different URL than the base story URL, open externally
+            // Or if the user explicitly wants "any link" to open externally
+            if (url !== storyUrl && !url.startsWith('about:')) {
+                e.preventDefault();
+                (window as any).electron?.openExternal(url);
+            }
+        };
+
+        const handleNewWindow = (e: any) => {
+            e.preventDefault();
+            (window as any).electron?.openExternal(e.url);
+        };
+
+        webview.addEventListener('will-navigate', handleWillNavigate);
+        webview.addEventListener('new-window', handleNewWindow);
         webview.addEventListener('dom-ready', injectStyles);
         webview.addEventListener('did-finish-load', injectStyles);
         webview.addEventListener('did-navigate', updateNavigation);
@@ -149,7 +168,31 @@ export function ReaderPane({
         webview.addEventListener('did-start-loading', handleLoadStart);
         webview.addEventListener('did-stop-loading', handleLoadStop);
         
+        // IMPORTANT: Call immediately if already loaded to handle theme toggle
+        injectStyles();
+        
+        const handleKeyboard = (e: KeyboardEvent | any) => {
+            // Alt+D: Focus Address Bar
+            if (e.altKey && e.key.toLowerCase() === 'd') {
+                if (e.preventDefault) e.preventDefault();
+                addressInputRef.current?.focus();
+                addressInputRef.current?.select();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyboard);
+        
+        // Listen for forwarded shortcuts from Electron main process (webviews)
+        if ((window as any).electronAPI?.onGlobalShortcut) {
+            (window as any).electronAPI.onGlobalShortcut((data: any) => {
+                handleKeyboard(data);
+            });
+        }
+        
         return () => {
+            window.removeEventListener('keydown', handleKeyboard);
+            webview.removeEventListener('will-navigate', handleWillNavigate);
+            webview.removeEventListener('new-window', handleNewWindow);
             webview.removeEventListener('dom-ready', injectStyles);
             webview.removeEventListener('did-finish-load', injectStyles);
             webview.removeEventListener('did-navigate', updateNavigation);
@@ -157,7 +200,7 @@ export function ReaderPane({
             webview.removeEventListener('did-start-loading', handleLoadStart);
             webview.removeEventListener('did-stop-loading', handleLoadStop);
         };
-    }, [story.id]);
+    }, [story.id, articleDarkMode]);
 
     useEffect(() => {
         return subscribeApiBase(url => {
@@ -257,7 +300,7 @@ export function ReaderPane({
     }, [iframeBlocked, isWebMode, onSetGlobalWarning]);
 
     const handleCopyLink = () => {
-        navigator.clipboard.writeText(storyUrl);
+        navigator.clipboard.writeText(currentUrl);
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
     };
@@ -343,7 +386,7 @@ export function ReaderPane({
                         break;
                     case 'g':
                         e.preventDefault();
-                        setSidebarTab('gemini');
+                        setSidebarTab('ai');
                         onToggleAISidebar?.(true);
                         break;
                     case 'h':
@@ -376,36 +419,13 @@ export function ReaderPane({
         <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] overflow-hidden">
             
             {/* Horizontal Browser Chrome (URL Bar & Controls) */}
-            <div className="flex items-center gap-4 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-white/5 shrink-0">
+            <div className="flex items-center gap-4 px-4 py-2 bg-[#f1f3f4] dark:bg-[#1a1a1a] border-b border-slate-300 dark:border-white/10 shrink-0">
                 {/* 1. Main Navigation */}
-                <div className="flex items-center gap-1.5">
-                    <button 
-                        onClick={() => {
-                            if (articleWebviewRef.current) {
-                                articleWebviewRef.current.src = storyUrl;
-                            }
-                        }} 
-                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all" 
-                        title="Reset to Original Article"
-                    >
-                        <Home size={18} />
-                    </button>
-
-                    {onToggleSave && (
-                        <button 
-                            onClick={() => onToggleSave(story.id, !story.is_saved)} 
-                            className={`p-1.5 rounded-lg transition-all ${story.is_saved ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-slate-400 hover:text-yellow-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`} 
-                            title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
-                        >
-                            <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
-                        </button>
-                    )}
-
-                    <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+                <div className="flex items-center gap-0.5">
                     <button 
                         onClick={() => articleWebviewRef.current?.goBack()} 
                         disabled={!canGoBack}
-                        className={`p-1.5 rounded-lg transition-all ${canGoBack ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800' : 'text-slate-300 dark:text-slate-700 opacity-50'}`}
+                        className={`p-1.5 rounded-full transition-all ${canGoBack ? 'text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10' : 'text-slate-400/50 dark:text-slate-600'}`}
                         title="Go Back"
                     >
                         <ChevronLeft size={18} />
@@ -413,28 +433,66 @@ export function ReaderPane({
                     <button 
                         onClick={() => articleWebviewRef.current?.goForward()} 
                         disabled={!canGoForward}
-                        className={`p-1.5 rounded-lg transition-all ${canGoForward ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800' : 'text-slate-300 dark:text-slate-700 opacity-50'}`}
+                        className={`p-1.5 rounded-full transition-all ${canGoForward ? 'text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10' : 'text-slate-400/50 dark:text-slate-600'}`}
                         title="Go Forward"
                     >
                         <ChevronRight size={18} />
                     </button>
                     <button 
                         onClick={() => articleWebviewRef.current?.reload()} 
-                        className={`p-1.5 rounded-lg transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 ${isLoading ? 'animate-spin' : ''}`}
+                        className={`p-1.5 rounded-full transition-all text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 ${isLoading ? 'animate-spin' : ''}`}
                         title="Reload"
                     >
                         <RefreshCw size={16} />
                     </button>
+                    <button 
+                        onClick={() => {
+                            if (articleWebviewRef.current) {
+                                articleWebviewRef.current.src = storyUrl;
+                            }
+                        }} 
+                        className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all" 
+                        title="Home (Reset to Original Article)"
+                    >
+                        <Home size={18} />
+                    </button>
+
+                    {onToggleSave && (
+                        <button 
+                            onClick={() => onToggleSave(story.id, !story.is_saved)} 
+                            className={`p-1.5 rounded-full transition-all ml-1 ${story.is_saved ? 'text-orange-500 hover:bg-orange-500/10' : 'text-slate-500 hover:bg-black/10 dark:hover:bg-white/10'}`} 
+                            title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
+                        >
+                            <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
+                        </button>
+                    )}
                 </div>
 
                 {/* 2. URL Address Bar */}
-                <div className="flex-1 max-w-2xl flex items-center bg-white dark:bg-black/20 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 gap-2 group transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/50">
+                <form 
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (articleWebviewRef.current && urlInput) {
+                            let targetUrl = urlInput.trim();
+                            if (!/^https?:\/\//i.test(targetUrl)) {
+                                targetUrl = 'https://' + targetUrl;
+                            }
+                            articleWebviewRef.current.src = targetUrl;
+                        }
+                    }}
+                    className="flex-1 max-w-2xl flex items-center bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-1.5 gap-2 group transition-all focus-within:ring-2 focus-within:ring-blue-500/30"
+                >
                     <div className="text-green-500/70">
                         <Lock size={12} />
                     </div>
-                    <div className="flex-1 text-[13px] text-slate-600 dark:text-slate-400 truncate select-all">
-                        {currentUrl}
-                    </div>
+                    <input 
+                        ref={addressInputRef}
+                        type="text"
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        className="flex-1 bg-transparent text-[13px] text-slate-700 dark:text-slate-200 outline-none w-full"
+                        spellCheck={false}
+                    />
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
                             onClick={handleCopyLink}
@@ -453,30 +511,48 @@ export function ReaderPane({
                             <ExternalLink size={14} />
                         </a>
                     </div>
-                </div>
+                </form>
 
                 {/* 3. Integrated Tools */}
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5">
+                <div className="flex items-center gap-3">
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
+                        <button
+                            onClick={() => setArticleDarkMode(false)}
+                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === false ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                            title="Force Light Mode"
+                        >
+                            <Sun size={14} />
+                        </button>
+                        <button
+                            onClick={() => setArticleDarkMode(true)}
+                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === true ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                            title="Force Dark Mode"
+                        >
+                            <Moon size={14} />
+                        </button>
+                    </div>
+
+                    <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
                         <button 
                             onClick={() => onToggleAISidebar?.(false)}
-                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${!isAISidebarOpen ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                            title="Reader View"
+                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${!isAISidebarOpen ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            title="Article View"
                         >
                             <FileText size={14} />
-                            Reader
+                            Article
                         </button>
                         <button 
                             onClick={() => { setSidebarTab('discussion'); onToggleAISidebar?.(true); }}
-                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'discussion' ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'discussion' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                             title="Discussion"
                         >
                             <MessageSquare size={14} />
-                            Chat
+                            Discussion
                         </button>
                         <button 
-                            onClick={() => { setSidebarTab('gemini'); onToggleAISidebar?.(true); }}
-                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'gemini' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            onClick={() => { setSidebarTab('ai'); onToggleAISidebar?.(true); }}
+                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'ai' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                             title="AI Assistant"
                         >
                             <Sparkles size={14} />

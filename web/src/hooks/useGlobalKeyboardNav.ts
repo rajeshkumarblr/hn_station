@@ -7,12 +7,13 @@ export function useGlobalKeyboardNav(
     scrollToIndex?: (index: number) => void
 ) {
     useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+        const handleKeyDown = (e: KeyboardEvent | any) => {
+            // If it's a real keyboard event, check if we should ignore it
+            if (e instanceof KeyboardEvent && ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
 
             // --- Feed Keyboard Navigation ---
             if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp'].includes(e.key) && app.currentView === 'feed') {
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
 
                 // Handle Pagination Keys (PageDown/PageUp jump by 10)
                 if (e.key === 'PageDown' || e.key === 'PageUp') {
@@ -64,14 +65,14 @@ export function useGlobalKeyboardNav(
 
             // --- Enter to Open Story ---
             if (e.key === 'Enter' && app.currentView === 'feed' && app.highlightedStoryId) {
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
                 app.handleStorySelect(app.highlightedStoryId, 'split');
                 return;
             }
 
             // --- Ctrl + Tab / Ctrl + Shift + Tab to Cycle Tabs & Feed ---
             if (e.ctrlKey && e.code === 'Tab') {
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
                 const totalTabs = app.tabs.length;
                 
                 if (e.shiftKey) {
@@ -117,7 +118,7 @@ export function useGlobalKeyboardNav(
             // --- F5 to Refresh ---
             if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
                 // In electron, Ctrl+R is usually handled by the menu, but we map F5 here.
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
                 if (app.currentView === 'feed') {
                     app.handleRefresh();
                 } else if (app.activeTabId) {
@@ -128,7 +129,7 @@ export function useGlobalKeyboardNav(
 
             // --- Ctrl + Alt + Right/Left to Toggle Tab Mode ---
             if (e.ctrlKey && e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
                 if (!app.activeTabId) return;
 
                 const tab = app.tabs.find((t: ReaderTab) => t.id === app.activeTabId);
@@ -150,7 +151,7 @@ export function useGlobalKeyboardNav(
 
             // --- Ctrl + Space to cycle Article -> Discussion -> Split ---
             if (e.ctrlKey && e.code === 'Space') {
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
                 if (app.currentView !== 'reader' || !app.activeTabId) return;
 
                 const tab = app.tabs.find((t: ReaderTab) => t.id === app.activeTabId);
@@ -166,14 +167,14 @@ export function useGlobalKeyboardNav(
 
             // --- Ctrl + 0 to switch to feed ---
             if (e.ctrlKey && e.key === '0') {
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
                 app.setCurrentView('feed');
                 return;
             }
 
             // --- Ctrl + W to close tab or exit ---
             if (e.ctrlKey && e.key === 'w') {
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
                 if (app.currentView === 'reader' && app.activeTabId) {
                     app.closeTab(app.activeTabId);
                 } else if (app.currentView === 'feed') {
@@ -184,16 +185,22 @@ export function useGlobalKeyboardNav(
 
             // --- Ctrl + D to Bookmarks View ---
             if (e.ctrlKey && e.key.toLowerCase() === 'd') {
-                e.preventDefault();
+                if (e.preventDefault) e.preventDefault();
                 app.setCurrentView('feed');
                 app.setPrimaryTab('bookmarks');
+                return;
+            }
+
+            // --- Alt + D to Focus Address Bar ---
+            if (e.altKey && e.key.toLowerCase() === 'd') {
+                // This is handled by a direct listener in ReaderPane, but we want to make sure it's bubbleable
                 return;
             }
 
             // --- Ctrl + Home to Feed View ---
             if (e.ctrlKey && e.key === 'Home') {
                 if (app.currentView === 'reader') {
-                    e.preventDefault();
+                    if (e.preventDefault) e.preventDefault();
                     app.setCurrentView('feed');
                     app.setPrimaryTab('feed');
                     return;
@@ -203,6 +210,14 @@ export function useGlobalKeyboardNav(
         };
 
         window.addEventListener('keydown', handleKeyDown);
+
+        // Listen for forwarded shortcuts from Electron main process (webviews)
+        if ((window as any).electronAPI?.onGlobalShortcut) {
+            (window as any).electronAPI.onGlobalShortcut((data: any) => {
+                handleKeyDown(data);
+            });
+        }
+
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [app, scrollToIndex]);
 }

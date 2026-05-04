@@ -68,7 +68,6 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 			avatar_url TEXT,
 			is_admin BOOLEAN DEFAULT FALSE,
 			summaries_enabled BOOLEAN DEFAULT TRUE,
-			gemini_api_key TEXT,
 			topics TEXT[] DEFAULT '{}',
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 		);
@@ -357,11 +356,6 @@ func (s *PostgresStore) UpdateStorySummaryAndTopics(ctx context.Context, id int,
 	return err
 }
 
-func (s *PostgresStore) UpdateStoryGeminiURL(ctx context.Context, id int64, url string) error {
-	query := `UPDATE stories SET gemini_url = $1 WHERE id = $2`
-	_, err := s.db.Exec(ctx, query, url, id)
-	return err
-}
 
 func (s *PostgresStore) UpdateStoryIframeStatus(ctx context.Context, id int, blocked bool) error {
 	query := `UPDATE stories SET iframe_blocked = $1 WHERE id = $2`
@@ -384,11 +378,11 @@ func (s *PostgresStore) UpsertAuthUser(ctx context.Context, googleID, email, nam
 		SET email = EXCLUDED.email,
 			name = EXCLUDED.name,
 			avatar_url = EXCLUDED.avatar_url
-		RETURNING id, google_id, email, name, avatar_url, is_admin, COALESCE(gemini_api_key, ''), COALESCE(topics, '{}'::text[]), created_at
+		RETURNING id, google_id, email, name, avatar_url, is_admin, COALESCE(topics, '{}'::text[]), created_at
 	`
 	var user AuthUser
 	err := s.db.QueryRow(ctx, query, googleID, email, name, avatarURL).Scan(
-		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.GeminiAPIKey, &user.Topics, &user.CreatedAt,
+		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.Topics, &user.CreatedAt,
 	)
 	user.SummariesEnabled = true // Default for cloud upsert if not in returning
 	if err != nil {
@@ -399,10 +393,10 @@ func (s *PostgresStore) UpsertAuthUser(ctx context.Context, googleID, email, nam
 
 // GetAuthUser fetches a user by their UUID.
 func (s *PostgresStore) GetAuthUser(ctx context.Context, userID string) (*AuthUser, error) {
-	query := `SELECT id, google_id, email, name, avatar_url, is_admin, summaries_enabled, COALESCE(gemini_api_key, ''), COALESCE(topics, '{}'::text[]), created_at FROM auth_users WHERE id = $1`
+	query := `SELECT id, google_id, email, name, avatar_url, is_admin, summaries_enabled, COALESCE(topics, '{}'::text[]), created_at FROM auth_users WHERE id = $1`
 	var user AuthUser
 	err := s.db.QueryRow(ctx, query, userID).Scan(
-		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &user.GeminiAPIKey, &user.Topics, &user.CreatedAt,
+		&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &user.Topics, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -419,11 +413,6 @@ func (s *PostgresStore) GetActiveTopics(_ context.Context) ([]string, error) {
 	return nil, nil // Not used in cloud mode currently (topics are per-user)
 }
 
-func (s *PostgresStore) UpdateUserGeminiKey(ctx context.Context, userID, apiKey string) error {
-	query := `UPDATE auth_users SET gemini_api_key = $1 WHERE id = $2`
-	_, err := s.db.Exec(ctx, query, apiKey, userID)
-	return err
-}
 
 func (s *PostgresStore) UpsertInteraction(ctx context.Context, userID string, storyID int, isRead *bool, isSaved *bool, isHidden *bool) error {
 	// Skip if not a valid UUID (e.g. "local-user" during guest mode on desktop)
@@ -565,12 +554,12 @@ func (s *PostgresStore) GetAppStats(ctx context.Context) (*AppStats, error) {
 func (s *PostgresStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
 	query := `
 		SELECT 
-			u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, u.summaries_enabled, COALESCE(u.gemini_api_key, ''), u.created_at,
+			u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, u.summaries_enabled, u.created_at,
 			COUNT(ui.story_id) FILTER (WHERE ui.is_read = TRUE) as total_views,
 			MAX(ui.updated_at) as last_seen
 		FROM auth_users u
 		LEFT JOIN user_interactions ui ON u.id = ui.user_id
-		GROUP BY u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, u.summaries_enabled, u.gemini_api_key, u.created_at
+		GROUP BY u.id, u.google_id, u.email, u.name, u.avatar_url, u.is_admin, u.summaries_enabled, u.created_at
 		ORDER BY u.created_at DESC
 	`
 	rows, err := s.db.Query(ctx, query)
@@ -583,28 +572,16 @@ func (s *PostgresStore) GetAllUsers(ctx context.Context) ([]*AuthUser, error) {
 	for rows.Next() {
 		var user AuthUser
 		if err := rows.Scan(
-			&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &user.GeminiAPIKey, &user.CreatedAt,
+			&user.ID, &user.GoogleID, &user.Email, &user.Name, &user.AvatarURL, &user.IsAdmin, &user.SummariesEnabled, &user.CreatedAt,
 			&user.TotalViews, &user.LastSeen,
 		); err != nil {
 			return nil, err
 		}
-		// redact sensitive info just in case, though it's admin only
-		user.GeminiAPIKey = ""
 		users = append(users, &user)
 	}
 	return users, nil
 }
 
-// GetAnyAdminAPIKey returns the Gemini API key of the first found admin user who has one set.
-func (s *PostgresStore) GetAnyAdminAPIKey(ctx context.Context) (string, error) {
-	query := `SELECT gemini_api_key FROM auth_users WHERE is_admin = TRUE AND gemini_api_key IS NOT NULL AND gemini_api_key != '' LIMIT 1`
-	var key string
-	err := s.db.QueryRow(ctx, query).Scan(&key)
-	if err != nil {
-		return "", err
-	}
-	return key, nil
-}
 
 // PruneStories removes stories that are older than daysToKeep and are not bookmarked.
 func (s *PostgresStore) PruneStories(ctx context.Context, daysToKeep int) error {
@@ -639,7 +616,7 @@ func (s *PostgresStore) SetSetting(ctx context.Context, key, value string) error
 	return err
 }
 func (s *PostgresStore) ClearPoisonedSummaries(ctx context.Context) error {
-	query := "UPDATE stories SET summary = NULL WHERE summary LIKE '%Exceeded Gemini API quota%' OR summary LIKE 'AI Error: %'"
+	query := "UPDATE stories SET summary = NULL WHERE summary LIKE '%quota%' OR summary LIKE 'AI Error: %'"
 	_, err := s.db.Exec(ctx, query)
 	return err
 }

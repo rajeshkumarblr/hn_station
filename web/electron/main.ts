@@ -115,11 +115,8 @@ function setupAdBlocker() {
         const url = new URL(details.url);
         
         // Only strip for external sites, keep internal API clean
-        // CRITICAL: We MUST whitelist Google domains for Gemini Chat to work
         const isWhitelisted = url.hostname === '127.0.0.1' || 
-                             url.hostname === 'localhost' || 
-                             url.hostname.endsWith('.google.com') || 
-                             url.hostname === 'google.com';
+                             url.hostname === 'localhost';
 
         if (!isWhitelisted) {
             delete requestHeaders['Cookie'];
@@ -134,9 +131,7 @@ function setupAdBlocker() {
         const url = new URL(details.url);
 
         const isWhitelisted = url.hostname === '127.0.0.1' || 
-                             url.hostname === 'localhost' || 
-                             url.hostname.endsWith('.google.com') || 
-                             url.hostname === 'google.com';
+                             url.hostname === 'localhost';
 
         if (!isWhitelisted) {
             delete responseHeaders['Set-Cookie'];
@@ -383,6 +378,94 @@ function createWindow() {
     ];
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
+
+    // Context Menu for all web contents (including webviews)
+    app.on('web-contents-created', (_event, contents) => {
+        // --- Shortcut Forwarding ---
+        // This ensures that shortcuts like Ctrl+W or Ctrl+Tab work even when focus is inside a webview
+        contents.on('before-input-event', (event, input) => {
+            if (input.type === 'keyDown') {
+                const key = input.key.toLowerCase();
+                const isShortcut = (input.control && (key === 'w' || key === 'tab' || key === 'r' || key === ' ' || key === '0' || key === 'd')) ||
+                                   (input.alt && key === 'd') ||
+                                   (key === 'f5');
+
+                if (isShortcut) {
+                    // Forward to the main window's renderer
+                    if (win && !win.isDestroyed()) {
+                        win.webContents.send('global-shortcut', {
+                            key: input.key,
+                            code: input.code,
+                            ctrlKey: input.control,
+                            shiftKey: input.shift,
+                            altKey: input.alt,
+                            metaKey: input.meta
+                        });
+                    }
+
+                    // Prevent default for destructive or system-level shortcuts to avoid double-handling
+                    if (input.control && (key === 'w' || key === 'r')) {
+                        event.preventDefault();
+                    }
+                }
+            }
+        });
+
+        contents.on('context-menu', (_event, params) => {
+            const menuTemplate: any[] = [];
+
+            if (params.linkURL) {
+                menuTemplate.push({
+                    label: 'Open link in external browser',
+                    click: () => shell.openExternal(params.linkURL)
+                });
+                menuTemplate.push({
+                    label: 'Copy link address',
+                    click: () => contents.copy() // This actually copies selection, but we want link
+                });
+                // Fix for copy link address
+                menuTemplate[menuTemplate.length - 1].click = () => {
+                    import('electron').then(({ clipboard }) => {
+                        clipboard.writeText(params.linkURL);
+                    });
+                };
+                menuTemplate.push({ type: 'separator' });
+            }
+
+            if (params.hasImageContents) {
+                menuTemplate.push({
+                    label: 'Copy image',
+                    click: () => contents.copyImageAt(params.x, params.y)
+                });
+                menuTemplate.push({ type: 'separator' });
+            }
+
+            if (params.editFlags.canCopy) {
+                menuTemplate.push({ role: 'copy' });
+            }
+            if (params.editFlags.canPaste) {
+                menuTemplate.push({ role: 'paste' });
+            }
+            if (params.editFlags.canCut) {
+                menuTemplate.push({ role: 'cut' });
+            }
+            if (params.editFlags.canSelectAll) {
+                menuTemplate.push({ role: 'selectall' });
+            }
+
+            if (menuTemplate.length > 0) {
+                menuTemplate.push({ type: 'separator' });
+            }
+            
+            menuTemplate.push({
+                label: 'Inspect Element',
+                click: () => contents.inspectElement(params.x, params.y)
+            });
+
+            const contextMenu = Menu.buildFromTemplate(menuTemplate);
+            contextMenu.popup();
+        });
+    });
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────

@@ -264,7 +264,7 @@ func (c *OllamaClient) generateWithRetry(ctx context.Context, apiURL string, mod
 		lastErr = err
 		
 		// If the error was a timeout, don't waste more minutes retrying. 
-		// Fail fast so the worker can move to next job (Gemini is disabled).
+		// Fail fast so the worker can move to next job.
 		if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "Client.Timeout exceeded") {
 			return "", fmt.Errorf("ollama timed out: %w", err)
 		}

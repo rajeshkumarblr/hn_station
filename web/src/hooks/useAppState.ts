@@ -703,7 +703,7 @@ export function useAppState() {
 
             if (response.status === 429) {
                 const data = await response.json();
-                const msg = data.error || "Gemini API Quota Exceeded. Please try again in 1 minute.";
+                const msg = data.error || "AI rate limit reached. Please try again in a moment.";
                 console.error('AI Rate Limit:', msg);
                 setGlobalWarning(msg);
                 return;

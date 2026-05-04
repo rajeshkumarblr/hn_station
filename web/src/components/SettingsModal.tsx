@@ -15,11 +15,8 @@ type TabType = 'ai' | 'ui' | 'keyboard';
 export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const isWebMode = isWebPreview();
     const [activeTab, setActiveTab] = useState<TabType>(isWebMode ? 'ui' : 'ai');
-    const [apiKey, setApiKey] = useState('');
     const [aiEnabled, setAiEnabled] = useState(false);
     const [ollamaModel, setOllamaModel] = useState('');
-    const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash');
-    const [aiProvider, setAiProvider] = useState<'local' | 'gemini' | 'both'>('local');
     const [refreshInterval, setRefreshInterval] = useState('5m');
     const [autoSummarize, setAutoSummarize] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -34,11 +31,8 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
 
     useEffect(() => {
         if (isOpen && user) {
-            setApiKey(user.gemini_api_key || '');
             setAiEnabled(user.ai_summaries_enabled);
             setAutoSummarize(user.auto_summarize_enabled);
-            setAiProvider(user.ai_provider || 'local');
-            setGeminiModel(user.gemini_model || 'gemini-1.5-flash');
             setRefreshInterval(user.refresh_interval || '5m');
             setOllamaModel(user.ollama_model || '');
         }
@@ -61,11 +55,9 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                 },
                 credentials: 'include',
                 body: JSON.stringify({
-                    gemini_api_key: apiKey,
                     ai_summaries_enabled: aiEnabled,
                     ollama_model: ollamaModel,
-                    gemini_model: geminiModel,
-                    ai_provider: aiProvider,
+                    ai_provider: 'local',
                     refresh_interval: refreshInterval,
                     auto_summarize_enabled: autoSummarize
                 }),
@@ -164,7 +156,7 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                                     <Sparkles size={16} className="text-indigo-500" />
                                                     Intelligent Auto-Summarize
                                                 </h4>
-                                                <p className="text-[11px] text-slate-500 leading-tight">Summarize new stories automatically in background (Rate limited to Gemini free tier).</p>
+                                                <p className="text-[11px] text-slate-500 leading-tight">Summarize new stories automatically in background using local Ollama.</p>
                                             </div>
                                             <button
                                                 type="button"
@@ -175,30 +167,6 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                             </button>
                                         </div>
 
-                                        {/* Provider Selection */}
-                                        <div className="space-y-3">
-                                        <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">AI Provider</label>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {[
-                                                { id: 'local', label: 'Local Only', desc: 'Ollama only' },
-                                                { id: 'gemini', label: 'Cloud Only', desc: 'Gemini API' },
-                                                { id: 'both', label: 'Hybrid', desc: 'Local w/ Fallback' }
-                                            ].map(opt => (
-                                                <button
-                                                    key={opt.id}
-                                                    type="button"
-                                                    onClick={() => setAiProvider(opt.id as any)}
-                                                    className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all text-center ${aiProvider === opt.id ? 'border-orange-500 bg-orange-50/50 dark:bg-orange-500/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}
-                                                >
-                                                    <span className={`text-[11px] font-bold ${aiProvider === opt.id ? 'text-orange-600' : 'text-slate-500'}`}>{opt.label}</span>
-                                                    <span className="text-[9px] text-slate-400 mt-0.5">{opt.desc}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Local AI Details */}
-                                    {(aiProvider === 'local' || aiProvider === 'both') && (
                                         <div className="space-y-4 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
@@ -226,29 +194,6 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                                 </div>
                                             )}
                                         </div>
-                                    )}
-
-                                    {/* Gemini API Key */}
-                                    {(aiProvider === 'gemini' || aiProvider === 'both') && (
-                                        <div className="space-y-4">
-                                            <div className="space-y-2">
-                                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Gemini API Key</label>
-                                                <div className="relative">
-                                                    <input
-                                                        type="password"
-                                                        value={apiKey}
-                                                        onChange={(e) => setApiKey(e.target.value)}
-                                                        placeholder="AIzaSy..."
-                                                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl outline-none text-sm dark:text-slate-100"
-                                                    />
-                                                    <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                                </div>
-                                                <p className="text-[10px] text-slate-500 flex items-center gap-2">
-                                                    Used for fallback and chat. <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-500 hover:underline">Get Key <ExternalLink size={8} /></a>
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             )}
 

@@ -596,6 +596,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 activeTab={(tab.mode || 'split') as any}
                                 onTabChange={(m) => app.handleStorySelect?.(tab.storyId, m)}
                                 onHome={app.handleHome}
+                                onClose={() => closeTab(tab.id)}
                                 onToggleAISidebar={(open) => app.toggleAISidebar(tab.id, open)}
                                 onToggleSave={handleToggleSave}
                                 user={user}

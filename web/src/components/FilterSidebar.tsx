@@ -72,7 +72,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             {/* ── AI Summary & Suggested Tags (Top 70%) ─────────────────────────────────── */}
             {(aiEnabled || hasSummary) ? (
                 <div className="flex-1 overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-4 duration-500">
-                    <div className="flex items-center justify-between px-6 py-3 border-b border-slate-100 dark:border-slate-800/50">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-slate-800/50">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2 mb-0.5">
                                 <Sparkles size={12} className="text-lime-500" />
@@ -103,7 +103,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
                     {/* Story Title Context — matches the lime/olive left-accent on the highlighted card */}
                     {highlightedStory && (
-                        <div className="relative px-5 py-3.5 border-b border-lime-100 dark:border-lime-900/40 bg-gradient-to-r from-lime-50 via-lime-50/30 to-white dark:from-lime-950/30 dark:via-lime-950/15 dark:to-[#111827] border-l-[3px] border-l-lime-500">
+                        <div className="relative px-4 py-3 border-b border-lime-100 dark:border-lime-900/40 bg-gradient-to-r from-lime-50 via-lime-50/30 to-white dark:from-lime-950/30 dark:via-lime-950/15 dark:to-[#111827] border-l-[3px] border-l-lime-500">
                             <p className="text-[15px] font-bold text-amber-600 dark:text-amber-400 leading-snug line-clamp-2">
                                 {highlightedStory.title}
                             </p>
@@ -140,26 +140,40 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         </div>
                     )}
 
-                    <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0 custom-scrollbar border-l-2 border-lime-500/20 bg-gradient-to-b from-lime-50/30 to-transparent dark:from-lime-950/15 dark:to-transparent">
+                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar border-l-2 border-lime-500/20 bg-gradient-to-b from-lime-50/30 to-transparent dark:from-lime-950/15 dark:to-transparent">
                         {hasSummary ? (
                             <>
                                 {/* Markdown Summary with Index-Based Colors */}
                                 <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-semibold select-text mb-8">
-                                    <ul className="pl-0 list-none m-0 space-y-4">
+                                    <ul className="pl-0 list-none m-0 space-y-3">
                                         {summary.split('\n').filter(line => line.trim().length > 0).map((line, idx) => {
                                             const colorClass = AI_COLORS[idx % AI_COLORS.length];
-                                            const cleanLine = line.replace(/^[-*•]\s+/, '');
+                                            
+                                            // Extract potential bullet or number (e.g., "1.", "-", "*")
+                                            // Handle leading whitespace and multi-digit numbers
+                                            const bulletMatch = line.match(/^\s*([-*•]|\d+\.)\s+(.*)/);
+                                            const bullet = bulletMatch ? bulletMatch[1] : null;
+                                            const content = bulletMatch ? bulletMatch[2] : line.trim();
+                                            
                                             return (
-                                                <li key={idx} className={`${colorClass} flex gap-3 items-start group p-3 rounded-xl bg-gradient-to-r from-lime-50/50 to-transparent dark:from-lime-950/20 dark:to-transparent border border-lime-100/30 dark:border-lime-800/10 shadow-sm`}>
-                                                    <ChevronRight size={14} className="mt-1 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                                                    <div className="flex-1 text-slate-700 dark:text-slate-200">
+                                                <li key={idx} className={`${colorClass} flex gap-0 items-start group p-3.5 rounded-xl bg-gradient-to-r from-lime-50/50 to-transparent dark:from-lime-950/20 dark:to-transparent border border-lime-100/30 dark:border-lime-800/10 shadow-sm transition-all hover:translate-x-0.5`}>
+                                                    {/* Decorative icon or actual number - aligned to text top */}
+                                                    <div className="flex items-center justify-center w-8 shrink-0 pt-0.5">
+                                                        {bullet && /^\d+\./.test(bullet) ? (
+                                                            <span className="text-[11px] font-black opacity-30 group-hover:opacity-100 transition-opacity leading-none">{bullet}</span>
+                                                        ) : (
+                                                            <ChevronRight size={14} className="opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex-1 text-slate-700 dark:text-slate-200 min-w-0 leading-relaxed">
                                                         <ReactMarkdown
                                                             components={{
-                                                                p: ({ node, ...props }) => <span {...props} />,
+                                                                p: ({ node, ...props }) => <span className="block m-0 p-0" {...props} />,
                                                                 strong: ({ node, ...props }) => <strong className="text-indigo-600 dark:text-indigo-400 font-black" {...props} />
                                                             }}
                                                         >
-                                                            {cleanLine}
+                                                            {content}
                                                         </ReactMarkdown>
                                                     </div>
                                                 </li>
