@@ -58,3 +58,6 @@ screenshot.png
 
 # Scripts
 scripts/screenshot/node_modules/
+
+# Local Data
+data/

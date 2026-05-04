@@ -1,3 +1,0 @@
-2026/03/30 06:43:29 No .env file found, relying on environment variables
-2026/03/30 06:43:29 Initializing Postgres storage...
-2026/03/30 06:43:29 Failed to initialize storage: unable to create postgres connection pool: cannot parse `postgresql://hn_user:xxxxxx@postgres:5432/my_hn?sslmode=disable`: failed to parse as URL (invalid port ":my_hn_pass$1234" after host)

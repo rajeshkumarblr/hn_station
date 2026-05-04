@@ -1,2 +1,0 @@
-NAMESPACE   NAME         CLASS   HOSTS           ADDRESS         PORTS     AGE
-default     hn-ingress   nginx   hnstation.dev   20.62.217.136   80, 443   15d
