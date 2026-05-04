@@ -91,7 +91,6 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                             story={selectedStory}
                             activeTab={readerTab as any}
                             onTabChange={app.setReaderTab as any}
-                            onBack={handleBack}
                             onHome={handleHome}
                             onTakeFocus={() => { }}
                             onToggleSave={user ? handleToggleSave : undefined}

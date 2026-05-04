@@ -189,9 +189,12 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     onClick={() => {
                                         if (m.key === 'saved') setPrimaryTab('bookmarks');
                                         else {
+                                            const modeKey = m.key as any;
+                                            // Update lastFeedMode BEFORE primaryTab change to prevent stale restore
+                                            app.setLastFeedMode(modeKey);
                                             setPrimaryTab('feed');
-                                            if (mode === m.key && primaryTab === 'feed') handleRefresh();
-                                            else { setMode(m.key as any); }
+                                            if (mode === modeKey && primaryTab === 'feed') handleRefresh();
+                                            else { setMode(modeKey); }
                                         }
                                         setCurrentView('feed');
                                     }}
@@ -371,6 +374,23 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             placeholder="Quick filter..."
                                             value={app.searchQuery}
                                             onChange={(e) => app.setSearchQuery(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && app.searchQuery.trim()) {
+                                                    const term = app.searchQuery.trim();
+                                                    // Capitalize first letter for consistency with existing tags
+                                                    const tag = term.charAt(0).toUpperCase() + term.slice(1);
+                                                    if (!activeTopics.includes(tag)) {
+                                                        setActiveTopics(prev => [...prev, tag]);
+                                                    }
+                                                    // Enable it (remove from disabled if it was there)
+                                                    setDisabledTopics(prev => prev.filter(t => t !== tag));
+                                                    app.setSearchQuery('');
+                                                    (e.target as HTMLInputElement).blur();
+                                                } else if (e.key === 'Escape') {
+                                                    app.setSearchQuery('');
+                                                    (e.target as HTMLInputElement).blur();
+                                                }
+                                            }}
                                             className="bg-transparent border-none outline-none text-[11px] font-bold ml-2 w-32 focus:w-48 transition-all placeholder:text-slate-600 text-slate-200"
                                         />
                                     </div>
@@ -440,13 +460,11 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                         style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
                                                     >
                                                         <span>#{t}</span>
-                                                        {isActive && (
-                                                            <X size={10} onClick={(e) => { 
-                                                                e.stopPropagation(); 
-                                                                // Remove from preferences entirely
-                                                                setActiveTopics(prev => prev.filter(x => x !== t)); 
-                                                            }} className="text-slate-400 hover:text-red-500 transition-colors" />
-                                                        )}
+                                                        <X size={10} onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            setActiveTopics(prev => prev.filter(x => x !== t));
+                                                            setDisabledTopics(prev => prev.filter(x => x !== t));
+                                                        }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer" />
                                                     </div>
                                                 );
                                             })}
@@ -455,8 +473,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                                 <div className="flex items-center gap-3 shrink-0">
                                     <div className="flex items-center gap-2 mr-1">
-                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Topic Search:</span>
-                                        <div className="flex items-center bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner">
+                                        <div className="flex items-center bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
                                             <button 
                                                 onClick={() => app.setTopicMatch('any')}
                                                 title="Show stories that contain ANY of the selected topics"
@@ -578,7 +595,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 isActive={activeTabId === tab.id}
                                 activeTab={(tab.mode || 'split') as any}
                                 onTabChange={(m) => app.handleStorySelect?.(tab.storyId, m)}
-                                onBack={app.handleBack}
                                 onHome={app.handleHome}
                                 onToggleAISidebar={(open) => app.toggleAISidebar(tab.id, open)}
                                 onToggleSave={handleToggleSave}

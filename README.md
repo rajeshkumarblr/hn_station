@@ -34,9 +34,11 @@ The desktop app is designed for speed and reliability, featuring a **Local-First
 - **#ALL Global Reset**: A dedicated, uniquely styled "Global Reset" tag that instantly clears all filters and searches, returning the feed to its default state.
 - **Premium "SaaS" UI Refinement**: High-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
 - **Native Browser Architecture**: Transformed the article view into a fully-functional browser with a dedicated URL bar, real-time navigation history (Back/Forward), and an instant "Home" reset button. Integrated all previously scattered tools (Bookmarks, Reader Mode, Discussion) into a single, cohesive header.
-- **Native Local AI Assistant**: Replaced unreliable remote webviews with a robust, native integration for **Ollama**. Features token-by-token real-time streaming via SSE, persistent conversation history (stored in SQLite), and instant Markdown rendering for formatted technical content.
+- **Native Local AI Assistant**: Replaced unreliable remote webviews with a robust, native integration for **Ollama**. Features token-by-token real-time streaming via SSE (base64-encoded for lossless Markdown preservation), persistent conversation history (stored in SQLite), and instant Markdown rendering for formatted technical content.
 - **Chrome-Style Flexible Tabs**: Implemented an intelligent tab management system where tabs automatically shrink and truncate as more are opened, preserving the layout even under heavy load.
 - **"Articles" Quick-Switch Menu**: A dedicated navigation menu in the top header providing a unified list of all open articles for instant switching.
+- **Search-to-Filter Workflow**: Type a search term and press **Enter** to promote it into a persistent `#Topic` filter chip. Press **Escape** to clear the search. Topic chips feature hover-visible close buttons for easy removal.
+- **Safe FTS5 Query Expansion**: All synonym expansions are now properly quoted in FTS5 MATCH queries, preventing special characters (hyphens, dots) from being misinterpreted as operators and causing silent query failures.
 
 ### ⌨️ Keyboard Shortcuts
 

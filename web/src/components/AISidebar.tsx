@@ -1,19 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, RefreshCw, Sparkles, X, MessageSquare, Copy, ChevronRight } from 'lucide-react';
+import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
 import type { Story, User } from '../types';
-import { getTagStyle } from '../utils/colors';
 import { CommentList } from './CommentList';
 
-const AI_COLORS = [
-    'text-blue-500 dark:text-blue-400',
-    'text-emerald-500 dark:text-emerald-400',
-    'text-orange-500 dark:text-orange-400',
-    'text-purple-500 dark:text-purple-400',
-    'text-rose-500 dark:text-rose-400'
-];
 interface AISidebarProps {
     story: Story;
     isOpen: boolean;
@@ -25,8 +17,8 @@ interface AISidebarProps {
     commentsLoading: boolean;
     activeCommentId?: string | null;
     onFocusComment?: (id: string) => void;
-    activeTab: 'discussion' | 'gemini';
-    onTabChange: (tab: 'discussion' | 'gemini') => void;
+    activeTab: 'discussion' | 'summary' | 'gemini';
+    onTabChange: (tab: 'discussion' | 'summary' | 'gemini') => void;
     containerRef?: React.RefObject<HTMLDivElement>;
     width?: number;
     isIngesting?: boolean;
@@ -39,13 +31,11 @@ interface ChatMessage {
 }
 
 export function AISidebar({ 
-    story, isOpen, onClose, user, onSetSummary, onSetDiscussionSummary,
+    story, isOpen, onClose, onSetSummary, onSetDiscussionSummary,
     comments, commentsLoading, isIngesting, activeCommentId, onFocusComment,
-    activeTab, onTabChange, containerRef, width = 480, activeTopics = []
+    activeTab, onTabChange, containerRef, width = 480
 }: AISidebarProps) {
-    const [summarizing, setSummarizing] = useState(false);
     const [discussSummarizing, setDiscussSummarizing] = useState(false);
-    const [copied, setCopied] = useState(false);
     
     // Local Chat State
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -116,7 +106,18 @@ export function AISidebar({
                 const lines = text.split('\n');
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
-                        const chunk = line.slice(6);
+                        const b64 = line.slice(6).trim();
+                        if (!b64) continue;
+                        
+                        let chunk = '';
+                        try {
+                            // Decode base64 to UTF-8 string
+                            chunk = decodeURIComponent(escape(window.atob(b64)));
+                        } catch (e) {
+                            console.error('Failed to decode chunk', b64, e);
+                            continue;
+                        }
+
                         if (chunk.startsWith('Error: ')) {
                             setMessages([...newMessages, { role: 'assistant', content: chunk }]);
                             return;
@@ -140,12 +141,6 @@ export function AISidebar({
         }
     };
 
-    const handleCopy = () => {
-        if (!story.summary) return;
-        navigator.clipboard.writeText(story.summary);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
 
     useEffect(() => {
         // If we already have a summary, or the AI Assistant tab isn't active, do not poll
@@ -182,24 +177,6 @@ export function AISidebar({
         };
     }, [story.id, story.summary, activeTab, isOpen, onSetSummary]);
 
-    const handleSummarize = async () => {
-        if (summarizing) return;
-        setSummarizing(true);
-        try {
-            const baseUrl = getApiBase();
-            const res = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/summarize?force=true&priority=true`, {
-                method: 'POST',
-            });
-            if (res.ok) {
-                const data = await res.json();
-                onSetSummary(data.story.summary, data.story.topics || []);
-            }
-        } catch (err) {
-            console.error('Summarization failed:', err);
-        } finally {
-            setSummarizing(false);
-        }
-    };
 
 
     const handleSummarizeDiscussion = async () => {
@@ -221,7 +198,6 @@ export function AISidebar({
         }
     };
 
-    const aiEnabled = user?.ai_summaries_enabled || false;
 
     return (
         <div 
@@ -373,14 +349,10 @@ export function AISidebar({
                                             onClick={() => {
                                                 if (story.summary) {
                                                     setMessages([{ role: 'assistant', content: `### Article Summary\n\n${story.summary}` }]);
-                                                } else {
-                                                    handleSummarize().then(() => {
-                                                        // Note: summary might not be updated in the state yet due to async
-                                                        setMessages([{ role: 'assistant', content: "Generating summary... please ask again in a moment or wait for the automatic update." }]);
-                                                    });
                                                 }
                                             }}
-                                            className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-indigo-200 dark:border-indigo-500/20"
+                                            disabled={!story.summary}
+                                            className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-indigo-200 dark:border-indigo-500/20 disabled:opacity-50"
                                         >
                                             <Sparkles size={14} /> View Article Summary
                                         </button>

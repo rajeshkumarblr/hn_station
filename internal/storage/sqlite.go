@@ -298,18 +298,16 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 		if len(expanded) > 1 {
 			var matchParts []string
 			for _, v := range expanded {
-				// Escape double quotes and wrap multi-word synonyms
+				// Escape double quotes and always wrap in quotes to prevent
+				// special characters (hyphens, dots) from being interpreted as FTS5 operators
 				v = strings.ReplaceAll(v, "\"", "\"\"")
-				if strings.Contains(v, " ") {
-					matchParts = append(matchParts, fmt.Sprintf("\"%s\"", v))
-				} else {
-					matchParts = append(matchParts, v)
-				}
+				matchParts = append(matchParts, fmt.Sprintf("\"%s\"", v))
 			}
 			searchQuery = strings.Join(matchParts, " OR ")
 		}
 
 		// SQLite FTS5 syntax supports prefix matching and more
+		log.Printf("[FTS5 Search] Query: %q", searchQuery)
 		whereClause += " AND id IN (SELECT rowid FROM stories_fts WHERE stories_fts MATCH ?)"
 		args = append(args, searchQuery)
 	}

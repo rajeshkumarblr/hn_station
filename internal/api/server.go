@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -1184,8 +1185,10 @@ func (s *Server) handleStreamChat(w http.ResponseWriter, r *http.Request) {
 
 	streamErr := s.aiClient.StreamChatResponse(r.Context(), ollamaURL, model, sb.String(), aiHistory, req.Message, func(chunk string) {
 		fullResponse.WriteString(chunk)
-		// SSE format: data: <chunk>\n\n
-		fmt.Fprintf(w, "data: %s\n\n", chunk)
+		// SSE format: data: <base64_chunk>\n\n
+		// Base64 encoding ensures newlines and special chars are preserved
+		b64 := base64.StdEncoding.EncodeToString([]byte(chunk))
+		fmt.Fprintf(w, "data: %s\n\n", b64)
 		flusher.Flush()
 	})
 
@@ -1194,7 +1197,8 @@ func (s *Server) handleStreamChat(w http.ResponseWriter, r *http.Request) {
 		if fullResponse.Len() == 0 {
 			// Headers might already be sent as 200 OK because of text/event-stream
 			// But we can try to send the error as a data chunk
-			fmt.Fprintf(w, "data: Error: %s\n\n", streamErr.Error())
+			errB64 := base64.StdEncoding.EncodeToString([]byte("Error: " + streamErr.Error()))
+			fmt.Fprintf(w, "data: %s\n\n", errB64)
 			flusher.Flush()
 		}
 		return

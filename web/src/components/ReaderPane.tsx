@@ -3,13 +3,12 @@ import type { Story } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, ArrowLeft, Home, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, Home, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { AISidebar } from './AISidebar';
 
 interface ReaderPaneProps {
     story: Story;
-    onBack?: () => void;
     onHome?: () => void;
     onTakeFocus?: () => void;
     initialActiveCommentId?: string | null;
@@ -31,7 +30,7 @@ interface ReaderPaneProps {
 }
 
 export function ReaderPane({ 
-    story, onBack, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
+    story, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
     isAISidebarOpen = true,
     onToggleAISidebar,
     onSetSummary,

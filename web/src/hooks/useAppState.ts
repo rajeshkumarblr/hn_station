@@ -264,7 +264,7 @@ export function useAppState() {
                 .then(data => {
                     if (data && data.stories && data.stories.length > 0) {
                         const currentTopId = storyBuffer[0]?.id;
-                        const newStories = [];
+                        const newStories: Story[] = [];
                         for (const s of data.stories) {
                             if (s.id === currentTopId) break;
                             if (!storyBuffer.some(os => os.id === s.id)) {
@@ -690,7 +690,7 @@ export function useAppState() {
         setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         setDisabledTopics, setGlobalWarning, setPrimaryTab, setIsFilterActive,
-        setSearchQuery, setTopicMatch, fetchNextPage,
+        setSearchQuery, setTopicMatch, fetchNextPage, setLastFeedMode,
         // Handlers
         handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, setStoryDiscussionSummary, handleHideStory,
         toggleAISidebar,
