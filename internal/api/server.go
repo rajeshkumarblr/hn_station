@@ -124,6 +124,7 @@ func (s *Server) routes() {
 	s.router.Post("/api/stories/{id}/summarize_article", s.handleSummarizeArticle)
 	s.router.Post("/api/stories/{id}/summarize/discussion", s.handleSummarizeDiscussion)
 	s.router.Post("/api/stories/{id}/chat", s.handleChat)
+	s.router.Post("/api/stories/{id}/chat/stream", s.handleStreamChat)
 	s.router.Get("/api/stories/{id}/chat", s.handleGetChatHistory)
 
 	// Admin routes
@@ -1110,6 +1111,99 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"response": response})
+}
+
+func (s *Server) handleStreamChat(w http.ResponseWriter, r *http.Request) {
+	storyIDStr := chi.URLParam(r, "id")
+	log.Printf("[api] handleStreamChat starting for story=%s", storyIDStr)
+	storyID, err := strconv.Atoi(storyIDStr)
+	if err != nil {
+		http.Error(w, "Invalid story ID", http.StatusBadRequest)
+		return
+	}
+
+	userID := s.auth.GetUserIDFromRequest(r)
+	if userID == "" {
+		if s.localMode {
+			userID = "local-user"
+		} else {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+	}
+
+	var req struct {
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Get Context
+	story, _ := s.store.GetStory(r.Context(), storyID)
+	comments, _ := s.store.GetComments(r.Context(), storyID)
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Title: %s\nURL: %s\n\nDiscussion:\n", story.Title, story.URL))
+	for i, c := range comments {
+		if i > 50 { break }
+		sb.WriteString(fmt.Sprintf("- %s: %s\n", c.By, c.Text))
+	}
+	if story.Summary != nil {
+		sb.WriteString(fmt.Sprintf("\nSummary: %s\n", *story.Summary))
+	}
+
+	// 1.5 Save user message to history immediately
+	if err := s.store.SaveChatMessage(context.Background(), userID, storyID, "user", req.Message); err != nil {
+		log.Printf("Failed to save user message: %v", err)
+	}
+
+	// 2. Get History
+	history, _ := s.store.GetChatHistory(r.Context(), userID, storyID)
+	aiHistory := make([]ai.ChatMessage, len(history))
+	for i, m := range history {
+		aiHistory[i] = ai.ChatMessage{Role: m.Role, Content: m.Content}
+	}
+
+	// 3. Setup Streaming Response
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	var fullResponse strings.Builder
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" { ollamaURL = "http://localhost:11434" }
+	model, _ := s.store.GetSetting(r.Context(), "ollama_model")
+
+	streamErr := s.aiClient.StreamChatResponse(r.Context(), ollamaURL, model, sb.String(), aiHistory, req.Message, func(chunk string) {
+		fullResponse.WriteString(chunk)
+		// SSE format: data: <chunk>\n\n
+		fmt.Fprintf(w, "data: %s\n\n", chunk)
+		flusher.Flush()
+	})
+
+	if streamErr != nil {
+		log.Printf("Streaming chat failed for story %d: %v", storyID, streamErr)
+		if fullResponse.Len() == 0 {
+			// Headers might already be sent as 200 OK because of text/event-stream
+			// But we can try to send the error as a data chunk
+			fmt.Fprintf(w, "data: Error: %s\n\n", streamErr.Error())
+			flusher.Flush()
+		}
+		return
+	}
+
+	// 4. Save AI Response to History
+	if err := s.store.SaveChatMessage(context.Background(), userID, storyID, "model", fullResponse.String()); err != nil {
+		log.Printf("Failed to save AI response: %v", err)
+	}
 }
 
 func (s *Server) handleGetChatHistory(w http.ResponseWriter, r *http.Request) {

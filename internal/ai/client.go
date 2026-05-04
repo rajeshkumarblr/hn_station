@@ -32,10 +32,7 @@ func NewGeminiClient() *GeminiClient {
 }
 
 // GenerateSummary generates a summary of the article content.
-func (c *GeminiClient) GenerateSummary(ctx context.Context, apiKey string, preferredModel string, text string) (string, error) {
-	log.Printf("GeminiClient: BLOCKED call to GenerateSummary (AI Provider restricted to local-only)")
-	return "", fmt.Errorf("Gemini API calls are explicitly disabled in this configuration")
-
+func (c *GeminiClient) GenerateSummary(ctx context.Context, apiKey string, preferredModel string, title string, text string) (string, error) {
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
 		return "", fmt.Errorf("failed to create gemini client: %w", err)
@@ -50,7 +47,7 @@ func (c *GeminiClient) GenerateSummary(ctx context.Context, apiKey string, prefe
 		}
 
 		tagInstructions := tags.GetManager().GetPromptInstructions()
-		prompt := fmt.Sprintf("Summarize this in exactly 5 ULTRA-BRIEF, high-impact bullet points. Use crisp sentence fragments. Be brutally concise. Also extract up to 3 one-word technical tags NO HASHTAGS. %s\n\nPRIORITIZE RELEVANCE: If no technical tags from the provided list apply, return an empty array []. DO NOT hallucinate or force unrelated tags.\n\nOutput ONLY valid JSON:\n{\n  \"summary\": [\"Point 1\", \"Point 2\", \"Point 3\", \"Point 4\", \"Point 5\"],\n  \"topics\": [\"tag1\", \"tag2\"]\n}\n\nArticle Text: %s", tagInstructions, text)
+		prompt := fmt.Sprintf("Analyze the following article and return a high-quality summary and tags.\n<Title>%s</Title>\n<ArticleText>%s</ArticleText>\n\nINSTRUCTIONS:\n- Summarize this in exactly 5 ULTRA-BRIEF, high-impact bullet points. Use crisp sentence fragments. Be brutally concise. Also extract up to 3 one-word technical tags NO HASHTAGS. %s\n\nPRIORITIZE RELEVANCE: If no technical tags from the provided list apply, return an empty array []. DO NOT hallucinate or force unrelated tags.\n\nOutput ONLY valid JSON:\n{\n  \"summary\": [\"Point 1\", \"Point 2\", \"Point 3\", \"Point 4\", \"Point 5\"],\n  \"topics\": [\"tag1\", \"tag2\"]\n}", title, text, tagInstructions)
 
 		resp, err := model.GenerateContent(ctx, genai.Text(prompt))
 		if err != nil {
@@ -64,9 +61,6 @@ func (c *GeminiClient) GenerateSummary(ctx context.Context, apiKey string, prefe
 
 // GenerateDiscussionSummary generates a summary of the Hacker News community discussion.
 func (c *GeminiClient) GenerateDiscussionSummary(ctx context.Context, apiKey string, preferredModel string, discussionText string) (string, error) {
-	log.Printf("GeminiClient: BLOCKED call to GenerateDiscussionSummary (AI Provider restricted to local-only)")
-	return "", fmt.Errorf("Gemini API calls are explicitly disabled in this configuration")
-
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
 		return "", fmt.Errorf("failed to create gemini client: %w", err)

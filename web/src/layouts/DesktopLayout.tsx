@@ -278,7 +278,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 <div className="flex items-center gap-1.5 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                     <button 
                         onClick={() => setIsSettingsOpen(true)} 
-                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors" 
+                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors" 
+                        title="Application Settings"
                     >
                         <Settings size={18} />
                     </button>
@@ -299,15 +300,17 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <div className="flex flex-1 min-w-0 overflow-hidden gap-px">
                         <button
                             onClick={() => { setPrimaryTab('feed'); setCurrentView('feed'); }}
+                            title="Go to main news feed"
                             className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[40px] min-w-[120px] max-w-[160px] flex-1 shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed' && primaryTab === 'feed'
                                 ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
                                 : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
                         >
                             <Home size={14} className={currentView === 'feed' && primaryTab === 'feed' ? 'text-indigo-500' : 'text-slate-400'} /> 
-                            <span className="text-[12px] truncate">Feed(Top)</span>
+                            <span className="text-[12px] truncate">Feed</span>
                         </button>
                         <button
                             onClick={() => { setPrimaryTab('bookmarks'); setCurrentView('feed'); }}
+                            title="View your saved stories"
                             className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[40px] min-w-[120px] max-w-[160px] flex-1 shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed' && primaryTab === 'bookmarks'
                                 ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
                                 : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
@@ -349,10 +352,19 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 >
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
                         {/* Feed Filter Toolbar - Sticky Sub-Header Style */}
-                        {!loading && currentView === 'feed' && (
+                        {currentView === 'feed' && (
                             <div className="h-[60px] flex items-center justify-between px-6 gap-4 z-20 bg-slate-50 dark:bg-[#0c1222]/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800/80 sticky top-0 shrink-0">
-                                <div className="flex items-center gap-4 overflow-x-auto no-scrollbar flex-1">
-                                    <div className="flex items-center bg-slate-800 dark:bg-black/40 px-4 py-1.5 rounded-xl border border-slate-700 group focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0">
+                                {/* Left Fixed Controls */}
+                                <div className="flex items-center gap-3 shrink-0">
+                                    <button 
+                                        onClick={app.handleRefresh} 
+                                        className="p-2 rounded-xl text-slate-500 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-800 bg-white dark:bg-black/20 shadow-sm"
+                                        title="Refresh stories from Hacker News"
+                                    >
+                                        <RefreshCw size={14} className={loading ? 'animate-spin text-indigo-500' : ''} />
+                                    </button>
+
+                                    <div className="flex items-center bg-slate-800 dark:bg-black/40 px-4 py-1.5 rounded-xl border border-slate-700 group focus-within:ring-2 focus-within:ring-indigo-500/40 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0" title="Quickly filter stories in the current list">
                                         <Search size={13} className="text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
                                         <input
                                             type="text"
@@ -362,6 +374,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             className="bg-transparent border-none outline-none text-[11px] font-bold ml-2 w-32 focus:w-48 transition-all placeholder:text-slate-600 text-slate-200"
                                         />
                                     </div>
+                                </div>
+
+                                {/* Center Scrollable Tags */}
+                                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
 
                                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                                         {/* Pinned #All Tag - Styled uniquely as a green global reset */}
@@ -380,58 +396,89 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             <span>#ALL</span>
                                         </div>
 
-                                        {activeTopics.map(t => {
-                                            const isActive = !disabledTopics.includes(t);
-                                            const style = getTagStyle(t);
-                                            
-                                            return (
-                                                <div
-                                                    key={`feed-tag-${t}`}
-                                                    onClick={() => {
-                                                        const noActiveTags = activeTopics.filter(x => !disabledTopics.includes(x)).length === 0;
-                                                        if (noActiveTags) {
-                                                            // If #All was active, select ONLY this tag
-                                                            setDisabledTopics(activeTopics.filter(x => x !== t));
-                                                        } else {
-                                                            // Toggle this tag
-                                                            if (isActive) {
-                                                                setDisabledTopics(prev => [...prev, t]);
-                                                            } else {
-                                                                setDisabledTopics(prev => prev.filter(x => x !== t));
+                                        {activeTopics
+                                            .filter(t => {
+                                                if (app.topicMatch !== 'exclusive') return true;
+                                                const isActive = !disabledTopics.includes(t);
+                                                // Always show active tags, and show available tags from current results
+                                                return isActive || app.availableTags.includes(t);
+                                            })
+                                            .map(t => {
+                                                const isActive = !disabledTopics.includes(t);
+                                                const style = getTagStyle(t);
+                                                
+                                                return (
+                                                    <div
+                                                        key={`feed-tag-${t}`}
+                                                        onClick={() => {
+                                                            const noActiveTags = activeTopics.filter(x => !disabledTopics.includes(x)).length === 0;
+                                                            
+                                                            if (app.topicMatch === 'exclusive') {
+                                                                if (isActive) {
+                                                                    // Deselecting the only active tag returns to #ALL
+                                                                    setDisabledTopics(activeTopics);
+                                                                } else {
+                                                                    // Select ONLY this tag, disable all others
+                                                                    setDisabledTopics(activeTopics.filter(x => x !== t));
+                                                                }
+                                                                return;
                                                             }
-                                                        }
-                                                    }}
-                                                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${!isActive && 'opacity-50 hover:opacity-100 bg-slate-800 border-slate-700 text-slate-400'}`}
-                                                    style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
-                                                >
-                                                    <span>#{t}</span>
-                                                    {isActive && (
-                                                        <X size={10} onClick={(e) => { 
-                                                            e.stopPropagation(); 
-                                                            // Remove from preferences entirely
-                                                            setActiveTopics(prev => prev.filter(x => x !== t)); 
-                                                        }} className="text-slate-400 hover:text-red-500 transition-colors" />
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
+
+                                                            if (noActiveTags) {
+                                                                // If #All was active, select ONLY this tag
+                                                                setDisabledTopics(activeTopics.filter(x => x !== t));
+                                                            } else {
+                                                                // Toggle this tag (multi-select for Any/Both modes)
+                                                                if (isActive) {
+                                                                    setDisabledTopics(prev => [...prev, t]);
+                                                                } else {
+                                                                    setDisabledTopics(prev => prev.filter(x => x !== t));
+                                                                }
+                                                            }
+                                                        }}
+                                                        className={`flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${!isActive && 'opacity-50 hover:opacity-100 bg-slate-800 border-slate-700 text-slate-400'}`}
+                                                        style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
+                                                    >
+                                                        <span>#{t}</span>
+                                                        {isActive && (
+                                                            <X size={10} onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                // Remove from preferences entirely
+                                                                setActiveTopics(prev => prev.filter(x => x !== t)); 
+                                                            }} className="text-slate-400 hover:text-red-500 transition-colors" />
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-3 shrink-0">
-                                    <div className="flex items-center bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner">
-                                        <button 
-                                            onClick={() => app.setTopicMatch('any')}
-                                            className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
-                                        >
-                                            Any
-                                        </button>
-                                        <button 
-                                            onClick={() => app.setTopicMatch('all')}
-                                            className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
-                                        >
-                                            All
-                                        </button>
+                                    <div className="flex items-center gap-2 mr-1">
+                                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Topic Search:</span>
+                                        <div className="flex items-center bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner">
+                                            <button 
+                                                onClick={() => app.setTopicMatch('any')}
+                                                title="Show stories that contain ANY of the selected topics"
+                                                className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                            >
+                                                Any
+                                            </button>
+                                            <button 
+                                                onClick={() => app.setTopicMatch('all')}
+                                                title="Show stories that contain ALL selected topics (AND logic)"
+                                                className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                            >
+                                                All
+                                            </button>
+                                            <button 
+                                                onClick={() => app.setTopicMatch('exclusive')}
+                                                title="Exclusive mode: Selecting a topic clears others"
+                                                className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                            >
+                                                Excl
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
@@ -493,6 +540,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     onToggleSave={user ? handleToggleSave : undefined} 
                                                     onHide={handleHideStory}
                                                     activeTopics={activeTopics}
+                                                    selectedTopics={activeTopics.filter(t => !disabledTopics.includes(t))}
+                                                    topicMatch={app.topicMatch}
                                                 />
                                             </div>
                                         );
@@ -569,6 +618,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 highlightedStory={highlightedStory}
                                 user={user}
                                 onSummarize={app.handleSummarizeStory}
+                                topicMatch={app.topicMatch}
                             />
                         </div>
                     </>

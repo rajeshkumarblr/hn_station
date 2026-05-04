@@ -93,7 +93,7 @@ export function useAppState() {
     const [offset, setOffset] = useState(0);
     const [activeTopics, setActiveTopics] = useState<string[]>(loadTopicChips);
     const [searchQuery, setSearchQuery] = useState('');
-    const [topicMatch, setTopicMatch] = useState<'any' | 'all'>('any');
+    const [topicMatch, setTopicMatch] = useState<'any' | 'all' | 'exclusive'>('exclusive');
     const [disabledTopics, setDisabledTopics] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem('hn_disabled_topics');
@@ -245,6 +245,49 @@ export function useAppState() {
 
     useEffect(() => {
         // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
+        if (isElectron() && (!apiBase || apiBase.includes('hnstation.dev'))) {
+            return;
+        }
+
+        // Auto-refresh polling (every 60s)
+        const autoRefreshInterval = setInterval(() => {
+            // Don't auto-refresh if user is busy with a search, loading, or in saved mode
+            if (searchQuery.trim() !== '' || loading || fetchingMore || currentView !== 'feed' || mode === 'saved') return;
+
+            const baseUrl = getApiBase();
+            const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
+            let url = `${baseUrl}/api/stories?limit=10&offset=0&sort=${mode}&topic_match=${topicMatch}`;
+            enabledTopics.forEach(t => url += `&topic=${encodeURIComponent(t)}`);
+
+            fetchWithAuth(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.stories && data.stories.length > 0) {
+                        const currentTopId = storyBuffer[0]?.id;
+                        const newStories = [];
+                        for (const s of data.stories) {
+                            if (s.id === currentTopId) break;
+                            if (!storyBuffer.some(os => os.id === s.id)) {
+                                newStories.push(s);
+                            }
+                        }
+
+                        if (newStories.length > 0) {
+                            console.log(`Auto-refresh: Found ${newStories.length} new stories`);
+                            // Prepend new stories and update total
+                            setStoryBuffer(prev => [...newStories, ...prev]);
+                            setTotalStories(prev => prev + newStories.length);
+                        }
+                    }
+                })
+                .catch(() => {});
+        }, 60000);
+
+        return () => clearInterval(autoRefreshInterval);
+    }, [apiBase, storyBuffer, searchQuery, loading, fetchingMore, currentView, mode, topicMatch, activeTopics, disabledTopics]);
+
+    useEffect(() => {
+        // Initial fetch
         if (isElectron() && (!apiBase || apiBase.includes('hnstation.dev'))) {
             return;
         }

@@ -43,9 +43,6 @@
     "Postgres",
     "PG",
     "psql",
-    "Database",
-    "RDBMS",
-    "Relational Database",
     "SQL",
     "WAL",
     "Write-Ahead Logging",
@@ -54,6 +51,17 @@
     "PostGIS",
     "Citus",
     "Timescale"
+  ],
+  "Database": [
+    "Databases",
+    "RDBMS",
+    "Relational Database",
+    "NoSQL",
+    "NewSQL",
+    "OLAP",
+    "OLTP",
+    "Query Engine",
+    "Storage Engine"
   ],
   "Robotics": [
     "Robot",
@@ -120,5 +128,18 @@
     "Malware",
     "CVE",
     "Vulnerability"
+  ],
+  "Zig": [
+    "Ziglang",
+    "Comptime"
+  ],
+  "Linux": [
+    "Kernel",
+    "Ubuntu",
+    "Debian",
+    "Fedora",
+    "Arch",
+    "Bash",
+    "Shell"
   ]
 }

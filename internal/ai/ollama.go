@@ -133,6 +133,97 @@ func (c *OllamaClient) GenerateChatResponse(ctx context.Context, apiURL string, 
 	return c.doOllamaRequest(ctx, apiURL+"/api/chat", jsonData)
 }
 
+// StreamChatResponse streams a response to a user message.
+func (c *OllamaClient) StreamChatResponse(ctx context.Context, apiURL string, model string, contextText string, history []ChatMessage, newMessage string, onChunk func(string)) error {
+	if model == "" {
+		model = "llama3.2:3b"
+	}
+
+	messages := []MessagePart{
+		{
+			Role:    "system",
+			Content: fmt.Sprintf("Here is the content of the Hacker News story and discussion we will talk about:\n\n%s\n\nPlease answer my future questions based on this context.", contextText),
+		},
+		{
+			Role:    "assistant",
+			Content: "Understood. I have read the story and discussion. I am ready to answer your questions about it.",
+		},
+	}
+
+	for _, msg := range history {
+		role := "user"
+		if msg.Role == "model" || msg.Role == "assistant" {
+			role = "assistant"
+		}
+		messages = append(messages, MessagePart{
+			Role:    role,
+			Content: msg.Content,
+		})
+	}
+
+	messages = append(messages, MessagePart{
+		Role:    roleUser,
+		Content: newMessage,
+	})
+
+	reqBody := OllamaChatRequest{
+		Model:    model,
+		Messages: messages,
+		Stream:   true,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal chat request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL+"/api/chat", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("ollama returned status %d", resp.StatusCode)
+	}
+
+	decoder := json.NewDecoder(resp.Body)
+	for {
+		var chunk struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+			Done bool `json:"done"`
+		}
+		if err := decoder.Decode(&chunk); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if chunk.Message.Content != "" {
+			onChunk(chunk.Message.Content)
+		}
+		if chunk.Done {
+			break
+		}
+	}
+
+	return nil
+}
+
+const (
+	roleUser      = "user"
+	roleAssistant = "assistant"
+)
+
 type OllamaGenerateRequest struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`

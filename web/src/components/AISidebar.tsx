@@ -25,12 +25,17 @@ interface AISidebarProps {
     commentsLoading: boolean;
     activeCommentId?: string | null;
     onFocusComment?: (id: string) => void;
-    activeTab: 'discussion' | 'summary' | 'gemini';
-    onTabChange: (tab: 'discussion' | 'summary' | 'gemini') => void;
+    activeTab: 'discussion' | 'gemini';
+    onTabChange: (tab: 'discussion' | 'gemini') => void;
     containerRef?: React.RefObject<HTMLDivElement>;
     width?: number;
     isIngesting?: boolean;
     activeTopics?: string[];
+}
+
+interface ChatMessage {
+    role: 'user' | 'assistant' | 'model';
+    content: string;
 }
 
 export function AISidebar({ 
@@ -41,46 +46,99 @@ export function AISidebar({
     const [summarizing, setSummarizing] = useState(false);
     const [discussSummarizing, setDiscussSummarizing] = useState(false);
     const [copied, setCopied] = useState(false);
-    const webviewRef = useRef<any>(null);
+    
+    // Local Chat State
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [chatInput, setChatInput] = useState('');
+    const [isChatLoading, setIsChatLoading] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Load chat history when story changes
     useEffect(() => {
-        const webview = webviewRef.current;
-        if (!webview) return;
+        if (story.id && isOpen) {
+            const baseUrl = getApiBase();
+            fetchWithAuth(`${baseUrl}/api/stories/${story.id}/chat`)
+                .then(res => res.ok ? res.json() : [])
+                .then(data => {
+                    const mapped = data.map((m: any) => ({
+                        role: m.role === 'model' ? 'assistant' : m.role,
+                        content: m.content
+                    }));
+                    setMessages(mapped);
+                })
+                .catch(err => console.error('Failed to load chat history', err));
+        }
+    }, [story.id, isOpen]);
 
-        const handleNavigate = (e: any) => {
-            const newUrl = e.url;
-            if (newUrl && newUrl.includes('gemini.google.com/app/')) {
-                const baseUrl = getApiBase();
-                if (baseUrl) {
-                    fetchWithAuth(`${baseUrl}/api/stories/${story.id}/gemini_url`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ url: newUrl })
-                    }).catch(err => console.error('Failed to save Gemini URL', err));
+    // Scroll to bottom when messages change
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const handleSendMessage = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!chatInput.trim() || isChatLoading) return;
+
+        const userMsg = chatInput.trim();
+        setChatInput('');
+        const newMessages: ChatMessage[] = [...messages, { role: 'user', content: userMsg }];
+        setMessages(newMessages);
+        setIsChatLoading(true);
+
+        try {
+            const baseUrl = getApiBase();
+            const streamUrl = `${baseUrl}/api/stories/${story.id}/chat/stream`;
+            const res = await fetchWithAuth(streamUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userMsg })
+            });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                console.error('Stream start failed:', { status: res.status, url: streamUrl, response: errText });
+                setMessages([...newMessages, { role: 'assistant', content: `Error (${res.status}) on ${streamUrl.split('/').pop()}: ${errText || 'Failed to start stream'}` }]);
+                return;
+            }
+
+            const reader = res.body?.getReader();
+            if (!reader) throw new Error('No reader');
+
+            let assistantMsg = '';
+            setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+            const decoder = new TextDecoder();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const text = decoder.decode(value);
+                const lines = text.split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const chunk = line.slice(6);
+                        if (chunk.startsWith('Error: ')) {
+                            setMessages([...newMessages, { role: 'assistant', content: chunk }]);
+                            return;
+                        }
+                        assistantMsg += chunk;
+                        setMessages(prev => {
+                            const last = prev[prev.length - 1];
+                            if (last && last.role === 'assistant') {
+                                return [...prev.slice(0, -1), { ...last, content: assistantMsg }];
+                            }
+                            return prev;
+                        });
+                    }
                 }
             }
-        };
-
-        const handleDomReady = () => {
-            const scrollbarCSS = `
-                ::-webkit-scrollbar { width: 10px; height: 10px; }
-                ::-webkit-scrollbar-track { background: #0f172a; }
-                ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; border: 2px solid #0f172a; }
-                ::-webkit-scrollbar-thumb:hover { background: #475569; }
-            `;
-            webview.insertCSS(scrollbarCSS).catch((err: any) => console.error("Failed to inject CSS", err));
-        };
-
-        webview.addEventListener('did-navigate', handleNavigate);
-        webview.addEventListener('did-navigate-in-page', handleNavigate);
-        webview.addEventListener('dom-ready', handleDomReady);
-
-        return () => {
-            webview.removeEventListener('did-navigate', handleNavigate);
-            webview.removeEventListener('did-navigate-in-page', handleNavigate);
-            webview.removeEventListener('dom-ready', handleDomReady);
-        };
-    }, [story.id]);
+        } catch (err: any) {
+            console.error('Chat failed:', err);
+            setMessages([...newMessages, { role: 'assistant', content: `Connection error: ${err.message || 'Please ensure the backend is running.'}` }]);
+        } finally {
+            setIsChatLoading(false);
+        }
+    };
 
     const handleCopy = () => {
         if (!story.summary) return;
@@ -90,26 +148,8 @@ export function AISidebar({
     };
 
     useEffect(() => {
-        const handleKeys = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-                const selection = window.getSelection()?.toString();
-                if (!selection && activeTab === 'summary' && story.summary) {
-                    navigator.clipboard.writeText(story.summary);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                }
-            }
-        };
-
-        window.addEventListener('keydown', handleKeys);
-        
-        return () => {
-            window.removeEventListener('keydown', handleKeys);
-        };
-    }, [story.id, story.url, activeTab]);
-    useEffect(() => {
-        // If we already have a summary, or the summary tab isn't active, do not poll
-        if (story.summary || activeTab !== 'summary' || !isOpen) return;
+        // If we already have a summary, or the AI Assistant tab isn't active, do not poll
+        if (story.summary || activeTab !== 'gemini' || !isOpen) return;
 
         let isPolling = true;
         const pollSummary = async () => {
@@ -197,30 +237,40 @@ export function AISidebar({
                 <div className="flex flex-1 overflow-x-auto no-scrollbar">
                     <button 
                         onClick={() => onTabChange('discussion')}
+                        title="View community comments and analysis"
                         className={`flex items-center gap-2 px-4 py-3 text-[12px] font-black uppercase tracking-widest border-b-2 transition-all shrink-0 ${activeTab === 'discussion' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent text-slate-400 hover:text-slate-500'}`}
                     >
                         <MessageSquare size={14} /> <span className="font-black">Discussion</span>
                     </button>
                     <button 
                         onClick={() => onTabChange('gemini')}
-                        className={`flex items-center gap-2 px-4 py-3 text-[12px] font-black uppercase tracking-widest border-b-2 transition-all shrink-0 ${activeTab === 'gemini' ? 'border-[#4285F4] text-[#4285F4]' : 'border-transparent text-slate-400 hover:text-slate-500'}`}
+                        title="Chat with local AI assistant (Privacy First)"
+                        className={`flex items-center gap-2 px-4 py-3 text-[12px] font-black uppercase tracking-widest border-b-2 transition-all shrink-0 ${activeTab === 'gemini' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-500'}`}
                     >
-                        <div className="w-4 h-4 rounded-full bg-[#4285F4] flex items-center justify-center text-[10px] text-white font-bold">G</div> <span className="font-black">Gemini Chat</span>
-                    </button>
-                    <button 
-                        onClick={() => onTabChange('summary')}
-                        className={`flex items-center gap-2 px-4 py-3 text-[12px] font-black uppercase tracking-widest border-b-2 transition-all shrink-0 ${activeTab === 'summary' ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-transparent text-slate-400 hover:text-slate-500'}`}
-                    >
-                        <Sparkles size={14} /> <span className="font-black">Summary</span>
+                        <MessageSquare size={14} /> <span className="font-black">AI Assistant</span>
                     </button>
                 </div>
                 
-                <button 
-                    onClick={onClose}
-                    className="p-1.5 mr-2 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
-                >
-                    <X size={18} />
-                </button>
+                <div className="flex items-center gap-2 mr-2">
+                    <button 
+                        onClick={() => {
+                            if (activeTab === 'gemini') {
+                                setMessages([]);
+                                setChatInput('');
+                            }
+                        }}
+                        title={activeTab === 'gemini' ? "Clear Chat History" : "Refresh Tab"}
+                        className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
+                    >
+                        <RefreshCw size={14} />
+                    </button>
+                    <button 
+                        onClick={onClose}
+                        className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
             </div>
 
             {/* Content Container */}
@@ -302,119 +352,95 @@ export function AISidebar({
                     </div>
                 </div>
 
-                {/* Summary View Container */}
-                <div className={`flex-1 overflow-y-auto px-6 py-4 custom-scrollbar ${activeTab !== 'summary' ? 'hidden' : ''}`}>
-                    {!story.summary ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center">
-                            <Sparkles size={48} className="text-slate-200 dark:text-slate-800 mb-4" />
-                            {aiEnabled ? (
-                                <>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">No summary generated yet.</p>
-                                    <button 
-                                        onClick={handleSummarize}
-                                        disabled={summarizing}
-                                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
-                                    >
-                                        {summarizing ? <RefreshCw size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                                        {summarizing ? "Analyzing..." : "Generate Summary"}
-                                    </button>
-                                </>
-                            ) : (
-                                <p className="text-sm text-slate-500 dark:text-slate-400">AI Summaries are disabled in settings.</p>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="animate-in fade-in slide-in-from-bottom-2">
-                            <div className="flex items-center justify-between mb-5 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/50 dark:border-white/5 shadow-sm">
-                                <div className="flex flex-col">
-                                    <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-0.5">Summary Engine</h3>
-                                    <span className="text-[10px] font-bold text-blue-500 opacity-80">Refined UI (rc31)</span>
+                {/* Local AI Assistant Tab Content */}
+                <div className={`flex-1 flex flex-col min-h-0 relative bg-white dark:bg-[#0f172a] ${activeTab !== 'gemini' ? 'hidden' : ''}`}>
+                    {/* Chat Messages */}
+                    <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar space-y-6 min-h-0">
+                        {messages.length === 0 ? (
+                            <div className="h-full flex flex-col items-center justify-center text-center opacity-40 px-10 gap-4">
+                                <div className="p-4 rounded-full bg-indigo-500/10 text-indigo-500">
+                                    <MessageSquare size={32} />
                                 </div>
-                                <div className="flex items-center gap-1.5">
-                                    <button 
-                                        onClick={handleCopy}
-                                        title="Copy Summary (Ctrl+C)"
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-white hover:bg-blue-600 transition-all border border-slate-300 dark:border-slate-700"
-                                    >
-                                        {copied ? <Check size={12} /> : <Copy size={12} />}
-                                        {copied ? "Copied" : "Copy"}
-                                    </button>
-                                    <button 
-                                        onClick={handleSummarize}
-                                        disabled={summarizing}
-                                        title="Regenerate for new 3-point format"
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-500 hover:text-white hover:bg-amber-600 transition-all border border-slate-300 dark:border-slate-700 disabled:opacity-50"
-                                    >
-                                        <RefreshCw size={12} className={summarizing ? "animate-spin" : ""} />
-                                        {summarizing ? "..." : "Regen"}
-                                    </button>
+                                <div>
+                                    <h3 className="text-sm font-bold uppercase tracking-widest mb-2">Local AI Assistant</h3>
+                                    <p className="text-xs leading-relaxed mb-6">
+                                        Ask me anything about this story or the discussion below. 
+                                        I have full context of the article and top comments.
+                                    </p>
+                                    
+                                    <div className="flex flex-col gap-3">
+                                        <button 
+                                            onClick={() => {
+                                                if (story.summary) {
+                                                    setMessages([{ role: 'assistant', content: `### Article Summary\n\n${story.summary}` }]);
+                                                } else {
+                                                    handleSummarize().then(() => {
+                                                        // Note: summary might not be updated in the state yet due to async
+                                                        setMessages([{ role: 'assistant', content: "Generating summary... please ask again in a moment or wait for the automatic update." }]);
+                                                    });
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-indigo-200 dark:border-indigo-500/20"
+                                        >
+                                            <Sparkles size={14} /> View Article Summary
+                                        </button>
+                                        <button 
+                                            onClick={() => setChatInput("What is the main takeaway from the comments?")}
+                                            className="px-4 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-white/10"
+                                        >
+                                            <MessageSquare size={14} /> Analyze Comments
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-
-                            
-                            {/* Markdown Summary with Index-Based Colors */}
-                            <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans select-text">
-                                <ul className="pl-0 list-none m-0">
-                                    {story.summary.split('\n').filter(line => line.trim().length > 0).map((line, idx) => {
-                                        const colorClass = AI_COLORS[idx % AI_COLORS.length];
-                                        const cleanLine = line.replace(/^[-*•]\s+/, '');
-                                        return (
-                                            <li key={idx} className={`${colorClass} flex gap-2 items-start mb-3 last:mb-0 marker:text-transparent group`}>
-                                                <ChevronRight size={14} className="mt-1 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                                                <div className="flex-1 text-slate-600 dark:text-slate-300">
-                                                    <ReactMarkdown
-                                                        components={{
-                                                            p: ({ node, ...props }) => <span {...props} />,
-                                                            strong: ({ node, ...props }) => <strong className="text-blue-500 font-bold dark:text-blue-400" {...props} />
-                                                        }}
-                                                    >
-                                                        {cleanLine}
-                                                    </ReactMarkdown>
-                                                </div>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            </div>
-
-                            {/* Tags - MOVED BELOW SUMMARY */}
-                            {story.topics && story.topics.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-8 mb-6 animate-in fade-in slide-in-from-bottom-2">
-                                    {story.topics.map(t => {
-                                        // Find a matching top-level topic for color consistency
-                                        const tLow = t.toLowerCase();
-                                        const matchingActive = activeTopics.find(at => {
-                                            const atLow = at.toLowerCase();
-                                            return tLow === atLow || tLow === atLow + 's' || atLow === tLow + 's';
-                                        });
-
-                                        const ts = getTagStyle(matchingActive || t);
-                                        return (
-                                            <span 
-                                                key={t}
-                                                className="px-2.5 py-1 rounded-lg text-[10px] font-black border uppercase tracking-widest shadow-sm"
-                                                style={{ backgroundColor: ts.bg, color: ts.color, borderColor: ts.border }}
-                                            >
-                                                #{t.replace(/\s+/g, '')}
-                                            </span>
-                                        );
-                                    })}
+                        ) : (
+                            messages.map((msg, idx) => (
+                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                                    <div className={`max-w-[90%] rounded-2xl px-4 py-3 shadow-sm ${
+                                        msg.role === 'user' 
+                                            ? 'bg-indigo-600 text-white rounded-tr-none ml-auto' 
+                                            : 'bg-slate-100 dark:bg-slate-800/80 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/50 rounded-tl-none mr-auto'
+                                    }`}>
+                                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed break-words overflow-x-hidden">
+                                            <ReactMarkdown>
+                                                {msg.content}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                            ))
+                        )}
+                        {isChatLoading && (
+                            <div className="flex justify-start animate-pulse">
+                                <div className="bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                                </div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
 
-                {/* Gemini View Container - Always Mounted to avoid reload */}
-                <div className={`flex-1 flex flex-col relative bg-white dark:bg-slate-950 ${activeTab !== 'gemini' ? 'hidden' : ''}`}>
-                    {/* Electron WebView Tag */}
-                    {/* @ts-ignore */}
-                    <webview 
-                        ref={webviewRef}
-                        src={story.gemini_url || "https://gemini.google.com"} 
-                        className="flex-1 w-full h-full border-none"
-                        style={{ background: 'white' }}
-                    />
+                    {/* Chat Input */}
+                    <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">
+                        <form onSubmit={(e) => handleSendMessage(e)} className="relative flex items-center">
+                            <input
+                                type="text"
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                placeholder="Message local assistant..."
+                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-12 py-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all shadow-inner"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!chatInput.trim() || isChatLoading}
+                                className="absolute right-2 p-2 rounded-lg bg-indigo-600 text-white disabled:opacity-30 disabled:bg-slate-400 transition-all"
+                            >
+                                <ChevronRight size={18} />
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
             </div>

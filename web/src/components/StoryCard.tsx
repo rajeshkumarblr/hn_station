@@ -31,6 +31,7 @@ interface StoryCardProps {
     isEven?: boolean;
     activeTopics?: string[];
     selectedTopics?: string[];
+    topicMatch?: 'any' | 'all' | 'exclusive';
 }
 
 
@@ -44,7 +45,8 @@ interface StoryCardProps {
 
 export function StoryCard({
     story, index, onSelect, onToggleSave, onHide, onOpenInTab,
-    isSelected, isHighlighted, isRead, activeTopics = [], selectedTopics = []
+    isSelected, isHighlighted, isRead, activeTopics = [], selectedTopics = [],
+    topicMatch = 'any'
 }: StoryCardProps) {
     let domain = '';
     try {
@@ -209,9 +211,9 @@ export function StoryCard({
                             {story.topics && story.topics.length > 0 && (
                                 <div className="flex items-center gap-1.5 ml-1">
                                     {(() => {
-                                        // If no filter selected, show all active toolbar topics
-                                        // If filters are selected, only show the ones that match selection
-                                        const filterBase = selectedTopics.length > 0 ? selectedTopics : activeTopics;
+                                        // Exclusive mode: only show the ones that match selection
+                                        // Other modes: show all active toolbar topics that apply
+                                        const filterBase = (topicMatch === 'exclusive' && selectedTopics.length > 0) ? selectedTopics : activeTopics;
                                         
                                         // Unique set of matched filter labels to display
                                         const matchedLabels = new Set<string>();

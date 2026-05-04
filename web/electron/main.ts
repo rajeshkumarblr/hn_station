@@ -67,9 +67,9 @@ let localApiPort: number | null = null;
 // Set the app name
 app.setName('HN Station');
 
-// Fake standard Chrome user agent but keep Electron for detection
-const originalUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-app.userAgentFallback = `${originalUA} Electron/${process.versions.electron}`;
+// Fake standard Chrome user agent - explicitly exclude "Electron" to avoid bot/security detection by Google
+const originalUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+app.userAgentFallback = originalUA;
  
 // ── Ad Blocker ──────────────────────────────────────────────────────────────
 const AD_BLOCK_LIST = [
@@ -115,7 +115,13 @@ function setupAdBlocker() {
         const url = new URL(details.url);
         
         // Only strip for external sites, keep internal API clean
-        if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') {
+        // CRITICAL: We MUST whitelist Google domains for Gemini Chat to work
+        const isWhitelisted = url.hostname === '127.0.0.1' || 
+                             url.hostname === 'localhost' || 
+                             url.hostname.endsWith('.google.com') || 
+                             url.hostname === 'google.com';
+
+        if (!isWhitelisted) {
             delete requestHeaders['Cookie'];
             delete requestHeaders['cookie'];
         }
@@ -127,7 +133,12 @@ function setupAdBlocker() {
         const responseHeaders = details.responseHeaders || {};
         const url = new URL(details.url);
 
-        if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') {
+        const isWhitelisted = url.hostname === '127.0.0.1' || 
+                             url.hostname === 'localhost' || 
+                             url.hostname.endsWith('.google.com') || 
+                             url.hostname === 'google.com';
+
+        if (!isWhitelisted) {
             delete responseHeaders['Set-Cookie'];
             delete responseHeaders['set-cookie'];
         }

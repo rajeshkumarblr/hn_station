@@ -328,7 +328,7 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 		}
 		
 		joiner := " OR "
-		if topicMatch == "all" {
+		if topicMatch == "all" || topicMatch == "both" {
 			joiner = " AND "
 		}
 		whereClause += " AND (" + strings.Join(topicConditions, joiner) + ")"

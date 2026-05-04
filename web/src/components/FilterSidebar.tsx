@@ -12,6 +12,7 @@ interface FilterSidebarProps {
     highlightedStory?: Story | null;
     onSummarize?: (id: number) => Promise<any>;
     user: any;
+    topicMatch?: 'any' | 'all' | 'exclusive';
 }
 
 
@@ -31,6 +32,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     highlightedStory,
     onSummarize,
     user,
+    topicMatch = 'any',
 }) => {
     const [isFeaturesModalOpen, setIsFeaturesModalOpen] = useState(false);
     const [summarizing, setSummarizing] = useState(false);
@@ -185,7 +187,11 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                                             if (isActive) {
                                                                 setActiveTopics(prev => prev.filter(x => x !== topic));
                                                             } else {
-                                                                setActiveTopics(prev => [...new Set([...prev, topic])]);
+                                                                if (topicMatch === 'exclusive') {
+                                                                    setActiveTopics([topic]);
+                                                                } else {
+                                                                    setActiveTopics(prev => [...new Set([...prev, topic])]);
+                                                                }
                                                                 setDisabledTopics(prev => prev.filter(x => x !== topic));
                                                             }
                                                         }}

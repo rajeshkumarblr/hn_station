@@ -162,7 +162,20 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 	// 2. Fallback to Gemini if:
 	// - Local failed OR provider is "gemini"
 	// - AND provider is "gemini" or "both"
-	// Gemini fallback removed to enforce local-only AI.
+	if responseStr == "" && (provider == "gemini" || provider == "both") {
+		geminiKey := os.Getenv("GEMINI_API_KEY")
+		if geminiKey == "" {
+			geminiKey, _ = s.store.GetSetting(r.Context(), "gemini_api_key")
+		}
+		if geminiKey != "" {
+			model, _ := s.store.GetSetting(r.Context(), "gemini_model")
+			responseStr, err = s.geminiClient.GenerateSummary(r.Context(), geminiKey, model, story.Title, finalContent)
+			if err != nil {
+				summarizeErr = err
+				log.Printf("Gemini article summarization failed: %v", err)
+			}
+		}
+	}
 
 	if responseStr == "" {
 		var errMsg string
