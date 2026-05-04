@@ -32,8 +32,8 @@
     "asar": true,
     "extraResources": [
       {
-        "from": "resources/hn-local.exe",
-        "to": "hn-local.exe",
+        "from": "resources/hn-local",
+        "to": "hn-local",
         "filter": [
           "**/*"
         ]
@@ -85,10 +85,12 @@
         "dmg"
       ],
       "icon": "public/hn_256.png",
-      "category": "public.app-category.news"
+      "category": "public.app-category.news",
+      "identity": null,
+      "type": "distribution"
     },
     "directories": {
-      "output": "release"
+      "output": "/Users/vatxn1907__/Desktop"
     }
   },
   "dependencies": {

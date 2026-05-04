@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { X, Save, Key, ExternalLink, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap, Sparkles } from 'lucide-react';
+import { X, Save, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap, Sparkles } from 'lucide-react';
 
 interface SettingsModalProps {
     isOpen: boolean;

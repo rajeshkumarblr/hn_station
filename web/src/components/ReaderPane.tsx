@@ -31,7 +31,7 @@ interface ReaderPaneProps {
 }
 
 export function ReaderPane({ 
-    story, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, isActive, onClose, onSetGlobalWarning, onSetIframeBlocked, user,
+    story, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
     isAISidebarOpen = true,
     onToggleAISidebar,
     onSetSummary,

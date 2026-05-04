@@ -113,6 +113,10 @@ chmod +x scripts/start-desktop.sh
 
 # Build and run the desktop app
 make dev
+
+# Package for macOS (.dmg)
+chmod +x scripts/release_mac.sh
+./scripts/release_mac.sh
 ```
 
 **Linux (Makefile):**
