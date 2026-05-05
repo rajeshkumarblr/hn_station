@@ -255,6 +255,8 @@ ipcMain.handle('get-local-api-url', () =>
     localApiPort ? `http://127.0.0.1:${localApiPort}` : null
 );
 
+ipcMain.handle('get-platform', () => process.platform);
+
 ipcMain.on('open-external', (_, url: string) => {
     shell.openExternal(url);
 });
@@ -262,11 +264,12 @@ ipcMain.on('open-external', (_, url: string) => {
 
 // ── Window ────────────────────────────────────────────────────────────────────
 function createWindow() {
-    win = new BrowserWindow({
+    const isMac = process.platform === 'darwin';
+
+    const windowOptions: Electron.BrowserWindowConstructorOptions = {
         width: 1440,
         height: 900,
         show: false,
-        frame: false,
         backgroundColor: '#0f172a',
         icon: path.join(process.env.VITE_PUBLIC!, 'hn.ico'),
         webPreferences: {
@@ -285,7 +288,18 @@ function createWindow() {
             sandbox: false, // Critical: some antiviruses block the sandbox bridge
             webSecurity: false,
         },
-    });
+    };
+
+    if (isMac) {
+        // On macOS: use native titlebar with hidden inset so traffic lights show
+        windowOptions.titlebarStyle = 'hiddenInset';
+        windowOptions.trafficLightPosition = { x: 16, y: 18 };
+    } else {
+        // On Windows/Linux: keep frameless, use custom controls
+        windowOptions.frame = false;
+    }
+
+    win = new BrowserWindow(windowOptions);
 
     debug(`BrowserWindow created. Preload applied.`);
 
@@ -304,12 +318,8 @@ function createWindow() {
         if (win) {
             win.show();
             win.focus();
-            win.setFullScreen(false);
-            setTimeout(() => {
-                if (win && !win.isMaximized()) {
-                    win.maximize();
-                }
-            }, 300);
+            // Maximize to fill the screen properly
+            win.maximize();
         }
     });
 
