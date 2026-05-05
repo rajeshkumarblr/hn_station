@@ -90,7 +90,7 @@
       "type": "distribution"
     },
     "directories": {
-      "output": "/Users/vatxn1907__/Desktop"
+      "output": "release"
     }
   },
   "dependencies": {
