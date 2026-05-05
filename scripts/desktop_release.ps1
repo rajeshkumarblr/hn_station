@@ -1,6 +1,6 @@
 # desktop_release.ps1 — Desktop-only Release Script for HN Station
 # Usage: .\scripts\desktop_release.ps1
-$VERSION = "1.0.0-rc30"
+$VERSION = "0.10.0"
 Write-Host "🚀 Starting CLEAN Desktop Release Process (v$VERSION)..." -ForegroundColor Cyan
 
 # 0. Cleanup old build artifacts
@@ -24,5 +24,5 @@ Write-Host "Desktop: Installer ready at web/release/HN Station Setup $VERSION.ex
 
 # 3. Create GitHub Release
 Write-Host "`n3. Creating GitHub Release (v$VERSION)..." -ForegroundColor Yellow
-gh release create v$VERSION "web/release/HN Station Setup $VERSION.exe" --title "Hacker News Station v$VERSION (Desktop)" --notes "Refined AI summaries and added topic filtering."
+gh release create v$VERSION "web/release/HN Station Setup $VERSION.exe" --title "Hacker News Station v$VERSION (Desktop)" --notes "Unified FTS discovery, Enhanced AI Sidebar topics, and Precision Article View controls."
 if ($LASTEXITCODE -ne 0) { Write-Warning "GitHub release failed (is gh authenticated?)" }

@@ -29,5 +29,5 @@ Write-Host "Desktop: Installer ready at web/release/HN Station Setup $VERSION.ex
 
 # 4. Create GitHub Release
 Write-Host "`n4. Creating GitHub Release (v$VERSION)..." -ForegroundColor Yellow
-gh release create v$VERSION "web/release/HN Station Setup $VERSION.exe" --title "Hacker News Station v$VERSION" --notes "Restored ingestion engine, unified storage path to %APPDATA%, and improved app lifecycle stability."
+gh release create v$VERSION "web/release/HN Station Setup $VERSION.exe" --title "Hacker News Station v$VERSION" --notes "Unified FTS discovery, Enhanced AI Sidebar topics, and Precision Article View controls."
 if ($LASTEXITCODE -ne 0) { Write-Warning "GitHub release failed (is gh authenticated?)" }
