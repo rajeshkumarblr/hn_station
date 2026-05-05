@@ -35,6 +35,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
     const articlesMenuRef = useRef<HTMLDivElement>(null);
+    const [isMac, setIsMac] = useState(false);
     
     // Close menu when clicking outside
     useEffect(() => {
@@ -47,6 +48,15 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
     const isElectron = getIsElectron();
+
+    // Detect macOS so we can hide custom window controls (native traffic lights are used)
+    useEffect(() => {
+        if (isElectron && (window as any).electronAPI?.getPlatform) {
+            (window as any).electronAPI.getPlatform().then((platform: string) => {
+                setIsMac(platform === 'darwin');
+            }).catch(() => {});
+        }
+    }, [isElectron]);
 
     // --- Sidebar Resizing State ---
     const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -174,8 +184,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         <div className="h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 font-sans overflow-hidden flex flex-col transition-colors duration-200">
             {/* ─── Zen Header ─── */}
             <header 
-                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 h-[52px] flex items-center justify-between px-6 shrink-0 z-[100] relative select-none"
-                style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 h-[52px] flex items-center justify-between shrink-0 z-[100] relative select-none"
+                style={{ 
+                    WebkitAppRegion: 'drag',
+                    // On macOS leave room for the native traffic lights on the left
+                    paddingLeft: isMac ? '84px' : '24px',
+                    paddingRight: '24px',
+                } as React.CSSProperties}
             >
                 {/* Left Section: Modes & Global Filters */}
                 <div className="flex items-center h-full gap-5 flex-1 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
@@ -286,7 +301,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     >
                         <Settings size={18} />
                     </button>
-                    {isElectron && (
+                    {/* Only show custom window controls on non-Mac (Windows/Linux) */}
+                    {isElectron && !isMac && (
                         <div className="flex items-center ml-3 border-l border-slate-200 dark:border-slate-800 pl-1 h-full">
                             <button onClick={() => (window as any).electronAPI?.minimize()} className="w-10 h-full flex items-center justify-center text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><span className="text-sm">─</span></button>
                             <button onClick={() => (window as any).electronAPI?.maximize()} className="w-10 h-full flex items-center justify-center text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><span className="text-[10px] border border-current px-0.5">□</span></button>
