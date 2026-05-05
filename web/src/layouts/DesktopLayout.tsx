@@ -379,11 +379,17 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     const term = app.searchQuery.trim();
                                                     // Capitalize first letter for consistency with existing tags
                                                     const tag = term.charAt(0).toUpperCase() + term.slice(1);
+                                                    
+                                                    // Add to topics if not there
                                                     if (!activeTopics.includes(tag)) {
                                                         setActiveTopics(prev => [...prev, tag]);
                                                     }
-                                                    // Enable it (remove from disabled if it was there)
-                                                    setDisabledTopics(prev => prev.filter(t => t !== tag));
+                                                    
+                                                    // EXCLUSIVE: Disable all other topics, enable only this one
+                                                    // We disable current activeTopics; the new tag (if new) will be active by default
+                                                    // since it's not in the 'prev' disabled list yet.
+                                                    setDisabledTopics([...activeTopics]);
+                                                    
                                                     app.setSearchQuery('');
                                                     (e.target as HTMLInputElement).blur();
                                                 } else if (e.key === 'Escape') {
@@ -418,10 +424,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                                         {activeTopics
                                             .filter(t => {
-                                                if (app.topicMatch !== 'exclusive') return true;
-                                                const isActive = !disabledTopics.includes(t);
-                                                // Always show active tags, and show available tags from current results
-                                                return isActive || app.availableTags.includes(t);
+                                                // Always show all topics the user has explicitly added/selected
+                                                return true;
                                             })
                                             .map(t => {
                                                 const isActive = !disabledTopics.includes(t);
