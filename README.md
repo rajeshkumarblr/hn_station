@@ -17,11 +17,15 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ---
 
-## 🖥️ Electron Desktop App (v0.9.9)
+## 🖥️ Electron Desktop App (v0.10.0)
 
 The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
 
 ### ✨ Key Features
+- **Unified Search & Topic Discovery**: Topic filters now perform a deep, inclusive search across both formal tags and the Full-Text Search (FTS5) index, ensuring you find relevant stories even if they haven't been tagged yet.
+- **Enhanced AI Sidebar Interaction**: Native "Article Topics" are now integrated directly into the Reader pane's AI sidebar, allowing for quick filter toggling without leaving your reading context.
+- **Precision Article View Controls**: Replaced forced dark mode with a triple-state toggle: **Original (Native)**, **Follow App (Auto)**, and **Safe Dark Mode (Forced)** for a superior, site-specific reading experience.
+- **Smart AI Chat UI**: Improved technical communication with dedicated **Copy to Clipboard** buttons for code blocks, stable positioning to avoid content overlap, and high-quality syntax highlighting.
 - **Built-in Privacy Engine**: Integrated high-performance Ad Blocker and "Ghost Mode" Cookie Stripper. Intercepts and blocks tracking/ad networks at the engine level for faster, private browsing.
 - **"Safe Dark Mode" for Articles**: Intelligent, selective CSS injection that forces external articles into a high-contrast dark theme while preserving media quality and text readability.
 - **Canonical Tag Mapping**: Implement a user-editable `tag_mappings.json` to group fragmented topics (e.g., mapping "LLM" to "Language Model", "MoE", "Transformers"). The backend automatically expands searches to catch all relevant synonyms.

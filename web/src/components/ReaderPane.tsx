@@ -28,6 +28,10 @@ interface ReaderPaneProps {
     onSetSummary?: (id: number, summary: string, topics: string[]) => void;
     onSetDiscussionSummary?: (id: number, summary: string) => void;
     activeTopics?: string[];
+    disabledTopics?: string[];
+    setActiveTopics?: React.Dispatch<React.SetStateAction<string[]>>;
+    setDisabledTopics?: React.Dispatch<React.SetStateAction<string[]>>;
+    topicMatch?: 'any' | 'all' | 'exclusive';
 }
 
 export function ReaderPane({ 
@@ -36,7 +40,11 @@ export function ReaderPane({
     onToggleAISidebar,
     onSetSummary,
     onSetDiscussionSummary,
-    activeTopics = []
+    activeTopics = [],
+    disabledTopics = [],
+    setActiveTopics,
+    setDisabledTopics,
+    topicMatch = 'any'
 }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
@@ -58,7 +66,7 @@ export function ReaderPane({
     const [comments, setComments] = useState<any[]>([]);
     const [commentsLoading, setCommentsLoading] = useState(false);
     const [isIngesting, setIsIngesting] = useState(false);
-    const [articleDarkMode, setArticleDarkMode] = useState<boolean | null>(null);
+    const [articleDarkMode, setArticleDarkMode] = useState<'original' | 'dark' | 'auto'>('original');
     const [urlInput, setUrlInput] = useState(storyUrl);
     const addressInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,7 +87,7 @@ export function ReaderPane({
 
         const injectStyles = () => {
             const isGlobalDark = document.documentElement.classList.contains('dark');
-            const isDark = articleDarkMode !== null ? articleDarkMode : isGlobalDark;
+            const isDark = articleDarkMode === 'dark' || (articleDarkMode === 'auto' && isGlobalDark);
             
             const js = `
                 (function() {
@@ -518,16 +526,23 @@ export function ReaderPane({
                     {/* View Mode Toggle */}
                     <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
                         <button
-                            onClick={() => setArticleDarkMode(false)}
-                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === false ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                            title="Force Light Mode"
+                            onClick={() => setArticleDarkMode('original')}
+                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'original' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                            title="Original Theme (Native)"
                         >
                             <Sun size={14} />
                         </button>
                         <button
-                            onClick={() => setArticleDarkMode(true)}
-                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === true ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                            title="Force Dark Mode"
+                            onClick={() => setArticleDarkMode('auto')}
+                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'auto' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                            title="Follow System Theme"
+                        >
+                            <Sparkles size={14} />
+                        </button>
+                        <button
+                            onClick={() => setArticleDarkMode('dark')}
+                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'dark' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                            title="Safe Dark Mode (Forced)"
                         >
                             <Moon size={14} />
                         </button>
@@ -638,6 +653,10 @@ export function ReaderPane({
                     containerRef={containerRef}
                     width={sidebarWidth}
                     activeTopics={activeTopics}
+                    disabledTopics={disabledTopics}
+                    setActiveTopics={setActiveTopics}
+                    setDisabledTopics={setDisabledTopics}
+                    topicMatch={topicMatch}
                 />
             </div>
         </div>

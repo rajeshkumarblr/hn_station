@@ -313,7 +313,9 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 			expanded := tagMgr.ExpandTag(t)
 			var variants []string
 			for _, v := range expanded {
-				variants = append(variants, fmt.Sprintf("EXISTS (SELECT 1 FROM json_each(topics) WHERE LOWER(value) = '%s')", strings.ReplaceAll(strings.ToLower(v), "'", "''")))
+				vEscaped := strings.ReplaceAll(strings.ToLower(v), "'", "''")
+				// Check both formal tags and FTS for each variant
+				variants = append(variants, fmt.Sprintf("(EXISTS (SELECT 1 FROM json_each(topics) WHERE LOWER(value) = '%[1]s') OR id IN (SELECT rowid FROM stories_fts WHERE stories_fts MATCH '\"%[1]s\"'))", vEscaped))
 			}
 			topicConditions = append(topicConditions, "("+strings.Join(variants, " OR ")+")")
 		}

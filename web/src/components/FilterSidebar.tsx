@@ -28,6 +28,7 @@ const AI_COLORS = [
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     activeTopics,
     setActiveTopics,
+    disabledTopics,
     setDisabledTopics,
     highlightedStory,
     onSummarize,
@@ -192,33 +193,47 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {highlightedStory.topics.map(topic => {
-                                                const isActive = activeTopics.includes(topic);
+                                                const isPresent = activeTopics.includes(topic);
+                                                const isEnabled = isPresent && !disabledTopics.includes(topic);
                                                 const style = getTagStyle(topic);
                                                 return (
                                                     <button
                                                         key={`article-topic-${topic}`}
                                                         onClick={() => {
-                                                            if (isActive) {
-                                                                setActiveTopics(prev => prev.filter(x => x !== topic));
-                                                            } else {
+                                                            if (!isPresent) {
+                                                                // Add new chip
+                                                                setActiveTopics(prev => [...new Set([...prev, topic])]);
                                                                 if (topicMatch === 'exclusive') {
-                                                                    setActiveTopics([topic]);
+                                                                    // In exclusive mode, disable all existing topics
+                                                                    setDisabledTopics([...activeTopics]);
                                                                 } else {
-                                                                    setActiveTopics(prev => [...new Set([...prev, topic])]);
+                                                                    // In other modes, ensure the new chip is enabled
+                                                                    setDisabledTopics(prev => prev.filter(x => x !== topic));
                                                                 }
-                                                                setDisabledTopics(prev => prev.filter(x => x !== topic));
+                                                            } else {
+                                                                // Chip is already present, toggle enabled state
+                                                                if (isEnabled) {
+                                                                    setDisabledTopics(prev => [...new Set([...prev, topic])]);
+                                                                } else {
+                                                                    if (topicMatch === 'exclusive') {
+                                                                        // Enable ONLY this one
+                                                                        setDisabledTopics(activeTopics.filter(x => x !== topic));
+                                                                    } else {
+                                                                        setDisabledTopics(prev => prev.filter(x => x !== topic));
+                                                                    }
+                                                                }
                                                             }
                                                         }}
-                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${isActive 
-                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950 shadow-md' 
+                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${isEnabled 
+                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950 shadow-md opacity-100' 
                                                             : 'opacity-50 hover:opacity-100 hover:scale-105 bg-white/5 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50'}`}
                                                         style={{ 
                                                             backgroundColor: style.bg, 
                                                             color: style.color, 
-                                                            borderColor: isActive ? style.color : style.border
+                                                            borderColor: isEnabled ? style.color : style.border
                                                         }}
                                                     >
-                                                        {isActive ? '✓ ' : '#'}{topic}
+                                                        {isEnabled ? '✓ ' : '#'}{topic}
                                                     </button>
                                                 );
                                             })}

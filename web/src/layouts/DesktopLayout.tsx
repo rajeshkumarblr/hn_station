@@ -376,8 +376,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             onChange={(e) => app.setSearchQuery(e.target.value)}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && app.searchQuery.trim()) {
-                                                    const term = app.searchQuery.trim();
-                                                    // Capitalize first letter for consistency with existing tags
+                                                    let term = app.searchQuery.trim();
+                                                    if (term.startsWith('#')) term = term.slice(1);
                                                     const tag = term.charAt(0).toUpperCase() + term.slice(1);
                                                     
                                                     // Add to topics if not there
@@ -385,10 +385,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                         setActiveTopics(prev => [...prev, tag]);
                                                     }
                                                     
-                                                    // EXCLUSIVE: Disable all other topics, enable only this one
-                                                    // We disable current activeTopics; the new tag (if new) will be active by default
-                                                    // since it's not in the 'prev' disabled list yet.
-                                                    setDisabledTopics([...activeTopics]);
+                                                    // EXCLUSIVE: Enable ONLY this tag, disable all others
+                                                    setDisabledTopics(activeTopics.filter(t => t !== tag));
                                                     
                                                     app.setSearchQuery('');
                                                     (e.target as HTMLInputElement).blur();
@@ -610,6 +608,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 onOpenSettings={() => setIsSettingsOpen(true)}
                                 isAISidebarOpen={tab.isAISidebarOpen || false}
                                 activeTopics={activeTopics}
+                                disabledTopics={disabledTopics}
+                                setActiveTopics={setActiveTopics}
+                                setDisabledTopics={setDisabledTopics}
+                                topicMatch={app.topicMatch}
                             />
                         </div>
                     ))}

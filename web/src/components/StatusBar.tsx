@@ -96,7 +96,7 @@ export function StatusBar() {
 
             <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400/80">
                 <CheckCircle2 size={12} />
-                <span>Station Engine v1.0.0-rc38</span>
+                <span>Station Engine v1.0.0-RC40</span>
             </div>
         </div>
     );
