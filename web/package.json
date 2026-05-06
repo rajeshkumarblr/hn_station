@@ -32,10 +32,11 @@
     "asar": true,
     "extraResources": [
       {
-        "from": "resources/hn-local",
-        "to": "hn-local",
+        "from": "resources",
+        "to": ".",
         "filter": [
-          "**/*"
+          "hn-local",
+          "hn-local.exe"
         ]
       }
     ],
