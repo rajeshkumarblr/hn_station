@@ -19,7 +19,7 @@ A modern, fast, and feature-rich Hacker News client built with Go and React. Opt
 
 ## 🖥️ Electron Desktop App (v0.10.0)
 
-The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
+The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine. **Now featuring full, native support for macOS!**
 
 ### ✨ Key Features
 - **Unified Search & Topic Discovery**: Topic filters now perform a deep, inclusive search across both formal tags and the Full-Text Search (FTS5) index, ensuring you find relevant stories even if they haven't been tagged yet.

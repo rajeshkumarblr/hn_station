@@ -437,10 +437,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         </div>
 
                                         {activeTopics
-                                            .filter(t => {
-                                                // Always show all topics the user has explicitly added/selected
-                                                return true;
-                                            })
                                             .map(t => {
                                                 const isActive = !disabledTopics.includes(t);
                                                 const style = getTagStyle(t);
