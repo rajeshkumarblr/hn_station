@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -132,6 +133,9 @@ func (s *Server) routes() {
 		r.Get("/api/admin/users", s.handleGetAdminUsers)
 		r.Post("/api/admin/reset-tags", s.handleAdminResetTags)
 	})
+
+	// AI Proxy route for web preview hosted Granite 2B
+	s.router.Post("/api/ai/proxy/*", s.handleAIProxy)
 
 	// SPA catch-all
 	// Serve index.html for any other route that doesn't match API or static files
@@ -1473,4 +1477,42 @@ func (s *Server) handlePrioritizeSummaries(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleAIProxy(w http.ResponseWriter, r *http.Request) {
+	// Only allow proxying to the internal ollama service
+	ollamaURL := "http://ollama-svc.default.svc.cluster.local:11434"
+	
+	// Extract the sub-path, e.g. /api/generate or /api/chat
+	subPath := chi.URLParam(r, "*")
+	if subPath == "" {
+		// fallback if using older chi router version where * doesn't capture
+		subPath = strings.TrimPrefix(r.URL.Path, "/api/ai/proxy/")
+	}
+
+	targetURL := ollamaURL + "/" + subPath
+
+	proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, targetURL, r.Body)
+	if err != nil {
+		http.Error(w, "Failed to create proxy request", http.StatusInternalServerError)
+		return
+	}
+	proxyReq.Header = r.Header
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(proxyReq)
+	if err != nil {
+		log.Printf("AI Proxy error: %v", err)
+		http.Error(w, "AI service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	for k, vv := range resp.Header {
+		for _, v := range vv {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }

@@ -232,13 +232,14 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
                                         >
                                             <option value="disabled">Disabled (No AI)</option>
+                                            <option value="server-granite">Cloud Hosted (Granite 2B) - Free</option>
                                             <option value="gemini">Google Gemini (Recommended / Free Tier Available)</option>
                                             <option value="openai">OpenAI (GPT-4o-mini)</option>
                                             <option value="ollama">Ollama (Local localhost:11434)</option>
                                         </select>
                                     </div>
 
-                                    {clientProvider !== 'disabled' && clientProvider !== 'ollama' && (
+                                    {clientProvider !== 'disabled' && clientProvider !== 'ollama' && clientProvider !== 'server-granite' && (
                                         <div className="space-y-2">
                                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">API Key</label>
                                             <input

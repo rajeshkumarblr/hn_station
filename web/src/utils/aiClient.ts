@@ -4,7 +4,7 @@
  */
 
 export interface AISettings {
-    provider: 'disabled' | 'gemini' | 'openai' | 'ollama';
+    provider: 'disabled' | 'gemini' | 'openai' | 'ollama' | 'server-granite';
     apiKey: string;
     model: string;
     ollamaUrl: string;
@@ -12,13 +12,13 @@ export interface AISettings {
 
 export function getClientAISettings(): AISettings {
     try {
-        const provider = (localStorage.getItem('hn_ai_provider') || 'disabled') as any;
+        const provider = (localStorage.getItem('hn_ai_provider') || 'server-granite') as any;
         const apiKey = localStorage.getItem('hn_ai_key') || '';
         const model = localStorage.getItem('hn_ai_model') || '';
         const ollamaUrl = localStorage.getItem('hn_ollama_url') || 'http://localhost:11434';
         return { provider, apiKey, model, ollamaUrl };
     } catch {
-        return { provider: 'disabled', apiKey: '', model: '', ollamaUrl: 'http://localhost:11434' };
+        return { provider: 'server-granite', apiKey: '', model: '', ollamaUrl: 'http://localhost:11434' };
     }
 }
 
@@ -70,7 +70,7 @@ export async function clientGenerateSummary(
     content: string
 ): Promise<{ summary: string; topics: string[] }> {
     const { provider, apiKey, model, ollamaUrl } = getClientAISettings();
-    if (provider === 'disabled' || (!apiKey && provider !== 'ollama')) {
+    if (provider === 'disabled' || (!apiKey && provider !== 'ollama' && provider !== 'server-granite')) {
         throw new Error('AI Provider is not configured or API Key is missing in Settings.');
     }
 
@@ -133,9 +133,9 @@ INSTRUCTIONS:
 
         const data = await res.json();
         responseText = data.choices?.[0]?.message?.content || '';
-    } else if (provider === 'ollama') {
-        const ollamaModel = model || 'llama3.2:3b';
-        const url = `${ollamaUrl}/api/generate`;
+    } else if (provider === 'ollama' || provider === 'server-granite') {
+        const ollamaModel = provider === 'server-granite' ? 'granite3.1-dense:2b' : (model || 'llama3.2:3b');
+        const url = provider === 'server-granite' ? '/api/ai/proxy/api/generate' : `${ollamaUrl}/api/generate`;
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -148,7 +148,7 @@ INSTRUCTIONS:
         });
 
         if (!res.ok) {
-            throw new Error(`Ollama API call failed with status: ${res.status}`);
+            throw new Error(`${provider === 'server-granite' ? 'Server AI' : 'Ollama'} API call failed with status: ${res.status}`);
         }
 
         const data = await res.json();
@@ -168,7 +168,7 @@ export async function clientGenerateChatResponse(
     newMessage: string
 ): Promise<string> {
     const { provider, apiKey, model, ollamaUrl } = getClientAISettings();
-    if (provider === 'disabled' || (!apiKey && provider !== 'ollama')) {
+    if (provider === 'disabled' || (!apiKey && provider !== 'ollama' && provider !== 'server-granite')) {
         throw new Error('AI Provider is not configured or API Key is missing in Settings.');
     }
 
@@ -241,9 +241,9 @@ Please answer the user's questions based on this context, formatting your respon
 
         const data = await res.json();
         return data.choices?.[0]?.message?.content || 'No response generated.';
-    } else if (provider === 'ollama') {
-        const ollamaModel = model || 'llama3.2:3b';
-        const url = `${ollamaUrl}/api/chat`;
+    } else if (provider === 'ollama' || provider === 'server-granite') {
+        const ollamaModel = provider === 'server-granite' ? 'granite3.1-dense:2b' : (model || 'llama3.2:3b');
+        const url = provider === 'server-granite' ? '/api/ai/proxy/api/chat' : `${ollamaUrl}/api/chat`;
         
         const messages = [
             { role: 'system', content: systemPrompt },
@@ -262,7 +262,7 @@ Please answer the user's questions based on this context, formatting your respon
         });
 
         if (!res.ok) {
-            throw new Error(`Ollama chat failed with status: ${res.status}`);
+            throw new Error(`${provider === 'server-granite' ? 'Server AI' : 'Ollama'} API call failed with status: ${res.status}`);
         }
 
         const data = await res.json();
