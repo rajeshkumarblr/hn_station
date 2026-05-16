@@ -25,7 +25,7 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const [error, setError] = useState<string | null>(null);
 
     // Client-side Web AI States
-    const [clientProvider, setClientProvider] = useState<'disabled' | 'gemini' | 'openai' | 'ollama'>('disabled');
+    const [clientProvider, setClientProvider] = useState<'disabled' | 'gemini' | 'openai' | 'ollama' | 'server-granite'>('disabled');
     const [clientApiKey, setClientApiKey] = useState('');
     const [clientModel, setClientModel] = useState('');
     const [clientOllamaUrl, setClientOllamaUrl] = useState('http://localhost:11434');
