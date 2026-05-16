@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
-import { Clock, Zap, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Clock, Zap, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface Status {
     next_refresh_at: string;
