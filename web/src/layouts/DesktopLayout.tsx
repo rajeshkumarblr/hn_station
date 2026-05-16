@@ -34,6 +34,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     } = app;
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
+    const [isBannerDismissed, setIsBannerDismissed] = useState(() => !!localStorage.getItem('hn_dismiss_banner'));
     const articlesMenuRef = useRef<HTMLDivElement>(null);
     
     // Close menu when clicking outside
@@ -296,6 +297,33 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 </div>
             </header>
 
+            {/* Web Preview Banner */}
+            {!isElectron && !isBannerDismissed && (
+                <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 border-b border-orange-500/20 px-6 py-2 flex items-center justify-between shrink-0 z-[99]">
+                    <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                            You're viewing the <span className="text-orange-500">Web Preview</span>. For split-pane reading, local AI, and full keyboard navigation —
+                        </span>
+                        <a
+                            href="https://github.com/rajeshkumarblr/hn_station/releases/latest"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black rounded-full shadow-lg shadow-orange-500/20 transition-all hover:scale-105"
+                        >
+                            Download Desktop App
+                        </a>
+                    </div>
+                    <button
+                        onClick={() => { localStorage.setItem('hn_dismiss_banner', '1'); setIsBannerDismissed(true); }}
+                        className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 transition-colors shrink-0"
+                        title="Dismiss"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
+
 
             {/* Global Tab Bar Container */}
             {tabs.length > 0 && (
@@ -420,12 +448,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             <span>#ALL</span>
                                         </div>
 
-                                        {activeTopics
-                                            .filter(t => {
-                                                // Always show all topics the user has explicitly added/selected
-                                                return true;
-                                            })
-                                            .map(t => {
+                                        {activeTopics.map(t => {
                                                 const isActive = !disabledTopics.includes(t);
                                                 const style = getTagStyle(t);
                                                 

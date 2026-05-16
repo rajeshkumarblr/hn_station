@@ -1,6 +1,0 @@
-
-> hn-station@1.1.0 build
-> tsc -b && vite build
-
-src/layouts/MobileLayout.tsx(92,29): error TS2322: Type '{ story: Story; activeTab: any; onTabChange: any; onFocusList: () => void; onTakeFocus: () => void; onToggleSave: ((id: number, saved: boolean) => void) | undefined; onHide: (id: number) => void; }' is not assignable to type 'IntrinsicAttributes & ReaderPaneProps'.
-  Property 'onFocusList' does not exist on type 'IntrinsicAttributes & ReaderPaneProps'.

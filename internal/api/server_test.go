@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -13,15 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Mocking the store would be ideal for unit tests,
-// but for this phase we can do a simple integration test if DB is available,
-// or just test the handler logic with a mock if we want to be pure.
-// Given the environment, let's write a test that relies on the DB being present
-// (Integration Test) or skip if not.
-
 func TestHealthCheck(t *testing.T) {
 	// server with nil store is fine for health check
-	server := NewServer(nil, nil, nil, nil, false)
+	server := NewServer(nil, nil, nil, false, nil, nil)
 
 	req, _ := http.NewRequest("GET", "/healthc", nil)
 	rr := httptest.NewRecorder()
@@ -36,7 +31,11 @@ func TestGetStories_Integration(t *testing.T) {
 	// usage: go test -v ./internal/api -tags=integration
 	// currently we just run it if we can connect, else skip
 
-	dbURL := "postgres://postgres:rootPass1@localhost:5432/hn_station" // Hardcoded for test environment or read from env
+	dbURL := os.Getenv("TEST_DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("Skipping integration test: TEST_DATABASE_URL not set")
+	}
+
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
@@ -50,10 +49,9 @@ func TestGetStories_Integration(t *testing.T) {
 	}
 
 	store := storage.New(pool)
-	server := NewServer(store, nil, nil, nil, false)
+	server := NewServer(store, nil, nil, false, nil, nil)
 
-	// Seed a story for testing?
-	// We assume data exists from ingestion or we can insert one.
+	// Seed a story for testing
 	testStory := storage.Story{
 		ID:       12345,
 		Title:    "Test Story",

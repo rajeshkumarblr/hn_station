@@ -56,6 +56,10 @@ func (m *MultiStore) GetStoriesStatus(ctx context.Context, ids []int) (map[int]b
 	return m.Primary.GetStoriesStatus(ctx, ids)
 }
 
+func (m *MultiStore) GetActiveTopics(ctx context.Context) ([]string, error) {
+	return m.Primary.GetActiveTopics(ctx)
+}
+
 func (m *MultiStore) UpdateStorySummary(ctx context.Context, id int, summary string) error {
 	err := m.Primary.UpdateStorySummary(ctx, id, summary)
 	if err != nil {

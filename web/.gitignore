@@ -10,7 +10,18 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-electron
 *.local
+
+# Build artifacts and logs
+release/
+*_build.txt
+*_build_*.txt
+build_*.txt
+tsc_errors.txt
+vite_*.log
+builder_realtime.log
+final_build_check.txt
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +33,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Debug leftovers
+*.fixed

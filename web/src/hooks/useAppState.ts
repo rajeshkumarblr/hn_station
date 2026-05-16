@@ -4,6 +4,8 @@ import type { Story, ReaderTab, ModeKey, User } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview, isElectron } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
+import { getClientAISettings, clientGenerateSummary } from '../utils/aiClient';
+
 
 
 function loadReadIds(): Set<number> {
@@ -697,6 +699,44 @@ export function useAppState() {
         handleStorySelect, handleToggleSave, handleBack, handleHome,
         handleSummarizeStory: async (id: number) => {
             const baseUrl = getApiBase();
+            const isWeb = isWebPreview();
+            const aiSettings = getClientAISettings();
+
+            if (isWeb && aiSettings.provider !== 'disabled') {
+                try {
+                    // 1. Fetch story content from /api/stories/{id}/content
+                    const contentRes = await fetchWithAuth(`${baseUrl}/api/stories/${id}/content`);
+                    if (!contentRes.ok) {
+                        throw new Error(`Failed to fetch article content for summarization (status ${contentRes.status})`);
+                    }
+                    const contentData = await contentRes.json();
+                    const articleText = contentData.content || "";
+                    const articleTitle = contentData.title || "";
+
+                    // 2. Generate summary via client AI
+                    const clientResult = await clientGenerateSummary(articleTitle, articleText);
+                    const generatedSummary = clientResult.summary;
+                    const generatedTopics = clientResult.topics;
+
+                    // 3. Patch generated summary to database so other users can see it
+                    await fetchWithAuth(`${baseUrl}/api/stories/${id}/summary`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ summary: generatedSummary })
+                    });
+
+                    // 4. Update local state
+                    setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, summary: generatedSummary, topics: generatedTopics.length > 0 ? generatedTopics : s.topics } : s));
+                    setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, summary: generatedSummary, topics: generatedTopics.length > 0 ? generatedTopics : t.story.topics } } : t));
+                    
+                    return { summary: generatedSummary, topics: generatedTopics };
+                } catch (clientErr: any) {
+                    console.error('[useAppState] Client Summarization Error:', clientErr);
+                    setGlobalWarning(clientErr.message || "Failed to generate client-side summary.");
+                    return null;
+                }
+            }
+
             const response = await fetchWithAuth(`${baseUrl}/api/stories/${id}/summarize?force=true`, {
                 method: 'POST'
             });

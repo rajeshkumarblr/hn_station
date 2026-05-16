@@ -84,7 +84,7 @@ func main() {
 	log.Println("Catch-up Job Completed.")
 }
 
-func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.OllamaClient, ollamaURL string, id int, title string, url string) {
+func processSummary(ctx context.Context, store *storage.PostgresStore, aiClient *ai.OllamaClient, ollamaURL string, id int, title string, url string) {
 	workCtx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 	defer cancel()
 
@@ -104,7 +104,12 @@ func processSummary(ctx context.Context, store *storage.Store, aiClient *ai.Olla
 		textContent = textContent[:20000] + "..."
 	}
 
-	responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, title, textContent)
+	ollamaModel := os.Getenv("OLLAMA_MODEL")
+	if ollamaModel == "" {
+		ollamaModel = "llama3.2:3b"
+	}
+
+	responseStr, err := aiClient.GenerateSummary(workCtx, ollamaURL, ollamaModel, title, textContent)
 	if err != nil {
 		log.Printf("Failed to generate summary (story %d): %v", id, err)
 		return

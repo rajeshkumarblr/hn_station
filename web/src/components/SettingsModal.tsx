@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
+import { getClientAISettings, saveClientAISettings } from '../utils/aiClient';
 import { X, Save, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap, Sparkles } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -14,7 +15,7 @@ type TabType = 'ai' | 'ui' | 'keyboard';
 
 export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const isWebMode = isWebPreview();
-    const [activeTab, setActiveTab] = useState<TabType>(isWebMode ? 'ui' : 'ai');
+    const [activeTab, setActiveTab] = useState<TabType>('ai');
     const [aiEnabled, setAiEnabled] = useState(false);
     const [ollamaModel, setOllamaModel] = useState('');
     const [refreshInterval, setRefreshInterval] = useState('5m');
@@ -23,6 +24,12 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Client-side Web AI States
+    const [clientProvider, setClientProvider] = useState<'disabled' | 'gemini' | 'openai' | 'ollama'>('disabled');
+    const [clientApiKey, setClientApiKey] = useState('');
+    const [clientModel, setClientModel] = useState('');
+    const [clientOllamaUrl, setClientOllamaUrl] = useState('http://localhost:11434');
+
     // Context from window or props for theme and reader mode
     // Note: In a real app we'd use useAppState, but we are keeping this somewhat self-contained
     // for now as it's triggered from DesktopLayout.
@@ -30,11 +37,18 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const [theme, setTheme] = useState<'dark' | 'light'>(currentTheme);
 
     useEffect(() => {
-        if (isOpen && user) {
-            setAiEnabled(user.ai_summaries_enabled);
-            setAutoSummarize(user.auto_summarize_enabled);
-            setRefreshInterval(user.refresh_interval || '5m');
-            setOllamaModel(user.ollama_model || '');
+        if (isOpen) {
+            if (user) {
+                setAiEnabled(user.ai_summaries_enabled);
+                setAutoSummarize(user.auto_summarize_enabled);
+                setRefreshInterval(user.refresh_interval || '5m');
+                setOllamaModel(user.ollama_model || '');
+            }
+            const clientSettings = getClientAISettings();
+            setClientProvider(clientSettings.provider);
+            setClientApiKey(clientSettings.apiKey);
+            setClientModel(clientSettings.model);
+            setClientOllamaUrl(clientSettings.ollamaUrl);
         }
     }, [isOpen, user]);
 
@@ -47,23 +61,31 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
         setSuccess(false);
 
         try {
-            const baseUrl = getApiBase();
-            const res = await fetchWithAuth(`${baseUrl}/api/settings`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    ai_summaries_enabled: aiEnabled,
-                    ollama_model: ollamaModel,
-                    ai_provider: 'local',
-                    refresh_interval: refreshInterval,
-                    auto_summarize_enabled: autoSummarize
-                }),
-            });
+            if (isWebMode) {
+                saveClientAISettings({
+                    provider: clientProvider,
+                    apiKey: clientApiKey,
+                    model: clientModel,
+                    ollamaUrl: clientOllamaUrl
+                });
+            } else {
+                const res = await fetchWithAuth(`${getApiBase()}/api/settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        ai_summaries_enabled: aiEnabled,
+                        ollama_model: ollamaModel,
+                        ai_provider: 'local',
+                        refresh_interval: refreshInterval,
+                        auto_summarize_enabled: autoSummarize
+                    }),
+                });
 
-            if (!res.ok) throw new Error('Failed to update settings');
+                if (!res.ok) throw new Error('Failed to update settings');
+            }
 
             // Apply theme change locally
             if (theme === 'dark') {
@@ -106,14 +128,12 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                 <div className="flex flex-1 overflow-hidden">
                     {/* Sidebar Tabs */}
                     <div className="w-48 border-r border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/20 p-2 shrink-0">
-                        {!isWebMode && (
                             <button
                                 onClick={() => setActiveTab('ai')}
                                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all mb-1 ${activeTab === 'ai' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}
                             >
                                 <Cpu size={16} /> AI Settings
                             </button>
-                        )}
                         <button
                             onClick={() => setActiveTab('ui')}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all mb-1 ${activeTab === 'ui' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}
@@ -131,7 +151,7 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                     {/* Content */}
                     <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                         <form id="settings-form" onSubmit={handleSave} className="space-y-8">
-                            {activeTab === 'ai' && (
+                            {activeTab === 'ai' && !isWebMode && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                         <div className="flex items-center justify-between p-5 bg-orange-500/5 dark:bg-orange-500/10 rounded-2xl border border-orange-200 dark:border-orange-500/20">
                                             <div className="space-y-1">
@@ -194,6 +214,69 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                                 </div>
                                             )}
                                         </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'ai' && isWebMode && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <div className="space-y-1">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Web AI Settings</h3>
+                                        <p className="text-xs text-slate-500 leading-tight">Enable client-side AI Summaries and Chat using your own API keys. Generates summaries directly in your browser with no Azure hosting cost.</p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">AI Provider</label>
+                                        <select
+                                            value={clientProvider}
+                                            onChange={(e: any) => setClientProvider(e.target.value)}
+                                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
+                                        >
+                                            <option value="disabled">Disabled (No AI)</option>
+                                            <option value="gemini">Google Gemini (Recommended / Free Tier Available)</option>
+                                            <option value="openai">OpenAI (GPT-4o-mini)</option>
+                                            <option value="ollama">Ollama (Local localhost:11434)</option>
+                                        </select>
+                                    </div>
+
+                                    {clientProvider !== 'disabled' && clientProvider !== 'ollama' && (
+                                        <div className="space-y-2">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">API Key</label>
+                                            <input
+                                                type="password"
+                                                value={clientApiKey}
+                                                onChange={(e) => setClientApiKey(e.target.value)}
+                                                placeholder={clientProvider === 'gemini' ? "Enter Gemini API Key..." : "Enter OpenAI API Key..."}
+                                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
+                                            />
+                                            <p className="text-[9px] text-slate-400">Your key is stored strictly in your browser's local storage and never sent to our servers.</p>
+                                        </div>
+                                    )}
+
+                                    {clientProvider === 'ollama' && (
+                                        <div className="space-y-2">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Ollama API URL</label>
+                                            <input
+                                                type="text"
+                                                value={clientOllamaUrl}
+                                                onChange={(e) => setClientOllamaUrl(e.target.value)}
+                                                placeholder="http://localhost:11434"
+                                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {clientProvider !== 'disabled' && (
+                                        <div className="space-y-2">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Custom Model Name (Optional)</label>
+                                            <input
+                                                type="text"
+                                                value={clientModel}
+                                                onChange={(e) => setClientModel(e.target.value)}
+                                                placeholder={clientProvider === 'gemini' ? "gemini-2.5-flash" : clientProvider === 'openai' ? "gpt-4o-mini" : "llama3.2:3b"}
+                                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -279,9 +362,9 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                             <div className="flex items-start gap-3">
                                                 <Zap size={16} className="text-blue-500 shrink-0 mt-0.5" />
                                                 <div>
-                                                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">Desktop Features</h4>
+                                                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">Web AI Enabled</h4>
                                                     <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                                        AI Summaries, Multi-Tab workspace, and Split View are available exclusively in the Desktop application.
+                                                        Client-side AI Summaries and interactive chats are fully unlocked on the web! Enter your API key in the AI Settings tab to activate.
                                                     </p>
                                                     <a href="/api/download/latest" className="inline-block mt-3 text-[10px] font-bold text-blue-600 hover:underline">
                                                         Learn more & Download →

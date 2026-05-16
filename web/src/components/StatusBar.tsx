@@ -15,6 +15,7 @@ interface Status {
 export function StatusBar() {
     const [status, setStatus] = useState<Status | null>(null);
     const [error, setError] = useState(false);
+    const [retries, setRetries] = useState(0);
 
     useEffect(() => {
         const fetchStatus = async () => {
@@ -27,24 +28,32 @@ export function StatusBar() {
                     const data = await res.json();
                     setStatus(data);
                     setError(false);
+                    setRetries(0);
                 } else {
-                    setError(true);
+                    setRetries(prev => prev + 1);
+                    if (retries >= 2) setError(true);
                 }
             } catch (e) {
-                setError(true);
+                setRetries(prev => prev + 1);
+                if (retries >= 2) setError(true);
             }
         };
 
         fetchStatus();
-        const interval = setInterval(fetchStatus, 5000); // Poll more frequently (5s) to catch it on startup
+        const interval = setInterval(fetchStatus, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [retries]);
 
     if (error) {
         return (
-            <div className="h-7 bg-red-500/10 border-t border-red-500/20 px-4 flex items-center gap-2 text-[10px] font-bold text-red-500">
-                <AlertCircle size={11} className="animate-pulse" />
-                Backend Connection Lost
+            <div className="h-7 bg-slate-50 dark:bg-[#0f172a] border-t border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between text-[10px] font-bold uppercase">
+                <div className="flex items-center gap-2 text-slate-400">
+                    <CheckCircle2 size={11} className="text-indigo-500" />
+                    Web Preview Mode
+                </div>
+                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400/80">
+                    <span>HN Station</span>
+                </div>
             </div>
         );
     }
@@ -53,7 +62,7 @@ export function StatusBar() {
         return (
             <div className="h-7 bg-slate-50 dark:bg-[#0f172a] border-t border-slate-200 dark:border-slate-800 px-4 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
                 <Loader2 size={11} className="animate-spin" />
-                Initializing Engine...
+                Connecting...
             </div>
         );
     }

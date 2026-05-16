@@ -1,134 +1,167 @@
-# Hacker News Station
+# HN Station
 
 [![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 [![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Live](https://img.shields.io/badge/Live-hnstation.dev-orange?style=flat-square)](https://hnstation.dev)
 
-A modern, fast, and feature-rich Hacker News client built with Go and React. Optimized for the desktop experience with local-first persistence.
-
-### ⚡ The Experience
-> [!TIP]
-> **Desktop vs. Web**: The Web version is a "Lite" preview. For the **unrestricted split-pane experience** that loads almost any article side-by-side with comments and offers persistent local storage, use the **Desktop App**.
+A local-first Hacker News desktop client. Read articles and comments side by side, get AI-powered summaries, and keep a searchable archive — all on your machine.
 
 ![Workflow Demo](screenshots/workflow_demo.gif)
-*A seamless split-view for reading and discussing simultaneously.*
 
 ---
 
-## 🖥️ Electron Desktop App (v0.10.0)
+## Why HN Station?
 
-The desktop app is designed for speed and reliability, featuring a **Local-First Architecture** where your data is stored directly on your machine.
+- **Split-pane reading** — Article and discussion side by side, like a proper workspace
+- **Local AI assistant** — Summarize articles, analyze discussions, and chat about stories using [Ollama](https://ollama.com), Gemini, or OpenAI
+- **Full-text search** — FTS5-powered instant search across titles, summaries, and topics with synonym-aware tag filtering
+- **Privacy-first** — Built-in ad blocker and cookie stripper. All data stays in your local SQLite database
+- **Keyboard-driven** — Navigate with `j/k`, open stories with `Enter`, cycle layouts with `Ctrl+Space`, and close tabs with `Ctrl+W`
+- **Your personal archive** — Stories and comments persist locally forever. No account required
 
-### ✨ Key Features
-- **Unified Search & Topic Discovery**: Topic filters now perform a deep, inclusive search across both formal tags and the Full-Text Search (FTS5) index, ensuring you find relevant stories even if they haven't been tagged yet.
-- **Enhanced AI Sidebar Interaction**: Native "Article Topics" are now integrated directly into the Reader pane's AI sidebar, allowing for quick filter toggling without leaving your reading context.
-- **Precision Article View Controls**: Replaced forced dark mode with a triple-state toggle: **Original (Native)**, **Follow App (Auto)**, and **Safe Dark Mode (Forced)** for a superior, site-specific reading experience.
-- **Smart AI Chat UI**: Improved technical communication with dedicated **Copy to Clipboard** buttons for code blocks, stable positioning to avoid content overlap, and high-quality syntax highlighting.
-- **Built-in Privacy Engine**: Integrated high-performance Ad Blocker and "Ghost Mode" Cookie Stripper. Intercepts and blocks tracking/ad networks at the engine level for faster, private browsing.
-- **"Safe Dark Mode" for Articles**: Intelligent, selective CSS injection that forces external articles into a high-contrast dark theme while preserving media quality and text readability.
-- **Canonical Tag Mapping**: Implement a user-editable `tag_mappings.json` to group fragmented topics (e.g., mapping "LLM" to "Language Model", "MoE", "Transformers"). The backend automatically expands searches to catch all relevant synonyms.
-- **Hot-Reloading Engine**: Mapping changes are picked up by the Go backend every 5 seconds, allowing for instant filtering updates without restarting the application.
-- **"Smart Selection" Feed UI**: Story cards now dynamically filter their displayed tags based on your active selection, eliminating "distracting" unrelated tags while you are focused on a specific topic.
-- **Visual Color Synchronization**: Article synonyms (like "#LanguageModels") automatically inherit the color of their canonical parent filter ("#LLM"), ensuring a consistent visual language across the feed.
-- **Unlimited Historical Growth**: Disabled the automatic 7-day story pruning. Your local database now grows indefinitely, building a complete historical archive of your Hacker News feed.
-- **Hybrid FTS5 Search**: Integrated SQLite's Full-Text Search (FTS5) for lightning-fast, precise keyword queries across article titles, summaries, and topics.
-- **Dynamic Filter Logic**: Introducing "ANY/ALL" match logic for topic filtering. Choose between broad discovery (OR) or surgical precision (AND) when selecting multiple tags.
-- **#ALL Global Reset**: A dedicated, uniquely styled "Global Reset" tag that instantly clears all filters and searches, returning the feed to its default state.
-- **Premium "SaaS" UI Refinement**: High-end aesthetic with glassmorphism, `backdrop-blur` effects, and a sophisticated Inter/Outfit typography stack.
-- **Native Browser Architecture**: Transformed the article view into a fully-functional browser with a dedicated URL bar, real-time navigation history (Back/Forward), and an instant "Home" reset button. Integrated all previously scattered tools (Bookmarks, Reader Mode, Discussion) into a single, cohesive header.
-- **Native Local AI Assistant**: Replaced unreliable remote webviews with a robust, native integration for **Ollama**. Features token-by-token real-time streaming via SSE (base64-encoded for lossless Markdown preservation), persistent conversation history (stored in SQLite), and instant Markdown rendering for formatted technical content.
-- **Chrome-Style Flexible Tabs**: Implemented an intelligent tab management system where tabs automatically shrink and truncate as more are opened, preserving the layout even under heavy load.
-- **"Articles" Quick-Switch Menu**: A dedicated navigation menu in the top header providing a unified list of all open articles for instant switching.
-- **Search-to-Filter Workflow**: Type a search term and press **Enter** to promote it into a persistent `#Topic` filter chip. Press **Escape** to clear the search. Topic chips feature hover-visible close buttons for easy removal.
-- **Safe FTS5 Query Expansion**: All synonym expansions are now properly quoted in FTS5 MATCH queries, preventing special characters (hyphens, dots) from being misinterpreted as operators and causing silent query failures.
-- **Global Shortcut Relay**: Implemented an advanced IPC-based keyboard interception system. Critical navigation shortcuts (`Ctrl+W`, `Ctrl+Tab`, `Alt+D`) now work globally across the app, even when focus is inside a third-party article webview.
-- **Chrome-Inspired Reader UI**: Rebuilt the article toolbar with a professional, neutral grey theme and improved navigation controls (Back/Forward/Refresh/Home) matching industry-standard browser layouts.
+> **Web vs Desktop**: Try the [web preview at hnstation.dev](https://hnstation.dev) for a quick look. For the full experience — split-pane article loading, local AI, and persistent storage — use the desktop app.
 
-### ⌨️ Keyboard Shortcuts
+---
+
+## Download
+
+| Platform | Download | Notes |
+|:---|:---|:---|
+| **Windows** | [HN Station Setup 0.10.0.exe](https://github.com/rajeshkumarblr/hn_station/releases/latest) | NSIS installer, x64 |
+| **macOS** | [HN Station 0.10.0.dmg](https://github.com/rajeshkumarblr/hn_station/releases/latest) | Universal binary |
+| **Linux** | Build from source (see below) | AppImage planned |
+| **Web** | [hnstation.dev](https://hnstation.dev) | Lite preview |
+
+---
+
+## Features
+
+### Reader
+- Chrome-style browser toolbar with Back/Forward/Refresh/Home
+- Triple-state dark mode: Original, Follow System, or Forced Safe Dark
+- Tabbed workspace with Chrome-style flexible tabs
+- Resizable AI sidebar with Discussion, Summary, and Chat tabs
+
+### AI Integration
+- **Article summaries** — Bullet-point takeaways from full article text
+- **Discussion analysis** — Synthesized community opinion from top comments
+- **Multi-turn chat** — Ask questions about any story with full context
+- **Token-by-token streaming** via SSE with base64 encoding for lossless Markdown
+- Supports **Ollama** (local), **Gemini**, and **OpenAI**
+
+### Search & Filtering
+- Hybrid FTS5 full-text search across the entire archive
+- Canonical tag mapping with user-editable `tag_mappings.json`
+- ANY/ALL/Exclusive match modes for multi-topic filtering
+- Search-to-filter workflow: type and press Enter to create persistent topic chips
+
+### Privacy Engine
+- Request-level ad and tracker blocking
+- Cookie stripping ("Ghost Mode")
+- No telemetry, no analytics, no external calls (except HN API and your chosen AI provider)
+
+---
+
+## Keyboard Shortcuts
 
 | Shortcut | Action |
 | :--- | :--- |
-| **View Control** | |
-| `Ctrl + 0` | Return to **Feed** view |
-| `Ctrl + Home` | Switch to **Feed Tab** |
-| `Ctrl + D` | Switch to **Bookmarks Tab** |
-| `Ctrl + Tab` | Cycle through tabs (Forward) |
-| `Ctrl + Shift + Tab` | Cycle through tabs (Backward) |
-| `Ctrl + W` | Close active tab (Reader) / **Exit Application** (Feed) |
-| `F5` / `Ctrl + R` | Refresh Feed or Active Tab |
-| **Feed Selection** | |
-| `j` / `k` or `Arrows` | Navigate stories in the feed |
-| `Home` / `End` | Jump to first/last story in current view |
-| `PageUp` / `PageDown` | Previous/Next 10 stories (Pagination) |
-| `Ctrl + Home` | First page of current feed |
-| `Enter` | Open story in **Split Mode** |
-| **Reader Control** | |
-| `Alt + D` | Focus Address Bar (and select URL) |
-| `Ctrl + Space` | Cycle layout: **Article → Discussion → Split** |
-| `Ctrl + Alt + Arrows` | Incremental layout cycling |
-| `Ctrl + Q` | Toggle Sidebar Visibility (Show/Hide) |
-| `Ctrl + H` | Direct switch to **Discussion** Tab |
-| `Ctrl + K` | Direct switch to **AI Summary** Tab |
-| `Ctrl + G` | Direct switch to **Local AI Chat** Tab |
+| `j` / `k` or `↑` / `↓` | Navigate stories |
+| `Enter` | Open story in split view |
+| `Ctrl + Space` | Cycle layout: Article → Discussion → Split |
+| `Ctrl + W` | Close tab / Exit (from Feed) |
+| `Ctrl + Tab` | Next tab |
+| `Ctrl + D` | Bookmarks |
+| `Ctrl + 0` | Back to Feed |
+| `Ctrl + Q` | Toggle sidebar |
+| `Ctrl + G` | AI Chat |
+| `Ctrl + H` | Discussion |
+| `Ctrl + K` | AI Summary |
+| `Alt + D` | Focus address bar |
+| `F5` | Refresh |
 
 ---
 
-- **In-App Backend**: A Go-based local agent runs automatically as a background process within the app, handling continuous HN ingestion while the window is open.
-- **SQLite Storage**: All data persists in a unified user-localized directory at `%APPDATA%/HN Station/` on Windows.
-- **Port Mapping**: Uses port `58090` for robust communication between the UI and local agent.
+## Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│  Electron (Desktop)                         │
+│  ┌───────────┐  ┌────────────────────────┐  │
+│  │ React SPA │◄─│ Go Backend (SQLite)    │  │
+│  │ (Vite)    │  │ localhost:58090         │  │
+│  └───────────┘  │ • HN API ingestion     │  │
+│                 │ • Ollama AI integration │  │
+│                 │ • FTS5 search engine    │  │
+│                 └────────────────────────┘  │
+└─────────────────────────────────────────────┘
+```
+
+- **Frontend**: React 18 + TypeScript + Tailwind, bundled with Vite
+- **Backend**: Go with Chi router, serving both API and embedded SPA
+- **Storage**: SQLite (desktop) / PostgreSQL (web deployment)
+- **AI**: Ollama for local inference, Gemini/OpenAI for cloud
+- **Desktop**: Electron with bundled Go binary as background process
+
+Data is stored at `%APPDATA%/HN Station/` (Windows) or `~/Library/Application Support/HN Station/` (macOS).
+
+See [docs/architecture.md](docs/architecture.md) for the full technical deep-dive.
 
 ---
 
-## 🚀 Web Setup (AKS)
+## Development
 
-The web version is deployed to Azure Kubernetes Service (AKS) as a unified container, serving as a high-speed preview of the HN Station experience.
-
-- **Frontend**: React SPA served directly by the Go backend.
-- **Data Layer**: Postgres managed via StatefulSet.
-- **Live Site**: [hnstation.dev](https://hnstation.dev)
-
----
-
-## 🏗️ Development
-
-### 🏁 Prerequisites
+### Prerequisites
 - **Go 1.22+**
 - **Node.js 20+**
-- **Ollama** (Optional, for local AI features)
+- **Ollama** (optional, for local AI features)
 
-### 💻 Build & Run
-You can use the provided automation scripts or the Makefile:
+### Quick Start
 
 **Windows (PowerShell):**
 ```powershell
-# Build everything (Backend + Frontend)
+# Build backend + frontend
 .\scripts\build.ps1
 
-# Run both components simultaneously
+# Run both components
 .\scripts\run.ps1
 ```
 
-**macOS (Zsh/Bash):**
+**macOS:**
 ```bash
-# Make the startup script executable
 chmod +x scripts/start-desktop.sh
-
-# Build and run the desktop app
 make dev
-
-# Package for macOS (.dmg)
-chmod +x scripts/release_mac.sh
-./scripts/release_mac.sh
 ```
 
-**Linux (Makefile):**
+**Linux:**
 ```bash
-# Build everything
 make all
-
-# Start backend and frontend dev servers
-make dev-backend
-make dev-frontend
+make dev-backend   # Terminal 1
+make dev-frontend  # Terminal 2
 ```
+
+### Build Desktop Installer
+
+```bash
+# Windows
+npm run build:win --prefix web
+
+# macOS
+./scripts/release_mac.sh
+
+# Linux (AppImage)
+npm run build:linux --prefix web
+```
+
+---
+
+## Contributing
+
+Contributions welcome! Please open an issue first to discuss what you'd like to change.
+
+## License
+
+[MIT](LICENSE) © 2026 Rajesh Kumar

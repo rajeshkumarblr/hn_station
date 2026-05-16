@@ -3,6 +3,8 @@ import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap }
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
+import { isWebPreview } from '../utils/env';
+import { getClientAISettings, clientGenerateChatResponse } from '../utils/aiClient';
 import type { Story, User } from '../types';
 import { CommentList } from './CommentList';
 import { getTagStyle } from '../utils/colors';
@@ -112,6 +114,40 @@ export function AISidebar({
         setIsChatLoading(true);
 
         try {
+            const isWeb = isWebPreview();
+            const aiSettings = getClientAISettings();
+
+            if (isWeb && aiSettings.provider !== 'disabled') {
+                try {
+                    const baseUrl = getApiBase();
+                    // 1. Fetch article text content
+                    const contentRes = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/content`).catch(() => null);
+                    const contentData = contentRes && contentRes.ok ? await contentRes.json().catch(() => ({})) : {};
+                    const articleText = contentData.content || "";
+
+                    // 2. Concatenate comments context
+                    const commentsText = (comments || []).slice(0, 100).map(c => `${c.by}: ${c.text}`).join('\n\n');
+                    const storyContext = `Story Title: ${story.title}\nStory URL: ${story.url}\n\nArticle Body:\n${articleText}\n\nUser Comments Discussion:\n${commentsText}`;
+
+                    // 3. Map history
+                    const history = messages.map(m => ({
+                        role: m.role === 'model' ? 'assistant' as const : m.role as 'user' | 'assistant',
+                        content: m.content
+                    }));
+
+                    // 4. Generate reply
+                    const reply = await clientGenerateChatResponse(storyContext, history, userMsg);
+                    
+                    setMessages([...newMessages, { role: 'assistant', content: reply }]);
+                } catch (clientErr: any) {
+                    console.error('[AISidebar] Client Chat Error:', clientErr);
+                    setMessages([...newMessages, { role: 'assistant', content: `Chat failed: ${clientErr.message || 'Please check your API key and network connection.'}` }]);
+                } finally {
+                    setIsChatLoading(false);
+                }
+                return;
+            }
+
             const baseUrl = getApiBase();
             const streamUrl = `${baseUrl}/api/stories/${story.id}/chat/stream`;
             const res = await fetchWithAuth(streamUrl, {
@@ -124,6 +160,7 @@ export function AISidebar({
                 const errText = await res.text();
                 console.error('Stream start failed:', { status: res.status, url: streamUrl, response: errText });
                 setMessages([...newMessages, { role: 'assistant', content: `Error (${res.status}) on ${streamUrl.split('/').pop()}: ${errText || 'Failed to start stream'}` }]);
+                setIsChatLoading(false);
                 return;
             }
 
@@ -218,6 +255,77 @@ export function AISidebar({
     const handleSummarizeDiscussion = async () => {
         if (discussSummarizing) return;
         setDiscussSummarizing(true);
+        const isWeb = isWebPreview();
+        const aiSettings = getClientAISettings();
+
+        if (isWeb && aiSettings.provider !== 'disabled') {
+            try {
+                const commentsText = (comments || []).slice(0, 100).map(c => `${c.by}: ${c.text}`).join('\n\n');
+                const prompt = `You are summarizing the Hacker News comment discussion for the story "${story.title}".
+Here is the raw text of the comment thread:
+---
+${commentsText.length > 15000 ? commentsText.substring(0, 15000) + '... [truncated]' : commentsText}
+---
+Please generate a cohesive, insightful 3-paragraph summary of the main arguments, tech discussions, consensus, and interesting debates from the community. Use clear markdown formatting.`;
+
+                let discussionSummary = '';
+                if (aiSettings.provider === 'gemini') {
+                    const geminiModel = aiSettings.model || 'gemini-2.5-flash';
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${aiSettings.apiKey}`;
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    if (!res.ok) throw new Error(`Gemini failed: ${res.status}`);
+                    const data = await res.json();
+                    discussionSummary = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                } else if (aiSettings.provider === 'openai') {
+                    const openAIModel = aiSettings.model || 'gpt-4o-mini';
+                    const url = 'https://api.openai.com/v1/chat/completions';
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${aiSettings.apiKey}` },
+                        body: JSON.stringify({
+                            model: openAIModel,
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+                    if (!res.ok) throw new Error(`OpenAI failed: ${res.status}`);
+                    const data = await res.json();
+                    discussionSummary = data.choices?.[0]?.message?.content || '';
+                } else if (aiSettings.provider === 'ollama') {
+                    const ollamaModel = aiSettings.model || 'llama3.2:3b';
+                    const res = await fetch(`${aiSettings.ollamaUrl}/api/generate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model: ollamaModel, prompt: prompt, stream: false })
+                    });
+                    if (!res.ok) throw new Error(`Ollama failed: ${res.status}`);
+                    const data = await res.json();
+                    discussionSummary = data.response || '';
+                }
+
+                if (discussionSummary) {
+                    const baseUrl = getApiBase();
+                    // Patch to save discussion summary globally in database
+                    await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/summary`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ discussion_summary: discussionSummary })
+                    }).catch(() => {});
+                    
+                    onSetDiscussionSummary(discussionSummary);
+                }
+            } catch (err: any) {
+                console.error('Client Discussion summarization failed:', err);
+                alert(err.message || 'Client Discussion summarization failed');
+            } finally {
+                setDiscussSummarizing(false);
+            }
+            return;
+        }
+
         try {
             const baseUrl = getApiBase();
             const res = await fetchWithAuth(`${baseUrl}/api/stories/${story.id}/summarize/discussion`, {

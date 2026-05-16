@@ -108,7 +108,6 @@ func (s *Server) routes() {
 	s.router.Get("/api/status", s.handleGetStatus)
 	s.router.Post("/api/summary/prioritize", s.handlePrioritizeSummaries)
 	s.router.Get("/api/download/latest", s.handleDownloadLatest)
-	s.router.Get("/api/stories/{id}/check-iframe", s.handleCheckIframe)
 	s.router.Patch("/api/stories/{id}/summary", s.handlePatchStorySummary)
 
 	// Auth routes

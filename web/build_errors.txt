@@ -1,7 +1,0 @@
-
-> hn-station@1.1.0 build
-> tsc -b && vite build
-
-src/components/ReaderPane.tsx(27,50): error TS6133: 'onSummarize' is declared but its value is never read.
-src/components/ReaderPane.tsx(27,164): error TS6133: 'isActive' is declared but its value is never read.
-src/components/ReaderPane.tsx(104,12): error TS6133: 'summarizing' is declared but its value is never read.

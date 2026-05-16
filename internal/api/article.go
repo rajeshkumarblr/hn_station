@@ -23,16 +23,26 @@ func (s *Server) handlePatchStorySummary(w http.ResponseWriter, r *http.Request)
 	}
 
 	var reqBody struct {
-		Summary string `json:"summary"`
+		Summary           string `json:"summary"`
+		DiscussionSummary string `json:"discussion_summary"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := s.store.UpdateStorySummary(r.Context(), id, reqBody.Summary); err != nil {
-		http.Error(w, "Failed to update summary", http.StatusInternalServerError)
-		return
+	if reqBody.Summary != "" {
+		if err := s.store.UpdateStorySummary(r.Context(), id, reqBody.Summary); err != nil {
+			http.Error(w, "Failed to update summary", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if reqBody.DiscussionSummary != "" {
+		if err := s.store.UpdateStoryDiscussionSummary(r.Context(), id, reqBody.DiscussionSummary); err != nil {
+			http.Error(w, "Failed to update discussion summary", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
