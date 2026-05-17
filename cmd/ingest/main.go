@@ -21,13 +21,13 @@ import (
 )
 
 const (
-	WorkerCount  = 3
-	TotalStories = 20 // Only keep top 20 front-page stories
+	WorkerCount  = 1
+	TotalStories = 10 // Only keep top 10 front-page stories for cluster
 )
 
 func main() {
 	// Parse CLI flags
-	interval := flag.Duration("interval", 1*time.Minute, "Interval between ingestion runs (e.g. 5m, 1h)")
+	interval := flag.Duration("interval", 15*time.Minute, "Interval between ingestion runs (e.g. 5m, 1h)")
 	oneShot := flag.Bool("one-shot", false, "Run once and exit")
 	flag.Parse()
 
@@ -108,8 +108,8 @@ func main() {
 	defer limiter.Stop()
 
 	var workerWg sync.WaitGroup
-	// 5 workers for local power
-	for i := 0; i < 5; i++ {
+	// Reduced to 1 worker for cluster stability (avoid CPU contention)
+	for i := 0; i < 1; i++ {
 		workerWg.Add(1)
 		go func(workerID int) {
 			defer workerWg.Done()
@@ -172,7 +172,7 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 	log.Printf("Processing summary for story %d: %s", job.ID, job.Title)
 
 	// Use a new context with timeout for the actual work
-	workCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	workCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
 	fetchRes, err := content.FetchArticle(job.URL)
@@ -302,14 +302,24 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, aiCl
 	// Check if AI Summaries are enabled
 	aiEnabled := false
 	if !disableAI {
-		if val, err := store.GetSetting(ctx, "ai_summaries_enabled"); err == nil && val == "true" {
+		val, err := store.GetSetting(ctx, "ai_summaries_enabled")
+		if err == nil && val != "" {
+			aiEnabled = (val == "true")
+		} else {
+			// Default to true if setting missing/empty but AI not disabled via env
 			aiEnabled = true
-		} else if err != nil {
-			log.Printf("Failed to fetch settings: %v", err)
 		}
 	}
+	log.Printf("DEBUG: Ingestion check: disableAI=%v, aiEnabled=%v", disableAI, aiEnabled)
+
 
 	ollamaModel, _ := store.GetSetting(ctx, "ollama_model")
+	if ollamaModel == "" {
+		ollamaModel = os.Getenv("OLLAMA_MODEL")
+	}
+	if ollamaModel == "" {
+		ollamaModel = "granite3.1-dense:2b"
+	}
 
 	// Fetch Top Stories (Ranked) - only top 20
 	topIDs, err := client.GetTopStories(ctx)
@@ -346,7 +356,7 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, aiCl
 	var wg sync.WaitGroup
 
 	// Start workers
-	for i := 0; i < 5; i++ {
+	for i := 0; i < WorkerCount; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
@@ -408,10 +418,12 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 	if err := store.UpsertStory(ctx, story); err != nil {
 		return fmt.Errorf("upsert error: %w", err)
 	}
-	log.Printf("Successfully upserted story %d: %s", id, story.Title)
+	log.Printf("Successfully upserted story %d: %s (Score: %d, URL: %v, AI Enabled: %v)", id, story.Title, item.Score, item.URL != "", aiEnabled)
 
 	// 1.5 Enqueue for Auto-Summarization
-	if aiEnabled && item.URL != "" && item.Score > 10 {
+	// Only automatically summarize if it's in the top 10 (TotalStories) to save cluster resources
+	isTop10 := rank != nil && *rank <= TotalStories
+	if aiEnabled && item.URL != "" && item.Score > 10 && isTop10 {
 		existing, err := store.GetStory(ctx, id)
 		needsSummary := err != nil || existing.Summary == nil || *existing.Summary == ""
 		needsTopics := err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) == 0

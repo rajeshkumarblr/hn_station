@@ -32,6 +32,7 @@ interface ReaderPaneProps {
     setActiveTopics?: React.Dispatch<React.SetStateAction<string[]>>;
     setDisabledTopics?: React.Dispatch<React.SetStateAction<string[]>>;
     topicMatch?: 'any' | 'all' | 'exclusive';
+    onSummarizeStory?: (id: number) => Promise<any>;
 }
 
 export function ReaderPane({ 
@@ -44,7 +45,8 @@ export function ReaderPane({
     disabledTopics = [],
     setActiveTopics,
     setDisabledTopics,
-    topicMatch = 'any'
+    topicMatch = 'any',
+    onSummarizeStory
 }: ReaderPaneProps) {
     // Always use HTTPS to avoid mixed-content errors on the HTTPS site
     const rawUrl = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
@@ -427,155 +429,157 @@ export function ReaderPane({
         <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] overflow-hidden">
             
             {/* Horizontal Browser Chrome (URL Bar & Controls) */}
-            <div className="flex items-center gap-4 px-4 py-2 bg-[#f1f3f4] dark:bg-[#1a1a1a] border-b border-slate-300 dark:border-white/10 shrink-0">
-                {/* 1. Main Navigation */}
-                <div className="flex items-center gap-0.5">
-                    <button 
-                        onClick={() => articleWebviewRef.current?.goBack()} 
-                        disabled={!canGoBack}
-                        className={`p-1.5 rounded-full transition-all ${canGoBack ? 'text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10' : 'text-slate-400/50 dark:text-slate-600'}`}
-                        title="Go Back"
-                    >
-                        <ChevronLeft size={18} />
-                    </button>
-                    <button 
-                        onClick={() => articleWebviewRef.current?.goForward()} 
-                        disabled={!canGoForward}
-                        className={`p-1.5 rounded-full transition-all ${canGoForward ? 'text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10' : 'text-slate-400/50 dark:text-slate-600'}`}
-                        title="Go Forward"
-                    >
-                        <ChevronRight size={18} />
-                    </button>
-                    <button 
-                        onClick={() => articleWebviewRef.current?.reload()} 
-                        className={`p-1.5 rounded-full transition-all text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 ${isLoading ? 'animate-spin' : ''}`}
-                        title="Reload"
-                    >
-                        <RefreshCw size={16} />
-                    </button>
-                    <button 
-                        onClick={() => {
-                            if (articleWebviewRef.current) {
-                                articleWebviewRef.current.src = storyUrl;
+            {!isWebMode && (
+                <div className="flex items-center gap-4 px-4 py-2 bg-[#f1f3f4] dark:bg-[#1a1a1a] border-b border-slate-300 dark:border-white/10 shrink-0">
+                    {/* 1. Main Navigation */}
+                    <div className="flex items-center gap-0.5">
+                        <button 
+                            onClick={() => articleWebviewRef.current?.goBack()} 
+                            disabled={!canGoBack}
+                            className={`p-1.5 rounded-full transition-all ${canGoBack ? 'text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10' : 'text-slate-400/50 dark:text-slate-600'}`}
+                            title="Go Back"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button 
+                            onClick={() => articleWebviewRef.current?.goForward()} 
+                            disabled={!canGoForward}
+                            className={`p-1.5 rounded-full transition-all ${canGoForward ? 'text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10' : 'text-slate-400/50 dark:text-slate-600'}`}
+                            title="Go Forward"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                        <button 
+                            onClick={() => articleWebviewRef.current?.reload()} 
+                            className={`p-1.5 rounded-full transition-all text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 ${isLoading ? 'animate-spin' : ''}`}
+                            title="Reload"
+                        >
+                            <RefreshCw size={16} />
+                        </button>
+                        <button 
+                            onClick={() => {
+                                if (articleWebviewRef.current) {
+                                    articleWebviewRef.current.src = storyUrl;
+                                }
+                            }} 
+                            className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all" 
+                            title="Home (Reset to Original Article)"
+                        >
+                            <Home size={18} />
+                        </button>
+
+                        {onToggleSave && (
+                            <button 
+                                onClick={() => onToggleSave(story.id, !story.is_saved)} 
+                                className={`p-1.5 rounded-full transition-all ml-1 ${story.is_saved ? 'text-orange-500 hover:bg-orange-500/10' : 'text-slate-500 hover:bg-black/10 dark:hover:bg-white/10'}`} 
+                                title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
+                            >
+                                <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* 2. URL Address Bar */}
+                    <form 
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (articleWebviewRef.current && urlInput) {
+                                let targetUrl = urlInput.trim();
+                                if (!/^https?:\/\//i.test(targetUrl)) {
+                                    targetUrl = 'https://' + targetUrl;
+                                }
+                                articleWebviewRef.current.src = targetUrl;
                             }
-                        }} 
-                        className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all" 
-                        title="Home (Reset to Original Article)"
+                        }}
+                        className="flex-1 max-w-2xl flex items-center bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-1.5 gap-2 group transition-all focus-within:ring-2 focus-within:ring-blue-500/30"
                     >
-                        <Home size={18} />
-                    </button>
+                        <div className="text-green-500/70">
+                            <Lock size={12} />
+                        </div>
+                        <input 
+                            ref={addressInputRef}
+                            type="text"
+                            value={urlInput}
+                            onChange={(e) => setUrlInput(e.target.value)}
+                            className="flex-1 bg-transparent text-[13px] text-slate-700 dark:text-slate-200 outline-none w-full"
+                            spellCheck={false}
+                        />
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                                onClick={handleCopyLink}
+                                className={`p-1 rounded-md transition-all ${isCopied ? 'text-green-500 bg-green-50' : 'text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                title="Copy URL"
+                            >
+                                {isCopied ? <Check size={14} /> : <Link size={14} />}
+                            </button>
+                            <a 
+                                href={currentUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="p-1 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all"
+                                title="Open in Browser"
+                            >
+                                <ExternalLink size={14} />
+                            </a>
+                        </div>
+                    </form>
 
-                    {onToggleSave && (
-                        <button 
-                            onClick={() => onToggleSave(story.id, !story.is_saved)} 
-                            className={`p-1.5 rounded-full transition-all ml-1 ${story.is_saved ? 'text-orange-500 hover:bg-orange-500/10' : 'text-slate-500 hover:bg-black/10 dark:hover:bg-white/10'}`} 
-                            title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
-                        >
-                            <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
-                        </button>
-                    )}
-                </div>
+                    {/* 3. Integrated Tools */}
+                    <div className="flex items-center gap-3">
+                        {/* View Mode Toggle */}
+                        <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
+                            <button
+                                onClick={() => setArticleDarkMode('original')}
+                                className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'original' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                title="Original Theme (Native)"
+                            >
+                                <Sun size={14} />
+                            </button>
+                            <button
+                                onClick={() => setArticleDarkMode('auto')}
+                                className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'auto' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                title="Follow System Theme"
+                            >
+                                <Sparkles size={14} />
+                            </button>
+                            <button
+                                onClick={() => setArticleDarkMode('dark')}
+                                className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'dark' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                title="Safe Dark Mode (Forced)"
+                            >
+                                <Moon size={14} />
+                            </button>
+                        </div>
 
-                {/* 2. URL Address Bar */}
-                <form 
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        if (articleWebviewRef.current && urlInput) {
-                            let targetUrl = urlInput.trim();
-                            if (!/^https?:\/\//i.test(targetUrl)) {
-                                targetUrl = 'https://' + targetUrl;
-                            }
-                            articleWebviewRef.current.src = targetUrl;
-                        }
-                    }}
-                    className="flex-1 max-w-2xl flex items-center bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-1.5 gap-2 group transition-all focus-within:ring-2 focus-within:ring-blue-500/30"
-                >
-                    <div className="text-green-500/70">
-                        <Lock size={12} />
-                    </div>
-                    <input 
-                        ref={addressInputRef}
-                        type="text"
-                        value={urlInput}
-                        onChange={(e) => setUrlInput(e.target.value)}
-                        className="flex-1 bg-transparent text-[13px] text-slate-700 dark:text-slate-200 outline-none w-full"
-                        spellCheck={false}
-                    />
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                            onClick={handleCopyLink}
-                            className={`p-1 rounded-md transition-all ${isCopied ? 'text-green-500 bg-green-50' : 'text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                            title="Copy URL"
-                        >
-                            {isCopied ? <Check size={14} /> : <Link size={14} />}
-                        </button>
-                        <a 
-                            href={currentUrl} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="p-1 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all"
-                            title="Open in Browser"
-                        >
-                            <ExternalLink size={14} />
-                        </a>
-                    </div>
-                </form>
-
-                {/* 3. Integrated Tools */}
-                <div className="flex items-center gap-3">
-                    {/* View Mode Toggle */}
-                    <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
-                        <button
-                            onClick={() => setArticleDarkMode('original')}
-                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'original' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                            title="Original Theme (Native)"
-                        >
-                            <Sun size={14} />
-                        </button>
-                        <button
-                            onClick={() => setArticleDarkMode('auto')}
-                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'auto' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                            title="Follow System Theme"
-                        >
-                            <Sparkles size={14} />
-                        </button>
-                        <button
-                            onClick={() => setArticleDarkMode('dark')}
-                            className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'dark' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                            title="Safe Dark Mode (Forced)"
-                        >
-                            <Moon size={14} />
-                        </button>
-                    </div>
-
-                    <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
-                        <button 
-                            onClick={() => onToggleAISidebar?.(false)}
-                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${!isAISidebarOpen ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                            title="Article View"
-                        >
-                            <FileText size={14} />
-                            Article
-                        </button>
-                        <button 
-                            onClick={() => { setSidebarTab('discussion'); onToggleAISidebar?.(true); }}
-                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'discussion' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                            title="Discussion"
-                        >
-                            <MessageSquare size={14} />
-                            Discussion
-                        </button>
-                        <button 
-                            onClick={() => { setSidebarTab('ai'); onToggleAISidebar?.(true); }}
-                            className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'ai' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                            title="AI Assistant"
-                        >
-                            <Sparkles size={14} />
-                            AI
-                        </button>
+                        <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
+                            <button 
+                                onClick={() => onToggleAISidebar?.(false)}
+                                className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${!isAISidebarOpen ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                title="Article View"
+                            >
+                                <FileText size={14} />
+                                Article
+                            </button>
+                            <button 
+                                onClick={() => { setSidebarTab('discussion'); onToggleAISidebar?.(true); }}
+                                className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'discussion' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                title="Discussion"
+                            >
+                                <MessageSquare size={14} />
+                                Discussion
+                            </button>
+                            <button 
+                                onClick={() => { setSidebarTab('ai'); onToggleAISidebar?.(true); }}
+                                className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'ai' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                title="AI Assistant"
+                            >
+                                <Sparkles size={14} />
+                                AI
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-row min-w-0 h-full relative overflow-hidden">
@@ -588,39 +592,41 @@ export function ReaderPane({
                 )}
                 
                 {/* Article Content */}
-                <div ref={paneRef} className="flex-1 bg-white relative overflow-hidden h-full">
-                    {!isWebMode ? (
-                        <webview
-                            ref={articleWebviewRef}
-                            src={storyUrl}
-                            className="w-full h-full border-0 absolute inset-0 bg-white"
-                            title="Article Web View"
-                        />
-                    ) : iframeBlocked ? (
-                        <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-900/50">
-                            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
-                                <ExternalLink size={32} className="text-red-500" />
+                {!isWebMode && (
+                    <div ref={paneRef} className="flex-1 bg-white relative overflow-hidden h-full">
+                        {!isWebMode ? (
+                            <webview
+                                ref={articleWebviewRef}
+                                src={storyUrl}
+                                className="w-full h-full border-0 absolute inset-0 bg-white"
+                                title="Article Web View"
+                            />
+                        ) : iframeBlocked ? (
+                            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-900/50">
+                                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                                    <ExternalLink size={32} className="text-red-500" />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Iframe Preview Blocked</h3>
+                                <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm text-sm">
+                                    This website prohibits being nested in other apps. Please use the Discussion tab on the right to read the conversation.
+                                </p>
+                                <a href={storyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all">
+                                    Open Original Article <ExternalLink size={14} />
+                                </a>
                             </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Iframe Preview Blocked</h3>
-                            <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm text-sm">
-                                This website prohibits being nested in other apps. Please use the Discussion tab on the right to read the conversation.
-                            </p>
-                            <a href={storyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all">
-                                Open Original Article <ExternalLink size={14} />
-                            </a>
-                        </div>
-                    ) : (
-                        <iframe
-                            src={storyUrl}
-                            className="w-full h-full border-0 absolute inset-0 bg-white"
-                            title="Article Web View"
-                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                        />
-                    )}
-                </div>
+                        ) : (
+                            <iframe
+                                src={storyUrl}
+                                className="w-full h-full border-0 absolute inset-0 bg-white"
+                                title="Article Web View"
+                                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                            />
+                        )}
+                    </div>
+                )}
                                 
                 {/* Resizer Handle */}
-                {isAISidebarOpen && (
+                {!isWebMode && isAISidebarOpen && (
                     <div 
                         onMouseDown={startResizing}
                         className={`w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors z-50 flex items-center justify-center group ${isResizing ? 'bg-blue-500' : 'bg-transparent'}`}
@@ -631,7 +637,7 @@ export function ReaderPane({
 
                 <AISidebar
                     story={story}
-                    isOpen={isAISidebarOpen}
+                    isOpen={isWebMode ? true : isAISidebarOpen}
                     onClose={() => onToggleAISidebar?.(false)}
                     user={user}
                     onSetSummary={(summary, topics) => {
@@ -640,6 +646,7 @@ export function ReaderPane({
                     onSetDiscussionSummary={(summary) => {
                         onSetDiscussionSummary?.(story.id, summary);
                     }}
+                    onSummarizeStory={onSummarizeStory ? () => onSummarizeStory(story.id) : undefined}
                     comments={comments}
                     commentsLoading={commentsLoading}
                     isIngesting={isIngesting}

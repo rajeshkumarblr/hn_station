@@ -23,6 +23,8 @@ A local-first Hacker News desktop client. Read articles and comments side by sid
 - **Your personal archive** — Stories and comments persist locally forever. No account required
 
 > **Web vs Desktop**: Try the [web preview at hnstation.dev](https://hnstation.dev) for a quick look. For the full experience — split-pane article loading, local AI, and persistent storage — use the desktop app.
+> 
+> *Note for Web Mode*: We have completely streamlined the web workspace into a premium, clutter-free **2-Pane Comments Workspace**! Articles are opened directly in your native browser tab for unblocked and secure reading, while the full right 70% of the screen is dedicated to Hacker News discussion comments, AI bullet takeaway summaries, and dynamic topic tags.
 
 ---
 
@@ -32,7 +34,7 @@ A local-first Hacker News desktop client. Read articles and comments side by sid
 |:---|:---|:---|
 | **Windows** | [HN Station Setup 0.10.0.exe](https://github.com/rajeshkumarblr/hn_station/releases/latest) | NSIS installer, x64 |
 | **macOS** | [HN Station 0.10.0.dmg](https://github.com/rajeshkumarblr/hn_station/releases/latest) | Universal binary |
-| **Linux** | Build from source (see below) | AppImage planned |
+| **Linux** | [AppImage](https://github.com/rajeshkumarblr/hn_station/releases/latest), [deb](https://github.com/rajeshkumarblr/hn_station/releases/latest), [rpm](https://github.com/rajeshkumarblr/hn_station/releases/latest) | x64 |
 | **Web** | [hnstation.dev](https://hnstation.dev) | Lite preview |
 
 ---

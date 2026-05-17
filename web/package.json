@@ -69,7 +69,9 @@
     },
     "linux": {
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb",
+        "rpm"
       ],
       "icon": "public/hn_256.png",
       "category": "News",

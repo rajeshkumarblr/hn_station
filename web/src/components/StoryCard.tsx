@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bookmark, Check, Link, Terminal, ExternalLink, Columns, X, Sparkles } from 'lucide-react';
 import { getTagStyle } from '../utils/colors';
+import { isWebPreview } from '../utils/env';
 
 export interface Story {
     id: number;
@@ -264,27 +265,59 @@ export function StoryCard({
             {/* Context Menu Popup */}
             {contextMenuPos && onOpenInTab && (
                 <div
-                    className="fixed z-[10000] w-[22rem] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 text-sm text-slate-700 dark:text-slate-300 animate-in fade-in duration-100"
+                    className="fixed z-[10000] w-[22rem] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl py-1 text-sm text-slate-700 dark:text-slate-200 animate-in fade-in duration-100"
                     style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
                 >
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); setContextMenuPos(null); }}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 font-medium text-blue-600 dark:text-blue-400"
-                    >
-                        📖 Show article and discussion side by side
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'article'); setContextMenuPos(null); }}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                        📄 Open Story Tab
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'discussion'); setContextMenuPos(null); }}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                        💬 Open Discussion Tab
-                    </button>
+                    {isWebPreview() ? (
+                        <>
+                            <button
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    if (story.url) window.open(story.url, '_blank');
+                                    onOpenInTab(story.id, 'discussion'); 
+                                    setContextMenuPos(null); 
+                                }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 font-semibold text-blue-600 dark:text-blue-400"
+                            >
+                                📖 Open Article & Discussion Comments
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'discussion'); setContextMenuPos(null); }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 font-medium"
+                            >
+                                💬 Open Discussion Comments
+                            </button>
+                            {story.url && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); window.open(story.url, '_blank'); setContextMenuPos(null); }}
+                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 font-medium"
+                                >
+                                    ↗ Open Article in New Tab
+                                </button>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); setContextMenuPos(null); }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 font-semibold text-blue-600 dark:text-blue-400"
+                            >
+                                📖 Show article and discussion side by side
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'article'); setContextMenuPos(null); }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 font-medium border-b border-slate-100 dark:border-slate-800"
+                            >
+                                📄 Open Story Tab
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'discussion'); setContextMenuPos(null); }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 font-medium"
+                            >
+                                💬 Open Discussion Tab
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
         </div>

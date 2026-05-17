@@ -135,9 +135,12 @@ func (s *Server) routes() {
 	})
 
 	// AI Proxy route for web preview hosted Granite 2B
-	s.router.Post("/api/ai/proxy/*", s.handleAIProxy)
+	s.router.Post("/api/ai/proxy/api/generate", s.handleAIProxy)
+	s.router.Post("/api/ai/proxy/api/chat", s.handleAIProxy)
+	s.router.Patch("/api/stories/{id}/summary", s.handlePatchStorySummary)
 
 	// SPA catch-all
+
 	// Serve index.html for any other route that doesn't match API or static files
 	// This assumes the frontend build output is served from "web/dist" or similar
 	// But actually, in production, usually Nginx handles this.
@@ -743,28 +746,46 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) fetchCommentsRecursive(ctx context.Context, storyID int, kids []int, parentID *int64) {
-	for _, kidID := range kids {
-		item, err := s.hnClient.GetItem(ctx, kidID)
-		if err != nil {
-			continue
-		}
-		if item.Type != "comment" || item.Deleted || item.Dead {
-			continue
-		}
-		comment := storage.Comment{
-			ID:       int64(item.ID),
-			StoryID:  int64(storyID),
-			ParentID: parentID,
-			Text:     item.Text,
-			By:       item.By,
-			PostedAt: time.Unix(item.Time, 0),
-		}
-		_ = s.store.UpsertComment(ctx, comment)
-		if len(item.Kids) > 0 {
-			pID := int64(item.ID)
-			s.fetchCommentsRecursive(ctx, storyID, item.Kids, &pID)
-		}
+	if len(kids) == 0 {
+		return
 	}
+
+	// Use a semaphore to limit concurrency across all recursive calls
+	// We'll use a 20-worker limit for comments
+	sem := make(chan struct{}, 20)
+	var wg sync.WaitGroup
+
+	for _, kidID := range kids {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			item, err := s.hnClient.GetItem(ctx, id)
+			if err != nil {
+				return
+			}
+			if item.Type != "comment" || item.Deleted || item.Dead {
+				return
+			}
+			comment := storage.Comment{
+				ID:       int64(item.ID),
+				StoryID:  int64(storyID),
+				ParentID: parentID,
+				Text:     item.Text,
+				By:       item.By,
+				PostedAt: time.Unix(item.Time, 0),
+			}
+			_ = s.store.UpsertComment(ctx, comment)
+			if len(item.Kids) > 0 {
+				pID := int64(item.ID)
+				s.fetchCommentsRecursive(ctx, storyID, item.Kids, &pID)
+			}
+		}(kidID)
+	}
+	wg.Wait()
 }
 
 // ─── Interaction Handlers ───
@@ -1516,3 +1537,4 @@ func (s *Server) handleAIProxy(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
+

@@ -1,7 +1,6 @@
-/**
- * Client-side AI service wrapper for Google Gemini, OpenAI, and Local Ollama.
- * This runs entirely in the user's browser, bypassing any server hosting costs.
- */
+import { getApiBase } from './apiBase';
+import { fetchWithAuth } from './api';
+
 
 export interface AISettings {
     provider: 'disabled' | 'gemini' | 'openai' | 'ollama' | 'server-granite';
@@ -12,7 +11,9 @@ export interface AISettings {
 
 export function getClientAISettings(): AISettings {
     try {
-        const provider = (localStorage.getItem('hn_ai_provider') || 'server-granite') as any;
+        const storedProvider = localStorage.getItem('hn_ai_provider');
+        const validProviders = ['disabled', 'gemini', 'openai', 'ollama', 'server-granite'];
+        const provider = validProviders.includes(storedProvider as any) ? storedProvider as any : 'server-granite';
         const apiKey = localStorage.getItem('hn_ai_key') || '';
         const model = localStorage.getItem('hn_ai_model') || '';
         const ollamaUrl = localStorage.getItem('hn_ollama_url') || 'http://localhost:11434';
@@ -152,7 +153,22 @@ INSTRUCTIONS:
         }
 
         const data = await res.json();
+        // Ollama returns { response: string, ... }
         responseText = data.response || '';
+        // For server‑granite we expect the model to output JSON, but if it doesn't we fallback to plain text.
+        if (provider === 'server-granite') {
+            // Try to parse JSON if present
+            try {
+                const parsed = JSON.parse(responseText);
+                return {
+                    summary: parsed.summary ? (Array.isArray(parsed.summary) ? parsed.summary.join('\n') : parsed.summary) : responseText,
+                    topics: parsed.topics || []
+                };
+            } catch {
+                // Not JSON – treat whole response as summary
+                return { summary: responseText, topics: [] };
+            }
+        }
     }
 
     const parsed = parseGreedyJSON(responseText);
@@ -243,7 +259,7 @@ Please answer the user's questions based on this context, formatting your respon
         return data.choices?.[0]?.message?.content || 'No response generated.';
     } else if (provider === 'ollama' || provider === 'server-granite') {
         const ollamaModel = provider === 'server-granite' ? 'granite3.1-dense:2b' : (model || 'llama3.2:3b');
-        const url = provider === 'server-granite' ? '/api/ai/proxy/api/chat' : `${ollamaUrl}/api/chat`;
+        const url = provider === 'server-granite' ? `${getApiBase()}/api/ai/proxy/api/chat` : `${ollamaUrl}/api/chat`;
         
         const messages = [
             { role: 'system', content: systemPrompt },
@@ -251,7 +267,8 @@ Please answer the user's questions based on this context, formatting your respon
             { role: 'user', content: newMessage }
         ];
 
-        const res = await fetch(url, {
+        const fetchFn = provider === 'server-granite' ? fetchWithAuth : fetch;
+        const res = await fetchFn(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -260,14 +277,13 @@ Please answer the user's questions based on this context, formatting your respon
                 stream: false
             })
         });
-
         if (!res.ok) {
-            throw new Error(`${provider === 'server-granite' ? 'Server AI' : 'Ollama'} API call failed with status: ${res.status}`);
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || `Ollama API call failed with status: ${res.status}`);
         }
 
         const data = await res.json();
-        return data.message?.content || 'No response generated.';
+        return data.message?.content || data.response || 'No response generated.';
     }
-
-    throw new Error('Unsupported AI Provider.');
+    return "Chat provider not supported.";
 }

@@ -41,9 +41,11 @@ spec:
               key: database_url
               name: secrets
         - name: OLLAMA_URL
-          value: http://ollama:11434
+          value: http://ollama-svc.default.svc.cluster.local:11434
+        - name: OLLAMA_MODEL
+          value: granite3.1-dense:2b
         - name: DISABLE_AI
-          value: "true"
+          value: "false"
         image: myhnregistry270.azurecr.io/backend:latest
         imagePullPolicy: Always
         name: ingest

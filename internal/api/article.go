@@ -23,8 +23,9 @@ func (s *Server) handlePatchStorySummary(w http.ResponseWriter, r *http.Request)
 	}
 
 	var reqBody struct {
-		Summary           string `json:"summary"`
-		DiscussionSummary string `json:"discussion_summary"`
+		Summary           string   `json:"summary"`
+		DiscussionSummary string   `json:"discussion_summary"`
+		Topics            []string `json:"topics"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -32,7 +33,13 @@ func (s *Server) handlePatchStorySummary(w http.ResponseWriter, r *http.Request)
 	}
 
 	if reqBody.Summary != "" {
-		if err := s.store.UpdateStorySummary(r.Context(), id, reqBody.Summary); err != nil {
+		var err error
+		if len(reqBody.Topics) > 0 {
+			err = s.store.UpdateStorySummaryAndTopics(r.Context(), id, reqBody.Summary, reqBody.Topics)
+		} else {
+			err = s.store.UpdateStorySummary(r.Context(), id, reqBody.Summary)
+		}
+		if err != nil {
 			http.Error(w, "Failed to update summary", http.StatusInternalServerError)
 			return
 		}
@@ -45,9 +52,7 @@ func (s *Server) handlePatchStorySummary(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 

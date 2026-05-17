@@ -23,20 +23,20 @@ spec:
                   name: secrets
                   key: DATABASE_URL
             - name: OLLAMA_URL
-              value: "http://ollama:11434"
+              value: "http://ollama-svc.default.svc.cluster.local:11434"
             - name: DISABLE_AI
-              value: "true"
+              value: "false"
           volumeMounts:
           - name: secrets-store-inline
             mountPath: "/mnt/secrets-store"
             readOnly: true
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "250m"
-              memory: "256Mi"
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "256Mi"
+              limits:
+                cpu: "300m"
+                memory: "512Mi"
       volumes:
         - name: secrets-store-inline
           csi:

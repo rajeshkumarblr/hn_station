@@ -101,6 +101,9 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='iframe_blocked') THEN
 				ALTER TABLE stories ADD COLUMN iframe_blocked BOOLEAN DEFAULT NULL;
 			END IF;
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='discussion_summary') THEN
+				ALTER TABLE stories ADD COLUMN discussion_summary TEXT DEFAULT NULL;
+			END IF;
 			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='auth_users' AND column_name='topics') THEN
 				ALTER TABLE auth_users ADD COLUMN topics TEXT[] DEFAULT '{}';
 			END IF;

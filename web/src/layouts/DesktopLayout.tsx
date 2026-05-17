@@ -12,7 +12,7 @@ import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
 import { StatusBar } from '../components/StatusBar';
 import { MODES } from '../types';
-import { isElectron as getIsElectron } from '../utils/env';
+import { isElectron as getIsElectron, isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
@@ -52,7 +52,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     // --- Sidebar Resizing State ---
     const [sidebarWidth, setSidebarWidth] = useState(() => {
         const saved = localStorage.getItem('hn_feed_sidebar_width');
-        return saved ? parseInt(saved, 10) : 320;
+        if (saved) return parseInt(saved, 10);
+        return isWebPreview() ? Math.round(window.innerWidth * 0.7) : 320;
     });
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         return localStorage.getItem('hn_feed_sidebar_collapsed') === 'true';
@@ -86,7 +87,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 localStorage.setItem('hn_feed_sidebar_collapsed', 'true');
                 setIsResizing(false);
             } else {
-                const clampedWidth = Math.min(Math.max(newWidth, 200), 600);
+                const minW = isWebPreview() ? Math.round(window.innerWidth * 0.3) : 200;
+                const maxW = isWebPreview() ? Math.round(window.innerWidth * 0.8) : 600;
+                const clampedWidth = Math.min(Math.max(newWidth, minW), maxW);
                 setSidebarWidth(clampedWidth);
                 setIsSidebarCollapsed(false);
                 localStorage.setItem('hn_feed_sidebar_width', clampedWidth.toString());
@@ -274,12 +277,19 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                         <span className="text-[13px] font-black tracking-[0.2em] bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent uppercase leading-none">HN Station</span>
-                        <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 ml-0.5 tracking-normal lowercase">v{pkg.version}</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 tracking-normal lowercase">v{pkg.version}</span>
+                            <span className="bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[7px] font-black px-1 py-0.5 rounded ml-0.5 tracking-widest uppercase border border-orange-500/20">BETA</span>
+                        </div>
                     </div>
                 </div>
 
                 {/* Right Section: Controls */}
                 <div className="flex items-center gap-1.5 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/5 border border-emerald-500/20 rounded-full mr-2 hidden md:flex">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live Ingest</span>
+                    </div>
                     <button 
                         onClick={() => setIsSettingsOpen(true)} 
                         className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors" 
@@ -299,7 +309,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
             {/* Web Preview Banner */}
             {!isElectron && !isBannerDismissed && (
-                <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 border-b border-orange-500/20 px-6 py-2 flex items-center justify-between shrink-0 z-[99]">
+                <div className="bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-md border-b border-orange-500/20 px-6 py-2 flex items-center justify-between shrink-0 z-[99]">
                     <div className="flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
                         <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
@@ -326,7 +336,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
 
             {/* Global Tab Bar Container */}
-            {tabs.length > 0 && (
+            {tabs.length > 0 && !isWebPreview() && (
                 <div className="flex items-center bg-slate-50 dark:bg-[#020617] border-b border-slate-200 dark:border-slate-800 shrink-0 relative">
                     <div className="flex flex-1 min-w-0 overflow-hidden gap-px">
                         <button
@@ -628,6 +638,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 onHide={(id) => { handleHideStory(id); app.handleHome(); }}
                                 onSetGlobalWarning={app.setGlobalWarning}
                                 onSetIframeBlocked={app.setStoryIframeBlocked}
+                                onSummarizeStory={app.handleSummarizeStory}
                                 onOpenSettings={() => setIsSettingsOpen(true)}
                                 isAISidebarOpen={tab.isAISidebarOpen || false}
                                 activeTopics={activeTopics}
@@ -641,8 +652,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     {!tabs.length && <div className="h-full flex items-center justify-center text-slate-500">Select a story</div>}
                 </div>
 
-                {/* Always-on AI Topic Sidebar (needed only in Feed view) */}
-                {currentView === 'feed' && (
+                {/* Right Side Workspace Pane (Comments & AI Takeaways in Web, FilterSidebar in Desktop) */}
+                {isWebPreview() ? (
                     <>
                         {/* Resizer Handle */}
                         {!isSidebarCollapsed && (
@@ -657,18 +668,75 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             className={`h-full transition-all duration-300 ease-in-out overflow-hidden flex shrink-0 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}
                             style={{ width: isSidebarCollapsed ? 0 : `${sidebarWidth}px` }}
                         >
-                            <FilterSidebar
-                                activeTopics={activeTopics}
-                                setActiveTopics={setActiveTopics}
-                                disabledTopics={app.disabledTopics}
-                                setDisabledTopics={app.setDisabledTopics}
-                                highlightedStory={highlightedStory}
-                                user={user}
-                                onSummarize={app.handleSummarizeStory}
-                                topicMatch={app.topicMatch}
-                            />
+                            {highlightedStory ? (
+                                <div className="flex-1 h-full overflow-hidden flex flex-col bg-white dark:bg-[#0b0f19]">
+                                    <ReaderPane
+                                        story={highlightedStory}
+                                        isActive={true}
+                                        activeTab="discussion"
+                                        onTabChange={() => {}}
+                                        onHome={app.handleHome}
+                                        onClose={() => {}}
+                                        onToggleAISidebar={() => {}}
+                                        onToggleSave={handleToggleSave}
+                                        user={user}
+                                        onHide={(id) => { handleHideStory(id); }}
+                                        onSetGlobalWarning={app.setGlobalWarning}
+                                        onSetIframeBlocked={app.setStoryIframeBlocked}
+                                        onSummarizeStory={app.handleSummarizeStory}
+                                        onOpenSettings={() => setIsSettingsOpen(true)}
+                                        isAISidebarOpen={true}
+                                        activeTopics={activeTopics}
+                                        disabledTopics={disabledTopics}
+                                        setActiveTopics={setActiveTopics}
+                                        setDisabledTopics={setDisabledTopics}
+                                        topicMatch={app.topicMatch}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50 dark:bg-[#0a0f1d] text-slate-400 dark:text-slate-500 gap-4 h-full">
+                                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center text-indigo-500 dark:text-indigo-400 shadow-xl shadow-indigo-500/5">
+                                        <Layout size={28} />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Select a story</h3>
+                                        <p className="text-[11px] text-slate-500 max-w-[240px] leading-relaxed">
+                                            Single-click any story in the feed to view community discussion & AI summaries here. Double-click to read.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </>
+                ) : (
+                    currentView === 'feed' && (
+                        <>
+                            {/* Resizer Handle */}
+                            {!isSidebarCollapsed && (
+                                <div
+                                    onMouseDown={startResizing}
+                                    className={`w-1.5 h-full cursor-col-resize absolute right-0 top-0 z-50 hover:bg-indigo-500/30 transition-colors ${isResizing ? 'bg-indigo-500/50' : ''}`}
+                                    style={{ right: `${sidebarWidth}px` }}
+                                />
+                            )}
+
+                            <div 
+                                className={`h-full transition-all duration-300 ease-in-out overflow-hidden flex shrink-0 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}
+                                style={{ width: isSidebarCollapsed ? 0 : `${sidebarWidth}px` }}
+                            >
+                                <FilterSidebar
+                                    activeTopics={activeTopics}
+                                    setActiveTopics={setActiveTopics}
+                                    disabledTopics={app.disabledTopics}
+                                    setDisabledTopics={app.setDisabledTopics}
+                                    highlightedStory={highlightedStory}
+                                    user={user}
+                                    onSummarize={app.handleSummarizeStory}
+                                    topicMatch={app.topicMatch}
+                                />
+                            </div>
+                        </>
+                    )
                 )}
             </div>
 

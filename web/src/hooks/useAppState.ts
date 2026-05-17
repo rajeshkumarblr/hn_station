@@ -442,6 +442,16 @@ export function useAppState() {
 
         if (!story) return;
 
+        // In Web Preview mode, always open story.url in a new browser tab
+        // and highlight the story on the right-hand comments workspace
+        if (isWebPreview()) {
+            if (story.url) {
+                window.open(story.url, '_blank');
+            }
+            setHighlightedStoryId(id);
+            return;
+        }
+
         const actualMode = overrideMode || (story.url ? 'split' : 'discussion');
 
         setTabs(prev => {
@@ -449,8 +459,9 @@ export function useAppState() {
             const existingTab = prev.find(t => t.storyId === id);
             if (existingTab) {
                 // If we forced a mode change, update it, otherwise just switch
-                if (overrideMode && existingTab.mode !== overrideMode) {
-                    return prev.map(t => t.id === existingTab.id ? { ...t, mode: overrideMode } : t);
+                const targetMode = isWebPreview() ? 'discussion' : (overrideMode || existingTab.mode);
+                if (existingTab.mode !== targetMode) {
+                    return prev.map(t => t.id === existingTab.id ? { ...t, mode: targetMode } : t);
                 }
                 setTimeout(() => setActiveTabId(existingTab.id), 0);
                 setTimeout(() => setCurrentView('reader'), 0);
@@ -722,7 +733,10 @@ export function useAppState() {
                     await fetchWithAuth(`${baseUrl}/api/stories/${id}/summary`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ summary: generatedSummary })
+                        body: JSON.stringify({ 
+                            summary: generatedSummary,
+                            topics: generatedTopics
+                        })
                     });
 
                     // 4. Update local state
