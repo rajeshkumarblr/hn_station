@@ -62,6 +62,20 @@ function loadPersistedCurrentView(): 'feed' | 'reader' | 'admin' {
     return 'feed';
 }
 
+function loadLocalBookmarks(): Story[] {
+    try {
+        const saved = localStorage.getItem('hn_local_bookmarks');
+        if (saved) return JSON.parse(saved);
+    } catch { }
+    return [];
+}
+
+function saveLocalBookmarks(bookmarks: Story[]) {
+    try {
+        localStorage.setItem('hn_local_bookmarks', JSON.stringify(bookmarks));
+    } catch { }
+}
+
 export interface BackendStats {
     total_users: number;
     total_interactions: number;
@@ -86,6 +100,8 @@ export function getStoryTopicMatch(storyTitle: string | undefined, storyTopics: 
 
 export function useAppState() {
     const [storyBuffer, setStoryBuffer] = useState<Story[]>([]);
+    const [localBookmarks, setLocalBookmarks] = useState<Story[]>(loadLocalBookmarks);
+    const localBookmarkIds = useMemo(() => new Set(localBookmarks.map(b => b.id)), [localBookmarks]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [backendStats, setBackendStats] = useState<BackendStats | null>(null);
@@ -404,29 +420,6 @@ export function useAppState() {
         }
     }, [mode]);
 
-    const handleHideStory = useCallback((id: number) => {
-        setStoryBuffer(prev => prev.filter(s => s.id !== id));
-        if (user) {
-            const baseUrl = getApiBase();
-            fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hidden: true }),
-            }).catch(() => { });
-        }
-        if (selectedStoryId === id) {
-            const visible = storyBuffer.filter(s => !hiddenStories.has(s.id) && s.id !== id);
-            const nextStory = visible[0] ?? null;
-            setTabs(prev => prev.filter(t => t.storyId !== id));
-            if (nextStory) handleStorySelect(nextStory.id);
-            else setActiveTabId(null);
-        } else {
-            setTabs(prev => prev.filter(t => t.storyId !== id));
-        }
-    }, [user, selectedStoryId, storyBuffer, hiddenStories]);
-
-
     const handleStorySelect = useCallback((id: number, overrideMode?: 'article' | 'discussion' | 'split') => {
         let story = storyBuffer.find(s => s.id === id);
 
@@ -504,7 +497,79 @@ export function useAppState() {
         }
     }, [user, storyBuffer]);
 
+    const handleHideStory = useCallback((id: number) => {
+        setStoryBuffer(prev => prev.filter(s => s.id !== id));
+        if (user) {
+            const baseUrl = getApiBase();
+            fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hidden: true }),
+            }).catch(() => { });
+        }
+        if (selectedStoryId === id) {
+            const visible = storyBuffer.filter(s => !hiddenStories.has(s.id) && s.id !== id);
+            const nextStory = visible[0] ?? null;
+            setTabs(prev => prev.filter(t => t.storyId !== id));
+            if (nextStory) {
+                if (isWebPreview()) {
+                    setHighlightedStoryId(nextStory.id);
+                } else {
+                    handleStorySelect(nextStory.id);
+                }
+            }
+            else setActiveTabId(null);
+        } else {
+            setTabs(prev => prev.filter(t => t.storyId !== id));
+        }
+    }, [user, selectedStoryId, storyBuffer, hiddenStories, handleStorySelect]);
+
     const handleToggleSave = useCallback((id: number, saved: boolean) => {
+        let story = storyBuffer.find(s => s.id === id);
+        if (!story) {
+            const tab = tabs.find(t => t.storyId === id);
+            if (tab) story = tab.story;
+        }
+
+        if (isWebPreview()) {
+            setLocalBookmarks(prev => {
+                let next;
+                if (saved) {
+                    if (story) {
+                        if (prev.some(s => s.id === id)) return prev;
+                        next = [{ ...story, is_saved: true }, ...prev];
+                    } else {
+                        next = prev;
+                    }
+                } else {
+                    next = prev.filter(s => s.id !== id);
+                }
+                saveLocalBookmarks(next);
+                return next;
+            });
+
+            // Update UI buffers immediately
+            if (mode === 'saved' && !saved) {
+                setStoryBuffer(prev => prev.filter(s => s.id !== id));
+            } else {
+                setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_saved: saved } : s));
+            }
+            setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, is_saved: saved } } : t));
+            
+            // Sync to backend if logged in
+            if (user) {
+                const baseUrl = getApiBase();
+                fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ saved }),
+                }).catch(() => {});
+            }
+            return;
+        }
+
         if (!user) return;
         setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_saved: saved } : s));
         setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, is_saved: saved } } : t));
@@ -519,7 +584,7 @@ export function useAppState() {
             setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_saved: !saved } : s));
             setTabs(prev => prev.map(t => t.storyId === id ? { ...t, story: { ...t.story, is_saved: !saved } } : t));
         });
-    }, [user]);
+    }, [user, storyBuffer, tabs, mode]);
 
 
     useEffect(() => {
@@ -553,6 +618,52 @@ export function useAppState() {
 
     // Consolidated fetcher
     const fetchPage = useCallback(async (currentOffset: number, isInitial: boolean = false) => {
+        if (isWebPreview() && mode === 'saved') {
+            if (isInitial) {
+                setLoading(true);
+                setStoryBuffer([]);
+                setOffset(0);
+            } else {
+                setFetchingMore(true);
+            }
+            setError(null);
+            
+            try {
+                // Paginate over localBookmarks
+                const start = currentOffset;
+                const end = start + PAGE_SIZE;
+                const chunk = localBookmarks.slice(start, end).map(s => ({ ...s, is_saved: true }));
+                
+                setStoryBuffer(prev => {
+                    if (isInitial) return chunk;
+                    const existingIds = new Set(prev.map(s => s.id));
+                    const fresh = chunk.filter(s => !existingIds.has(s.id));
+                    return [...prev, ...fresh];
+                });
+                
+                setTotalStories(localBookmarks.length);
+                setHasMore(localBookmarks.length > end);
+                
+                if (isInitial && chunk.length > 0 && !selectedStoryId) {
+                    const lastId = localStorage.getItem('hn_last_story_id');
+                    let targetId = chunk[0].id;
+                    if (lastId) {
+                        const id = parseInt(lastId);
+                        if (chunk.some(s => s.id === id)) targetId = id;
+                    }
+                    
+                    setHighlightedStoryId(targetId);
+                    setCurrentView('feed');
+                }
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+                setFetchingMore(false);
+            }
+            return;
+        }
+
         const url = buildUrl(currentOffset);
         if (!url) return;
 
@@ -572,9 +683,13 @@ export function useAppState() {
             const incoming: Story[] = data.stories || [];
             
             setStoryBuffer(prev => {
-                if (isInitial) return incoming;
+                const incomingWithLocalSaves = incoming.map(s => ({
+                    ...s,
+                    is_saved: localBookmarkIds.has(s.id) || s.is_saved
+                }));
+                if (isInitial) return incomingWithLocalSaves;
                 const existingIds = new Set(prev.map(s => s.id));
-                const fresh = incoming.filter(s => !existingIds.has(s.id));
+                const fresh = incomingWithLocalSaves.filter(s => !existingIds.has(s.id));
                 return [...prev, ...fresh];
             });
 
@@ -583,13 +698,17 @@ export function useAppState() {
 
             if (isInitial && incoming.length > 0 && !selectedStoryId) {
                 const lastId = localStorage.getItem('hn_last_story_id');
+                let targetId = incoming[0].id;
                 if (lastId) {
                     const id = parseInt(lastId);
                     const exists = incoming.find((s: Story) => s.id === id);
-                    if (exists) handleStorySelect(id);
-                    else handleStorySelect(incoming[0].id);
+                    if (exists) targetId = id;
+                }
+                
+                if (isWebPreview()) {
+                    setHighlightedStoryId(targetId);
                 } else {
-                    handleStorySelect(incoming[0].id);
+                    handleStorySelect(targetId);
                 }
                 setCurrentView('feed');
             }
@@ -599,7 +718,7 @@ export function useAppState() {
             setLoading(false);
             setFetchingMore(false);
         }
-    }, [buildUrl, selectedStoryId, handleStorySelect]);
+    }, [buildUrl, selectedStoryId, handleStorySelect, localBookmarks, localBookmarkIds, mode]);
 
     const fetchNextPage = useCallback(() => {
         if (!hasMore || fetchingMore || loading) return;

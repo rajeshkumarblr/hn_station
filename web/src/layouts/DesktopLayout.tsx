@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import pkg from '../../package.json';
-import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap, ChevronDown } from 'lucide-react';
+import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap, ChevronDown, Download } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getTagStyle } from '../utils/colors';
@@ -34,7 +34,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     } = app;
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
-    const [isBannerDismissed, setIsBannerDismissed] = useState(() => !!localStorage.getItem('hn_dismiss_banner'));
     const articlesMenuRef = useRef<HTMLDivElement>(null);
     
     // Close menu when clicking outside
@@ -290,6 +289,18 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live Ingest</span>
                     </div>
+                    {!isElectron && (
+                        <a
+                            href="https://github.com/rajeshkumarblr/hn_station/releases/latest"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[10px] font-black rounded-full shadow-sm hover:shadow-lg transition-all uppercase tracking-wider shrink-0 active:scale-[0.98] mr-1"
+                            title="Get Desktop App"
+                        >
+                            <Download size={11} />
+                            Get App
+                        </a>
+                    )}
                     <button 
                         onClick={() => setIsSettingsOpen(true)} 
                         className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors" 
@@ -523,39 +534,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
                 >
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                        {/* Download Desktop App Banner inside Feed Column (Swapped from top global banner) */}
-                        {currentView === 'feed' && !isElectron && !isBannerDismissed && (
-                            <div className="bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-indigo-500/10 border-b border-orange-500/20 px-5 py-3 flex flex-col gap-1.5 shrink-0 z-20 sticky top-0 bg-slate-50 dark:bg-[#0c1222]/95 backdrop-blur-sm shadow-sm animate-in fade-in slide-in-from-top-2">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                            Web Preview Mode
-                                        </span>
-                                    </div>
-                                    <button
-                                        onClick={() => { localStorage.setItem('hn_dismiss_banner', '1'); setIsBannerDismissed(true); }}
-                                        className="p-1 rounded-full hover:bg-slate-250 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors shrink-0"
-                                        title="Dismiss"
-                                    >
-                                        <X size={12} />
-                                    </button>
-                                </div>
-                                <div className="flex items-center justify-between gap-3 mt-0.5">
-                                    <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400 font-medium flex-1">
-                                        Unlock split-pane reading, local AI privacy chat, and direct keyboard navigation!
-                                    </p>
-                                    <a
-                                        href="https://github.com/rajeshkumarblr/hn_station/releases/latest"
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center justify-center px-2.5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[9px] font-black rounded-lg shadow-sm transition-all uppercase tracking-wider shrink-0 active:scale-[0.98]"
-                                    >
-                                        Get App
-                                    </a>
-                                </div>
-                            </div>
-                        )}
                         <div 
                             ref={parentRef}
                             className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#f8fafc] dark:bg-[#080c14]"
@@ -596,7 +574,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     isEven={virtualItem.index % 2 === 0}
                                                     onSelect={() => setHighlightedStoryId(story.id)}
                                                     onOpenInTab={handleStorySelect}
-                                                    onToggleSave={user ? handleToggleSave : undefined} 
+                                                    onToggleSave={(isWebPreview() || user) ? handleToggleSave : undefined} 
                                                     onHide={handleHideStory}
                                                     activeTopics={activeTopics}
                                                     selectedTopics={activeTopics.filter(t => !disabledTopics.includes(t))}

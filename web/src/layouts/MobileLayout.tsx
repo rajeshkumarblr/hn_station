@@ -16,6 +16,7 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
         handleToggleSave,
         readIds, currentView,
         handleBack, handleHome,
+        isWebMode,
     } = app;
 
     return (
@@ -93,7 +94,7 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                             onTabChange={app.setReaderTab as any}
                             onHome={handleHome}
                             onTakeFocus={() => { }}
-                            onToggleSave={user ? handleToggleSave : undefined}
+                            onToggleSave={(isWebMode || user) ? handleToggleSave : undefined}
                             onHide={(id) => { handleHideStory(id); handleHome(); }}
                         />
                     </div>
@@ -119,7 +120,7 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                                     >
                                         <StoryCard
                                             story={story} index={index} isSelected={false} isRead={isRead} isEven={index % 2 === 0}
-                                            onToggleSave={user ? handleToggleSave : undefined} onHide={handleHideStory}
+                                            onToggleSave={(isWebMode || user) ? handleToggleSave : undefined} onHide={handleHideStory}
                                         />
                                     </div>
                                 );
