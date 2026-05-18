@@ -285,17 +285,19 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
                 {/* Right Section: Controls */}
                 <div className="flex items-center gap-1.5 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/5 border border-emerald-500/20 rounded-full mr-2 hidden md:flex">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live Ingest</span>
-                    </div>
+                    {isElectron && (
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/5 border border-emerald-500/20 rounded-full mr-2 hidden md:flex">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live Ingest</span>
+                        </div>
+                    )}
                     {!isElectron && (
                         <a
                             href="https://github.com/rajeshkumarblr/hn_station/releases/latest"
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[10px] font-black rounded-full shadow-sm hover:shadow-lg transition-all uppercase tracking-wider shrink-0 active:scale-[0.98] mr-1"
-                            title="Get Desktop App"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[10px] font-black rounded-full shadow-sm hover:shadow-lg transition-all uppercase tracking-wider shrink-0 active:scale-[0.98] mr-2"
+                            title="Desktop App has IDE like split pane view for articles and AI summary."
                         >
                             <Download size={11} />
                             Get App
