@@ -369,9 +369,9 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
             }}
         >
             {/* Header / Tabs Unified */}
-            <div className="flex items-center justify-between px-2 bg-slate-50/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
-                <div className="flex flex-1 overflow-x-auto no-scrollbar">
-                    {!isWebPreview() && (
+            {!isWebPreview() && (
+                <div className="flex items-center justify-between px-2 bg-slate-50/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
+                    <div className="flex flex-1 overflow-x-auto no-scrollbar">
                         <>
                             <button 
                                 onClick={() => onTabChange('discussion')}
@@ -388,30 +388,30 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                 <Sparkles size={14} /> <span>AI Assistant</span>
                             </button>
                         </>
-                    )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mr-2">
+                        <button 
+                            onClick={() => {
+                                if (activeTab === 'ai') {
+                                    setMessages([]);
+                                    setChatInput('');
+                                }
+                            }}
+                            title={activeTab === 'ai' ? "Clear Chat History" : "Refresh Tab"}
+                            className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
+                        >
+                            <RefreshCw size={14} />
+                        </button>
+                        <button 
+                            onClick={onClose}
+                            className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
                 </div>
-                
-                <div className="flex items-center gap-2 mr-2">
-                    <button 
-                        onClick={() => {
-                            if (activeTab === 'ai') {
-                                setMessages([]);
-                                setChatInput('');
-                            }
-                        }}
-                        title={activeTab === 'ai' ? "Clear Chat History" : "Refresh Tab"}
-                        className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
-                    >
-                        <RefreshCw size={14} />
-                    </button>
-                    <button 
-                        onClick={onClose}
-                        className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
-                    >
-                        <X size={18} />
-                    </button>
-                </div>
-            </div>
+            )}
 
             {/* Content Container */}
             <div className="flex-1 overflow-hidden relative flex flex-col bg-white dark:bg-[#0f172a]">

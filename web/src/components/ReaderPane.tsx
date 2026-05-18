@@ -280,24 +280,29 @@ export function ReaderPane({
         };
     }, [story.id, baseUrl]);
 
-    // NEW: Poll for comments if backend is ingesting them
+    // NEW: Poll for comments (every 3s if backend is actively ingesting, otherwise every 60s)
     useEffect(() => {
-        if (isIngesting) {
-            const interval = setInterval(() => {
-                const baseUrl = getApiBase();
-                fetchWithAuth(`${baseUrl}/api/stories/${story.id}`)
-                    .then(res => res.ok ? res.json() : null)
-                    .then(data => {
-                        if (data) {
-                            setComments(data.comments || []);
-                            setIsIngesting(data.is_ingesting_comments || false);
-                        }
-                    })
-                    .catch(() => setIsIngesting(false));
-            }, 3000);
-            return () => clearInterval(interval);
-        }
-    }, [isIngesting, story.id]);
+        if (!story.id) return;
+
+        const intervalMs = isIngesting ? 3000 : 60000;
+        const interval = setInterval(() => {
+            const baseUrl = getApiBase();
+            if (!baseUrl) return;
+            fetchWithAuth(`${baseUrl}/api/stories/${story.id}`)
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data) {
+                        setComments(data.comments || []);
+                        setIsIngesting(data.is_ingesting_comments || false);
+                    }
+                })
+                .catch(() => {
+                    if (isIngesting) setIsIngesting(false);
+                });
+        }, intervalMs);
+
+        return () => clearInterval(interval);
+    }, [isIngesting, story.id, baseUrl]);
 
 
     // Handle iframe blocked transition

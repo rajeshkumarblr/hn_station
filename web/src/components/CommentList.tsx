@@ -39,7 +39,7 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
         >
             {/* Content Wrapper - Target for highlight and navigation */}
             <div
-                className={`comment-node transition-all duration-200 cursor-pointer ${isActive ? 'bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-500/40 shadow-sm py-2 px-3 -ml-3 my-1' : 'border border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/30 rounded-lg py-1 px-1 -ml-1'}`}
+                className={`comment-node transition-all duration-200 cursor-pointer ${isActive ? 'bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-500/20 shadow-sm py-2 px-3 -ml-3 my-1' : 'border border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/30 rounded-lg py-1 px-1 -ml-1'}`}
                 data-comment-id={comment.id}
                 onClick={(e) => {
                     e.stopPropagation(); // Prevent triggering parent's click
