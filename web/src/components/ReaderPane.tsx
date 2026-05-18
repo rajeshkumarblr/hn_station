@@ -406,8 +406,10 @@ export function ReaderPane({
                         break;
                     case 'k':
                         e.preventDefault();
-                        setSidebarTab('summary');
-                        onToggleAISidebar?.(true);
+                        if (!isWebMode) {
+                            setSidebarTab('summary');
+                            onToggleAISidebar?.(true);
+                        }
                         break;
                 }
             }

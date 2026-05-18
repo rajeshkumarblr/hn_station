@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap, ExternalLink } from 'lucide-react';
+import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
@@ -371,30 +371,23 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
             {/* Header / Tabs Unified */}
             <div className="flex items-center justify-between px-2 bg-slate-50/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
                 <div className="flex flex-1 overflow-x-auto no-scrollbar">
-                    <button 
-                        onClick={() => onTabChange('discussion')}
-                        title="View community comments and analysis"
-                        className={`flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-[0.1em] border-b-2 transition-all shrink-0 ${activeTab === 'discussion' ? 'border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-500/5' : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-500/5'}`}
-                    >
-                        <MessageSquare size={14} /> <span>Discussion</span>
-                    </button>
-                    {isWebPreview() && (
-                        <button 
-                            onClick={() => onTabChange('summary')}
-                            title="View AI Takeaways and Summary"
-                            className={`flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-[0.1em] border-b-2 transition-all shrink-0 ${activeTab === 'summary' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-500/5'}`}
-                        >
-                            <Sparkles size={14} /> <span>Summary</span>
-                        </button>
-                    )}
                     {!isWebPreview() && (
-                        <button 
-                            onClick={() => onTabChange('ai')}
-                            title="Chat with local AI assistant (Privacy First)"
-                            className={`flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-[0.1em] border-b-2 transition-all shrink-0 ${activeTab === 'ai' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-500/5'}`}
-                        >
-                            <Sparkles size={14} /> <span>AI Assistant</span>
-                        </button>
+                        <>
+                            <button 
+                                onClick={() => onTabChange('discussion')}
+                                title="View community comments and analysis"
+                                className={`flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-[0.1em] border-b-2 transition-all shrink-0 ${activeTab === 'discussion' ? 'border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-500/5' : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-500/5'}`}
+                            >
+                                <MessageSquare size={14} /> <span>Discussion</span>
+                            </button>
+                            <button 
+                                onClick={() => onTabChange('ai')}
+                                title="Chat with local AI assistant (Privacy First)"
+                                className={`flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-[0.1em] border-b-2 transition-all shrink-0 ${activeTab === 'ai' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-500/5'}`}
+                            >
+                                <Sparkles size={14} /> <span>AI Assistant</span>
+                            </button>
+                        </>
                     )}
                 </div>
                 
@@ -423,146 +416,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
             {/* Content Container */}
             <div className="flex-1 overflow-hidden relative flex flex-col bg-white dark:bg-[#0f172a]">
                 
-                {/* Summary Tab Content (Web Preview only) */}
-                {isWebPreview() && activeTab === 'summary' && (
-                    <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar bg-slate-50/50 dark:bg-[#0f172a]/50 flex flex-col gap-6 select-text text-slate-800 dark:text-slate-100">
-                        {/* Domain & Link */}
-                        <div className="flex flex-col gap-3">
-                            <h3 className="text-base font-black leading-snug">{story.title}</h3>
-                            {(() => {
-                                let domain = '';
-                                try {
-                                    if (story.url) {
-                                        domain = new URL(story.url).hostname.replace(/^www\./, '');
-                                    }
-                                } catch (e) {}
-                                return domain ? (
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-bold">
-                                        <img
-                                            src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-                                            alt=""
-                                            className="w-4 h-4 rounded-sm grayscale hover:grayscale-0 transition-all"
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                        />
-                                        <span>{domain}</span>
-                                    </div>
-                                ) : null;
-                            })()}
-                        </div>
 
-                        {/* Safe & Unrestricted Reading CTA Card */}
-                        <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-indigo-500/10 border border-orange-500/20 dark:border-orange-500/10 rounded-2xl p-5 flex flex-col gap-4 shadow-md">
-                            <div className="flex flex-col gap-1">
-                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                                    Safe & Unrestricted Reading
-                                </h4>
-                                <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
-                                    To protect user security, read the original article directly in a new tab for a 100% reliable distraction-free experience.
-                                </p>
-                            </div>
-                            <a 
-                                href={story.url || '#'} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 shadow-lg shadow-orange-500/20 active:scale-95 whitespace-nowrap self-start"
-                            >
-                                Read Article <ExternalLink size={12} />
-                            </a>
-                        </div>
-
-                        {/* AI Summary Card */}
-                        {story.summary ? (
-                            <div className="bg-white dark:bg-[#1e293b]/50 border border-slate-200 dark:border-white/5 shadow-md rounded-2xl p-5 flex flex-col gap-3">
-                                <div className="flex items-center gap-2 text-indigo-500 dark:text-indigo-400">
-                                    <Sparkles size={16} className="animate-pulse" />
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest">AI Takeaways & Summary</h4>
-                                </div>
-                                <div className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed select-text text-slate-600 dark:text-slate-300">
-                                    <ReactMarkdown>{story.summary}</ReactMarkdown>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="bg-white dark:bg-[#1e293b]/50 border border-dashed border-slate-200 dark:border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-4">
-                                <div className="w-10 h-10 bg-indigo-500/10 text-indigo-500 rounded-full flex items-center justify-center">
-                                    <Sparkles size={20} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">AI Summary Not Available</h4>
-                                    <p className="text-[9px] text-slate-400 dark:text-slate-500 max-w-xs leading-relaxed">
-                                        {isIngesting ? "Syncing details from Hacker News..." : "Click below to analyze and generate a concise bullet-point summary instantly."}
-                                    </p>
-                                </div>
-                                {!isIngesting && onSummarizeStory && (
-                                    <button 
-                                        onClick={async () => {
-                                            if (onSummarizeStory) {
-                                                const res = await onSummarizeStory();
-                                                if (res && res.summary) {
-                                                    onSetSummary(res.summary, res.topics || []);
-                                                }
-                                            }
-                                        }}
-                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 flex items-center gap-1.5"
-                                    >
-                                        <Sparkles size={10} /> Generate Summary
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Extracted Topics */}
-                        {story.topics && story.topics.length > 0 && (
-                            <div className="flex flex-col gap-2">
-                                <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Extracted Topics</h4>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {story.topics.map(topic => {
-                                        const style = getTagStyle(topic);
-                                        const isEnabled = activeTopics.includes(topic) && !disabledTopics.includes(topic);
-                                        const isPresent = activeTopics.includes(topic);
-                                        return (
-                                            <button
-                                                key={topic}
-                                                onClick={() => {
-                                                    if (!setActiveTopics) return;
-                                                    if (!isPresent) {
-                                                        setActiveTopics(prev => [...new Set([...prev, topic])]);
-                                                        if (setDisabledTopics) {
-                                                            if (topicMatch === 'exclusive') {
-                                                                setDisabledTopics([...activeTopics]);
-                                                            } else {
-                                                                setDisabledTopics(prev => prev.filter(x => x !== topic));
-                                                            }
-                                                        }
-                                                    } else {
-                                                        if (setDisabledTopics) {
-                                                            if (isEnabled) {
-                                                                setDisabledTopics(prev => [...new Set([...prev, topic])]);
-                                                            } else {
-                                                                if (topicMatch === 'exclusive') {
-                                                                    setDisabledTopics(activeTopics.filter(x => x !== topic));
-                                                                } else {
-                                                                    setDisabledTopics(prev => prev.filter(x => x !== topic));
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }}
-                                                className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border shadow-sm"
-                                                style={{ 
-                                                    backgroundColor: style.bg, 
-                                                    color: style.color, 
-                                                    borderColor: isEnabled ? style.color : style.border
-                                                }}
-                                            >
-                                                {isEnabled ? '✓ ' : '#'}{topic}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
 
                 {/* Discussion Tab Content */}
                 <div 
@@ -588,47 +442,49 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                 )}
                                 
                                 {/* Discussion Summary Section */}
-                                {story.discussion_summary ? (
-                                    <div className="p-5 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <Sparkles size={14} className="text-indigo-500" />
-                                            <h4 className="text-[11px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Community Analysis</h4>
+                                {!isWebPreview() && (
+                                    story.discussion_summary ? (
+                                        <div className="p-5 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Sparkles size={14} className="text-indigo-500" />
+                                                <h4 className="text-[11px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Community Analysis</h4>
+                                            </div>
+                                            <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
+                                                <ReactMarkdown
+                                                    components={{
+                                                        li: ({node, ...props}) => {
+                                                            // Check if this is a numbered list item by looking at the raw content string
+                                                            const rawText = node?.children?.map((c: any) => c.value || c.children?.[0]?.value || '').join('') || '';
+                                                            const isNumbered = /^\s*\d+\./.test(rawText);
+                                                            
+                                                            return (
+                                                                <li className="flex gap-3 items-start mb-3 group">
+                                                                    {!isNumbered && (
+                                                                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400/50 group-hover:bg-indigo-500 shrink-0 transition-colors" />
+                                                                    )}
+                                                                    <span className="flex-1 m-0 p-0" {...props} />
+                                                                </li>
+                                                            );
+                                                        },
+                                                        ul: ({node, ...props}) => <ul className="pl-0 list-none" {...props} />,
+                                                    }}
+                                                >
+                                                    {story.discussion_summary}
+                                                </ReactMarkdown>
+                                            </div>
                                         </div>
-                                        <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
-                                            <ReactMarkdown
-                                                components={{
-                                                    li: ({node, ...props}) => {
-                                                        // Check if this is a numbered list item by looking at the raw content string
-                                                        const rawText = node?.children?.map((c: any) => c.value || c.children?.[0]?.value || '').join('') || '';
-                                                        const isNumbered = /^\s*\d+\./.test(rawText);
-                                                        
-                                                        return (
-                                                            <li className="flex gap-3 items-start mb-3 group">
-                                                                {!isNumbered && (
-                                                                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400/50 group-hover:bg-indigo-500 shrink-0 transition-colors" />
-                                                                )}
-                                                                <span className="flex-1 m-0 p-0" {...props} />
-                                                            </li>
-                                                        );
-                                                    },
-                                                    ul: ({node, ...props}) => <ul className="pl-0 list-none" {...props} />,
-                                                }}
+                                    ) : (
+                                        <div className="flex justify-center">
+                                            <button 
+                                                onClick={handleSummarizeDiscussion}
+                                                disabled={discussSummarizing}
+                                                className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold transition-all flex items-center gap-2 group border border-indigo-200/50 dark:border-indigo-500/20"
                                             >
-                                                {story.discussion_summary}
-                                            </ReactMarkdown>
+                                                {discussSummarizing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} className="group-hover:scale-110 transition-transform" />}
+                                                {discussSummarizing ? "Analyzing Discussion..." : "Summarize Discussion"}
+                                            </button>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex justify-center">
-                                        <button 
-                                            onClick={handleSummarizeDiscussion}
-                                            disabled={discussSummarizing}
-                                            className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold transition-all flex items-center gap-2 group border border-indigo-200/50 dark:border-indigo-500/20"
-                                        >
-                                            {discussSummarizing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} className="group-hover:scale-110 transition-transform" />}
-                                            {discussSummarizing ? "Analyzing Discussion..." : "Summarize Discussion"}
-                                        </button>
-                                    </div>
+                                    )
                                 )}
 
                                 <CommentList

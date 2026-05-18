@@ -525,33 +525,35 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
                         {/* Download Desktop App Banner inside Feed Column (Swapped from top global banner) */}
                         {currentView === 'feed' && !isElectron && !isBannerDismissed && (
-                            <div className="bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-indigo-500/10 border-b border-orange-500/20 px-6 py-4 flex flex-col gap-3 shrink-0 z-20 sticky top-0 bg-slate-50 dark:bg-[#0c1222]/95 backdrop-blur-sm shadow-sm animate-in fade-in slide-in-from-top-2">
+                            <div className="bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-indigo-500/10 border-b border-orange-500/20 px-5 py-3 flex flex-col gap-1.5 shrink-0 z-20 sticky top-0 bg-slate-50 dark:bg-[#0c1222]/95 backdrop-blur-sm shadow-sm animate-in fade-in slide-in-from-top-2">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5">
                                         <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
-                                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                                             Web Preview Mode
                                         </span>
                                     </div>
                                     <button
                                         onClick={() => { localStorage.setItem('hn_dismiss_banner', '1'); setIsBannerDismissed(true); }}
-                                        className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors shrink-0"
+                                        className="p-1 rounded-full hover:bg-slate-250 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors shrink-0"
                                         title="Dismiss"
                                     >
-                                        <X size={14} />
+                                        <X size={12} />
                                     </button>
                                 </div>
-                                <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400 font-medium">
-                                    Unlock split-pane reading, local AI privacy chat, and direct keyboard navigation!
-                                </p>
-                                <a
-                                    href="https://github.com/rajeshkumarblr/hn_station/releases/latest"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[10px] font-black rounded-xl shadow-md transition-all uppercase tracking-widest active:scale-[0.98]"
-                                >
-                                    Download Desktop App
-                                </a>
+                                <div className="flex items-center justify-between gap-3 mt-0.5">
+                                    <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400 font-medium flex-1">
+                                        Unlock split-pane reading, local AI privacy chat, and direct keyboard navigation!
+                                    </p>
+                                    <a
+                                        href="https://github.com/rajeshkumarblr/hn_station/releases/latest"
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center justify-center px-2.5 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[9px] font-black rounded-lg shadow-sm transition-all uppercase tracking-wider shrink-0 active:scale-[0.98]"
+                                    >
+                                        Get App
+                                    </a>
+                                </div>
                             </div>
                         )}
                         <div 
