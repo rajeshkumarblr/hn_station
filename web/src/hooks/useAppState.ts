@@ -25,6 +25,22 @@ function saveReadIds(ids: Set<number>) {
     localStorage.setItem('hn_read_stories', JSON.stringify(trimmed));
 }
 
+function loadHiddenIds(): Set<number> {
+    try {
+        const saved = localStorage.getItem('hn_hidden_stories');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) return new Set(parsed.map(Number));
+        }
+    } catch { }
+    return new Set();
+}
+
+function saveHiddenIds(ids: Set<number>) {
+    const arr = Array.from(ids);
+    localStorage.setItem('hn_hidden_stories', JSON.stringify(arr));
+}
+
 function loadTopicChips(): string[] {
     try {
         const saved = localStorage.getItem('hn_topic_chips');
@@ -138,7 +154,7 @@ export function useAppState() {
     const [activeTabId, setActiveTabId] = useState<string | null>(loadPersistedActiveTabId);
 
     const [showHidden, setShowHidden] = useState(false);
-    const hiddenStories = new Set<number>();
+    const [hiddenStories, setHiddenStories] = useState<Set<number>>(loadHiddenIds);
 
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [currentView, setCurrentView] = useState<'feed' | 'reader' | 'admin'>(loadPersistedCurrentView);
@@ -435,6 +451,14 @@ export function useAppState() {
 
         if (!story) return;
 
+        setReadIds(prev => {
+            const next = new Set(prev);
+            next.add(id);
+            saveReadIds(next);
+            return next;
+        });
+        localStorage.setItem('hn_last_story_id', id.toString());
+
         // In Web Preview mode, always open story.url in a new browser tab
         // and highlight the story on the right-hand comments workspace
         if (isWebPreview()) {
@@ -477,14 +501,6 @@ export function useAppState() {
             return [...prev, newTab];
         });
 
-        setReadIds(prev => {
-            const next = new Set(prev);
-            next.add(id);
-            saveReadIds(next);
-            return next;
-        });
-        localStorage.setItem('hn_last_story_id', id.toString());
-
         if (user) {
             const baseUrl = getApiBase();
             fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
@@ -499,6 +515,14 @@ export function useAppState() {
 
     const handleHideStory = useCallback((id: number) => {
         setStoryBuffer(prev => prev.filter(s => s.id !== id));
+        
+        setHiddenStories(prev => {
+            const next = new Set(prev);
+            next.add(id);
+            saveHiddenIds(next);
+            return next;
+        });
+
         if (user) {
             const baseUrl = getApiBase();
             fetchWithAuth(`${baseUrl}/api/stories/${id}/interact`, {
@@ -683,10 +707,21 @@ export function useAppState() {
             const incoming: Story[] = data.stories || [];
             
             setStoryBuffer(prev => {
-                const incomingWithLocalSaves = incoming.map(s => ({
-                    ...s,
-                    is_saved: localBookmarkIds.has(s.id) || s.is_saved
-                }));
+                const incomingWithLocalSaves = incoming.map(s => {
+                    if (isWebPreview()) {
+                        return {
+                            ...s,
+                            is_saved: localBookmarkIds.has(s.id),
+                            is_read: readIds.has(s.id),
+                            is_hidden: hiddenStories.has(s.id)
+                        };
+                    }
+                    return {
+                        ...s,
+                        is_saved: localBookmarkIds.has(s.id) || s.is_saved
+                    };
+                }).filter(s => !isWebPreview() || !hiddenStories.has(s.id));
+                
                 if (isInitial) return incomingWithLocalSaves;
                 const existingIds = new Set(prev.map(s => s.id));
                 const fresh = incomingWithLocalSaves.filter(s => !existingIds.has(s.id));
@@ -718,7 +753,7 @@ export function useAppState() {
             setLoading(false);
             setFetchingMore(false);
         }
-    }, [buildUrl, selectedStoryId, handleStorySelect, localBookmarks, localBookmarkIds, mode]);
+    }, [buildUrl, selectedStoryId, handleStorySelect, localBookmarks, localBookmarkIds, mode, hiddenStories, readIds]);
 
     const fetchNextPage = useCallback(() => {
         if (!hasMore || fetchingMore || loading) return;
