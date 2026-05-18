@@ -51,7 +51,7 @@ export async function initApiBase(): Promise<void> {
     }
 
     // 4. Production (AKS)
-    apiBase = ''; // Relative paths
-    console.log(`[apiBase] Resolved Production API (Relative)`);
+    apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+    console.log(`[apiBase] Resolved Production API (${apiBase})`);
     notifyListeners();
 }
