@@ -111,13 +111,15 @@ export function StoryCard({
         >
             {/* Action Buttons Container - Top Right - Subtler/Hover Only */}
             <div className="absolute top-3 right-3 flex items-center gap-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <button
-                    onClick={(e) => { e.stopPropagation(); onOpenInTab && onOpenInTab(story.id, 'split'); }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all"
-                    title="Open in Tab"
-                >
-                    <Columns size={14} />
-                </button>
+                {!isWebPreview() && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab && onOpenInTab(story.id, 'split'); }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all"
+                        title="Open in Tab"
+                    >
+                        <Columns size={14} />
+                    </button>
+                )}
 
                 <button
                     onClick={(e) => { e.stopPropagation(); (window as any).electronAPI ? (window as any).electronAPI.openExternal(story.url) : window.open(story.url, '_blank'); }}
