@@ -104,7 +104,7 @@ export function StoryCard({
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all duration-300 flex flex-col justify-center relative rounded-2xl px-5 py-4 animate-slide-in ${activeBg}`}
+            className={`group transition-all duration-300 flex flex-col justify-center relative ${isWebPreview() ? 'rounded-xl px-4 py-2' : 'rounded-2xl px-5 py-4'} animate-slide-in ${activeBg}`}
             style={{ animationDelay: `${(index !== undefined ? index % 10 : 0) * 0.05}s` }}
             onClick={() => onSelect && onSelect(story.id)}
             onContextMenu={handleContextMenu}
@@ -250,7 +250,7 @@ export function StoryCard({
                             )}
 
                             {/* 1-line AI Summary Preview */}
-                            {story.summary && story.summary.trim().length > 0 && (
+                            {story.summary && story.summary.trim().length > 0 && !isWebPreview() && (
                                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 line-clamp-1 italic leading-relaxed">
                                     <Sparkles size={10} className="inline mr-1 text-indigo-400/60" />
                                     {story.summary

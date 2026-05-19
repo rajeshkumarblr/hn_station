@@ -15,7 +15,7 @@ type TabType = 'ai' | 'ui' | 'keyboard';
 
 export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const isWebMode = isWebPreview();
-    const [activeTab, setActiveTab] = useState<TabType>('ai');
+    const [activeTab, setActiveTab] = useState<TabType>(isWebMode ? 'ui' : 'ai');
     const [aiEnabled, setAiEnabled] = useState(false);
     const [ollamaModel, setOllamaModel] = useState('');
     const [refreshInterval, setRefreshInterval] = useState('5m');
@@ -128,12 +128,14 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                 <div className="flex flex-1 overflow-hidden">
                     {/* Sidebar Tabs */}
                     <div className="w-48 border-r border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/20 p-2 shrink-0">
+                        {!isWebMode && (
                             <button
                                 onClick={() => setActiveTab('ai')}
                                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all mb-1 ${activeTab === 'ai' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}
                             >
                                 <Cpu size={16} /> AI Settings
                             </button>
+                        )}
                         <button
                             onClick={() => setActiveTab('ui')}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all mb-1 ${activeTab === 'ui' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}
@@ -217,70 +219,6 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                 </div>
                             )}
 
-                            {activeTab === 'ai' && isWebMode && (
-                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                    <div className="space-y-1">
-                                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Web AI Settings</h3>
-                                        <p className="text-xs text-slate-500 leading-tight">Enable client-side AI Summaries and Chat using your own API keys. Generates summaries directly in your browser with no Azure hosting cost.</p>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">AI Provider</label>
-                                        <select
-                                            value={clientProvider}
-                                            onChange={(e: any) => setClientProvider(e.target.value)}
-                                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
-                                        >
-                                            <option value="disabled">Disabled (No AI)</option>
-                                            <option value="server-granite">Cloud Hosted (Granite 2B) - Free</option>
-                                            <option value="gemini">Google Gemini (Recommended / Free Tier Available)</option>
-                                            <option value="openai">OpenAI (GPT-4o-mini)</option>
-                                            <option value="ollama">Ollama (Local localhost:11434)</option>
-                                        </select>
-                                    </div>
-
-                                    {clientProvider !== 'disabled' && clientProvider !== 'ollama' && clientProvider !== 'server-granite' && (
-                                        <div className="space-y-2">
-                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">API Key</label>
-                                            <input
-                                                type="password"
-                                                value={clientApiKey}
-                                                onChange={(e) => setClientApiKey(e.target.value)}
-                                                placeholder={clientProvider === 'gemini' ? "Enter Gemini API Key..." : "Enter OpenAI API Key..."}
-                                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
-                                            />
-                                            <p className="text-[9px] text-slate-400">Your key is stored strictly in your browser's local storage and never sent to our servers.</p>
-                                        </div>
-                                    )}
-
-                                    {clientProvider === 'ollama' && (
-                                        <div className="space-y-2">
-                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Ollama API URL</label>
-                                            <input
-                                                type="text"
-                                                value={clientOllamaUrl}
-                                                onChange={(e) => setClientOllamaUrl(e.target.value)}
-                                                placeholder="http://localhost:11434"
-                                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {clientProvider !== 'disabled' && (
-                                        <div className="space-y-2">
-                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Custom Model Name (Optional)</label>
-                                            <input
-                                                type="text"
-                                                value={clientModel}
-                                                onChange={(e) => setClientModel(e.target.value)}
-                                                placeholder={clientProvider === 'gemini' ? "gemini-2.5-flash" : clientProvider === 'openai' ? "gpt-4o-mini" : "llama3.2:3b"}
-                                                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
                             {activeTab === 'ui' && (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                     <div className="space-y-1">
@@ -355,23 +293,6 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                                 ))}
                                             </div>
                                             <p className="text-[9px] text-slate-400">View mode persistence coming soon.</p>
-                                        </div>
-                                    )}
-
-                                    {isWebMode && (
-                                        <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
-                                            <div className="flex items-start gap-3">
-                                                <Zap size={16} className="text-blue-500 shrink-0 mt-0.5" />
-                                                <div>
-                                                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">Web AI Enabled</h4>
-                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                                        Client-side AI Summaries and interactive chats are fully unlocked on the web! Enter your API key in the AI Settings tab to activate.
-                                                    </p>
-                                                    <a href="/api/download/latest" className="inline-block mt-3 text-[10px] font-bold text-blue-600 hover:underline">
-                                                        Learn more & Download →
-                                                    </a>
-                                                </div>
-                                            </div>
                                         </div>
                                     )}
                                 </div>

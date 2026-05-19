@@ -116,7 +116,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const virtualizer = useVirtualizer({
         count: stories.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 120, // Estimated height of a StoryCard
+        estimateSize: () => isWebPreview() ? 72 : 120, // Estimated height of a StoryCard
         overscan: 5,
     });
 
@@ -177,12 +177,12 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         <div className="h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 font-sans overflow-hidden flex flex-col transition-colors duration-200">
             {/* ─── Zen Header ─── */}
             <header 
-                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 h-[52px] flex items-center justify-between px-6 shrink-0 z-[100] relative select-none"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 h-[52px] flex items-center justify-between px-4 shrink-0 z-[100] relative select-none"
                 style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
             >
                 {/* Left Section: Modes & Global Filters */}
-                <div className="flex items-center h-full gap-5 flex-1 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-                    <nav className="h-full flex items-center gap-2 shrink-0">
+                <div className="flex items-center h-full gap-3 flex-1 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                    <nav className="h-full flex items-center gap-1.5 shrink-0">
                         {MODES.map((m) => {
                             const isActiveInPrimary = (primaryTab === 'feed' && m.key === mode) || (primaryTab === 'bookmarks' && m.key === 'saved');
                             const isSelected = isActiveInPrimary;
@@ -205,6 +205,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                                         : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'
                                         }`}
+                               Props={{} as any}
                                 >
                                     {m.label}
                                     {isSelected && (
@@ -214,74 +215,174 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             );
                         })}
 
-                        {/* Articles Dropdown Menu (Relocated from Tab Bar) */}
-                        <div className="relative h-full flex items-center ml-1" ref={articlesMenuRef}>
-                            <button
-                                onClick={() => setIsArticlesMenuOpen(!isArticlesMenuOpen)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
-                                    isArticlesMenuOpen 
-                                    ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' 
-                                    : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white border-transparent'
-                                }`}
-                            >
-                                <span>Articles</span>
-                                <div className="flex items-center justify-center bg-black/10 dark:bg-white/10 rounded-full w-4 h-4 text-[9px]">
-                                    {tabs.length}
-                                </div>
-                                <ChevronDown size={12} className={`transition-transform duration-200 ${isArticlesMenuOpen ? 'rotate-180' : ''}`} />
-                            </button>
+                        {/* Articles Dropdown Menu (Relocated from Tab Bar) - Desktop only */}
+                        {!isWebPreview() && (
+                            <div className="relative h-full flex items-center ml-1" ref={articlesMenuRef}>
+                                <button
+                                    onClick={() => setIsArticlesMenuOpen(!isArticlesMenuOpen)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
+                                        isArticlesMenuOpen 
+                                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' 
+                                        : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white border-transparent'
+                                    }`}
+                                >
+                                    <span>Articles</span>
+                                    <div className="flex items-center justify-center bg-black/10 dark:bg-white/10 rounded-full w-4 h-4 text-[9px]">
+                                        {tabs.length}
+                                    </div>
+                                    <ChevronDown size={12} className={`transition-transform duration-200 ${isArticlesMenuOpen ? 'rotate-180' : ''}`} />
+                                </button>
 
-                            {isArticlesMenuOpen && (
-                                <div className="absolute left-0 top-[48px] w-[320px] max-h-[400px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-[200] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
-                                    <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Open Articles</span>
-                                        <span className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full">{tabs.length}</span>
+                                {isArticlesMenuOpen && (
+                                    <div className="absolute left-0 top-[48px] w-[320px] max-h-[400px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-[200] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
+                                        <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Open Articles</span>
+                                            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full">{tabs.length}</span>
+                                        </div>
+                                        <div className="overflow-y-auto max-h-[350px] custom-scrollbar p-1">
+                                            {tabs.map((t) => (
+                                                <button
+                                                    key={`menu-${t.id}`}
+                                                    onClick={() => {
+                                                        app.handleStorySelect?.(t.storyId);
+                                                        setCurrentView('reader');
+                                                        setIsArticlesMenuOpen(false);
+                                                    }}
+                                                    className={`w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors group ${
+                                                        activeTabId === t.id && currentView === 'reader'
+                                                        ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
+                                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                                                    }`}
+                                                >
+                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeTabId === t.id && currentView === 'reader' ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 group-hover:bg-slate-400'}`} />
+                                                    <span className="text-[12px] font-medium truncate flex-1">{t.story.title}</span>
+                                                </button>
+                                            ))}
+                                            {tabs.length === 0 && (
+                                                <div className="p-8 text-center text-slate-400 text-[12px]">No open articles</div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="overflow-y-auto max-h-[350px] custom-scrollbar p-1">
-                                        {tabs.map((t) => (
-                                            <button
-                                                key={`menu-${t.id}`}
-                                                onClick={() => {
-                                                    app.handleStorySelect?.(t.storyId);
-                                                    setCurrentView('reader');
-                                                    setIsArticlesMenuOpen(false);
-                                                }}
-                                                className={`w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors group ${
-                                                    activeTabId === t.id && currentView === 'reader'
-                                                    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
-                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                                                }`}
-                                            >
-                                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeTabId === t.id && currentView === 'reader' ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 group-hover:bg-slate-400'}`} />
-                                                <span className="text-[12px] font-medium truncate flex-1">{t.story.title}</span>
-                                            </button>
-                                        ))}
-                                        {tabs.length === 0 && (
-                                            <div className="p-8 text-center text-slate-400 text-[12px]">No open articles</div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        )}
                     </nav>
 
                     <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 shrink-0" />
+
+                    {/* Inline Filter toolbar for web preview */}
+                    {isWebPreview() && (
+                        <>
+                            <button 
+                                onClick={app.handleRefresh} 
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-800 bg-white dark:bg-black/20 shadow-sm"
+                                title="Refresh stories from Hacker News"
+                            >
+                                <RefreshCw size={12} className={loading ? 'animate-spin text-indigo-500' : ''} />
+                            </button>
+
+                            <div className="flex items-center bg-slate-100 dark:bg-black/40 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700/50 group focus-within:ring-2 focus-within:ring-indigo-500/45 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0" title="Quickly filter stories in the current list">
+                                <Search size={12} className="text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                                <input
+                                    type="text"
+                                    placeholder="Quick filter..."
+                                    value={app.searchQuery}
+                                    onChange={(e) => app.setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && app.searchQuery.trim()) {
+                                            let term = app.searchQuery.trim();
+                                            if (term.startsWith('#')) term = term.slice(1);
+                                            const tag = term.charAt(0).toUpperCase() + term.slice(1);
+                                            if (!activeTopics.includes(tag)) {
+                                                setActiveTopics(prev => [...prev, tag]);
+                                            }
+                                            setDisabledTopics(activeTopics.filter(t => t !== tag));
+                                            app.setSearchQuery('');
+                                            (e.target as HTMLInputElement).blur();
+                                        } else if (e.key === 'Escape') {
+                                            app.setSearchQuery('');
+                                            (e.target as HTMLInputElement).blur();
+                                        }
+                                    }}
+                                    className="bg-transparent border-none outline-none text-[11px] font-bold ml-1.5 w-24 focus:w-36 transition-all placeholder:text-slate-500 dark:placeholder:text-slate-600 text-slate-800 dark:text-slate-200"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 min-w-0">
+                                <div
+                                    onClick={() => {
+                                        setDisabledTopics([...activeTopics]);
+                                        app.setSearchQuery('');
+                                    }}
+                                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
+                                        activeTopics.filter(t => !disabledTopics.includes(t)).length === 0
+                                            ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/20' 
+                                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
+                                    }`}
+                                >
+                                    <Zap size={9} className={activeTopics.filter(t => !disabledTopics.includes(t)).length === 0 ? "text-emerald-500" : "text-slate-600"} />
+                                    <span>#ALL</span>
+                                </div>
+
+                                {activeTopics.map(t => {
+                                    const isActive = !disabledTopics.includes(t);
+                                    const style = getTagStyle(t);
+                                    return (
+                                        <div
+                                            key={`feed-tag-${t}`}
+                                            onClick={() => {
+                                                const noActiveTags = activeTopics.filter(x => !disabledTopics.includes(x)).length === 0;
+                                                if (app.topicMatch === 'exclusive') {
+                                                    if (isActive) {
+                                                        setDisabledTopics(activeTopics);
+                                                    } else {
+                                                        setDisabledTopics(activeTopics.filter(x => x !== t));
+                                                    }
+                                                    return;
+                                                }
+                                                if (noActiveTags) {
+                                                    setDisabledTopics(activeTopics.filter(x => x !== t));
+                                                } else {
+                                                    if (isActive) {
+                                                        setDisabledTopics(prev => [...prev, t]);
+                                                    } else {
+                                                        setDisabledTopics(prev => prev.filter(x => x !== t));
+                                                    }
+                                                }
+                                            }}
+                                            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${!isActive && 'opacity-50 hover:opacity-100 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'}`}
+                                            style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
+                                        >
+                                            <span>#{t}</span>
+                                            <X size={9} onClick={(e) => { 
+                                                e.stopPropagation(); 
+                                                setActiveTopics(prev => prev.filter(x => x !== t));
+                                                setDisabledTopics(prev => prev.filter(x => x !== t));
+                                            }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer" />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* Center Branding */}
-                <div 
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none hidden lg:flex"
-                    style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-                >
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                        <span className="text-[13px] font-black tracking-[0.2em] bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent uppercase leading-none">HN Station</span>
-                        <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 tracking-normal lowercase">v{pkg.version}</span>
-                            <span className="bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[7px] font-black px-1 py-0.5 rounded ml-0.5 tracking-widest uppercase border border-orange-500/20">BETA</span>
+                {/* Center Branding - Desktop Only */}
+                {!isWebPreview() && (
+                    <div 
+                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none hidden lg:flex"
+                        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+                    >
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                            <span className="text-[13px] font-black tracking-[0.2em] bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent uppercase leading-none">HN Station</span>
+                            <div className="flex items-center gap-1">
+                                <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 tracking-normal lowercase">v{pkg.version}</span>
+                                <span className="bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[7px] font-black px-1 py-0.5 rounded ml-0.5 tracking-widest uppercase border border-orange-500/20">BETA</span>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* Right Section: Controls */}
                 <div className="flex items-center gap-1.5 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
@@ -320,8 +421,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 </div>
             </header>
 
-            {/* Global Filters Toolbar (swapped with Web Preview Banner) */}
-            {currentView === 'feed' && (
+            {/* Global Filters Toolbar (swapped with Web Preview Banner) - Desktop Only */}
+            {currentView === 'feed' && !isWebPreview() && (
                 <div className="h-[56px] flex items-center justify-between px-6 gap-4 z-[99] bg-white dark:bg-[#0c1222] border-b border-slate-200 dark:border-slate-800/80 shrink-0 select-none">
                     {/* Left Fixed Controls */}
                     <div className="flex items-center gap-3 shrink-0">
@@ -560,7 +661,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                 key={story.id}
                                                 data-index={virtualItem.index}
                                                 ref={virtualizer.measureElement}
-                                                className="absolute top-0 left-0 w-full px-6 py-2.5"
+                                                className={`absolute top-0 left-0 w-full ${isWebPreview() ? 'px-3 py-1' : 'px-6 py-2.5'}`}
                                                 style={{
                                                     transform: `translateY(${virtualItem.start}px)`,
                                                 }}

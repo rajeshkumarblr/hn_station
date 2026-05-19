@@ -24,7 +24,7 @@ A local-first Hacker News desktop client. Read articles and comments side by sid
 
 > **Web vs Desktop**: Try the [web preview at hnstation.dev](https://hnstation.dev) for a quick look. For the full experience — split-pane article loading, local AI, and persistent storage — use the desktop app.
 > 
-> *Note for Web Mode*: We have completely streamlined the web workspace into a premium, clutter-free **2-Pane Comments Workspace**! Articles are opened directly in your native browser tab for unblocked and secure reading, while the full right 70% of the screen is dedicated to Hacker News discussion comments, AI bullet takeaway summaries, and dynamic topic tags.
+> *Note for Web Mode*: We have streamlined the web workspace into a premium, compact **2-Pane Discussion Reader**! Articles open directly in new browser tabs via double-click, while the rest of the workspace displays discussion comments, search query filters, and dynamic topic tags. Web preview runs entirely client-side with Zero-Login, isolating all bookmarks and hidden/read states to the browser's local storage.
 
 ---
 
