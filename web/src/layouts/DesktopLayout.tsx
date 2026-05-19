@@ -205,7 +205,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                                         : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'
                                         }`}
-                               Props={{} as any}
                                 >
                                     {m.label}
                                     {isSelected && (
