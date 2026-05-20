@@ -99,6 +99,12 @@ HN Station has transitioned from a cloud-centric service to a **Local-First Desk
 | `Ctrl + K` | Reader | Switch to **AI Summary** Tab |
 | `Ctrl + G` | Reader | Switch to **Gemini Chat** Tab |
 
+### 3.6 Hacker News Account & Proxy Interaction
+**Decision**: Implementing inline, interactive upvoting/downvoting and commenting using a local backend proxy for authenticating with Hacker News.
+**Rationale**:
+- **Zero-Login / Zero-Backend Architecture**: Rather than requiring a central database to manage user credentials, HN account details (username/password) are stored locally in the browser's `localStorage` and remain under the user's control.
+- **Backend HTTP Client Proxy**: Since CORS prevents frontend-based requests to the Hacker News website directly, the Go backend exposes a local API endpoint `/api/hn/interact` which handles authentication cookies, scrapes tokens/HMACs, and relays the votes/comments.
+
 ---
 
 ## 4. Operational Notes

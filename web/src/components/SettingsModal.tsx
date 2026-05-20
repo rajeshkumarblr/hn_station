@@ -3,7 +3,7 @@ import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
 import { getClientAISettings, saveClientAISettings } from '../utils/aiClient';
-import { X, Save, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap, Sparkles } from 'lucide-react';
+import { X, Save, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap, Sparkles, User } from 'lucide-react';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -11,7 +11,7 @@ interface SettingsModalProps {
     user: any;
 }
 
-type TabType = 'ai' | 'ui' | 'keyboard';
+type TabType = 'ai' | 'ui' | 'keyboard' | 'hn';
 
 export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const isWebMode = isWebPreview();
@@ -29,6 +29,10 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const [clientApiKey, setClientApiKey] = useState('');
     const [clientModel, setClientModel] = useState('');
     const [clientOllamaUrl, setClientOllamaUrl] = useState('http://localhost:11434');
+
+    // Hacker News Account Credentials
+    const [hnUsername, setHnUsername] = useState('');
+    const [hnPassword, setHnPassword] = useState('');
 
     // Context from window or props for theme and reader mode
     // Note: In a real app we'd use useAppState, but we are keeping this somewhat self-contained
@@ -49,6 +53,8 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
             setClientApiKey(clientSettings.apiKey);
             setClientModel(clientSettings.model);
             setClientOllamaUrl(clientSettings.ollamaUrl);
+            setHnUsername(localStorage.getItem('hn_username') || '');
+            setHnPassword(localStorage.getItem('hn_password') || '');
         }
     }, [isOpen, user]);
 
@@ -86,6 +92,9 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
 
                 if (!res.ok) throw new Error('Failed to update settings');
             }
+
+            localStorage.setItem('hn_username', hnUsername);
+            localStorage.setItem('hn_password', hnPassword);
 
             // Apply theme change locally
             if (theme === 'dark') {
@@ -143,10 +152,18 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                             <Sun size={16} /> UI Settings
                         </button>
                         <button
+                            type="button"
                             onClick={() => setActiveTab('keyboard')}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === 'keyboard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}
                         >
                             <Keyboard size={16} /> Keyboard
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('hn')}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-all mt-1 ${activeTab === 'hn' ? 'bg-[#ff6600] text-white shadow-lg shadow-orange-500/20' : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50'}`}
+                        >
+                            <User size={16} /> HN Account
                         </button>
                     </div>
 
@@ -323,6 +340,44 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                                 <kbd className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-black text-slate-500 uppercase">{sh.cmd}</kbd>
                                             </div>
                                         ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'hn' && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <div className="space-y-1">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Hacker News Account</h3>
+                                        <p className="text-xs text-slate-500">Configure your Hacker News credentials to upvote, downvote, and comment on stories.</p>
+                                    </div>
+
+                                    <div className="space-y-4 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+                                        <div className="space-y-2">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Username</label>
+                                            <input
+                                                type="text"
+                                                value={hnUsername}
+                                                onChange={(e) => setHnUsername(e.target.value)}
+                                                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl py-2.5 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
+                                                placeholder="e.g. jsmith"
+                                                autoComplete="off"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                                            <input
+                                                type="password"
+                                                value={hnPassword}
+                                                onChange={(e) => setHnPassword(e.target.value)}
+                                                className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl py-2.5 px-4 text-xs dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-500/20"
+                                                placeholder="••••••••"
+                                            />
+                                        </div>
+
+                                        <p className="text-[10px] text-slate-400 leading-tight">
+                                            Note: Credentials are stored entirely in your local browser storage. They are sent directly to Hacker News over HTTPS via a secure proxy, maintaining the application's Zero-Login architecture.
+                                        </p>
                                     </div>
                                 </div>
                             )}

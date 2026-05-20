@@ -391,16 +391,41 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live Ingest</span>
                         </div>
                     )}
+                    {!isElectron && isWebPreview() && (
+                        <div className="flex items-center bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner shrink-0 mr-2" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
+                            <button 
+                                onClick={() => app.setTopicMatch('any')}
+                                title="Show stories that contain ANY of the selected topics"
+                                className={`px-1.5 py-0.5 rounded transition-all ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                                Any
+                            </button>
+                            <button 
+                                onClick={() => app.setTopicMatch('all')}
+                                title="Show stories that contain ALL selected topics (AND logic)"
+                                className={`px-1.5 py-0.5 rounded transition-all ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                                All
+                            </button>
+                            <button 
+                                onClick={() => app.setTopicMatch('exclusive')}
+                                title="Exclusive mode: Selecting a topic clears others"
+                                className={`px-1.5 py-0.5 rounded transition-all ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                            >
+                                Excl
+                            </button>
+                        </div>
+                    )}
                     {!isElectron && (
                         <a
-                            href="https://github.com/rajeshkumarblr/hn_station/releases/latest"
+                            href="https://github.com/rajeshkumarblr/hn_station"
                             target="_blank"
                             rel="noreferrer"
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[10px] font-black rounded-full shadow-sm hover:shadow-lg transition-all uppercase tracking-wider shrink-0 active:scale-[0.98] mr-2"
                             title="Desktop App has IDE like split pane view for articles and AI summary."
                         >
                             <Download size={11} />
-                            Get App
+                            Get Desktop App
                         </a>
                     )}
                     <button 

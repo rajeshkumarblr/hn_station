@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap } from 'lucide-react';
+import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
@@ -18,6 +18,7 @@ interface AISidebarProps {
     onSetDiscussionSummary: (summary: string) => void;
     comments: any[];
     commentsLoading: boolean;
+    refreshComments?: () => void;
     activeCommentId?: string | null;
     onFocusComment?: (id: string) => void;
     activeTab: 'discussion' | 'summary' | 'ai';
@@ -70,7 +71,7 @@ function CopyButton({ text }: { text: string }) {
 
 export function AISidebar({ 
     story, isOpen, onClose, onSetSummary, onSetDiscussionSummary,
-    comments, commentsLoading, isIngesting, activeCommentId, onFocusComment,
+    comments, commentsLoading, refreshComments, isIngesting, activeCommentId, onFocusComment,
     activeTab, onTabChange, containerRef, width = 480,
     activeTopics = [], disabledTopics = [], setActiveTopics, setDisabledTopics, topicMatch = 'any',
     onSummarizeStory
@@ -82,6 +83,54 @@ export function AISidebar({
     const [chatInput, setChatInput] = useState('');
     const [isChatLoading, setIsChatLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Top-level comment submission state
+    const [topCommentText, setTopCommentText] = useState('');
+    const [topCommentSubmitting, setTopCommentSubmitting] = useState(false);
+    const [topCommentError, setTopCommentError] = useState<string | null>(null);
+
+    const handleTopCommentSubmit = async () => {
+        if (!topCommentText.trim() || topCommentSubmitting) return;
+
+        const hnUsername = localStorage.getItem('hn_username');
+        const hnPassword = localStorage.getItem('hn_password');
+
+        if (!hnUsername || !hnPassword) {
+            setTopCommentError("Please set HN login in settings");
+            return;
+        }
+
+        setTopCommentSubmitting(true);
+        setTopCommentError(null);
+
+        try {
+            const res = await fetch(`${getApiBase()}/api/hn/interact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: hnUsername,
+                    password: hnPassword,
+                    action: 'comment',
+                    item_id: story.id,
+                    text: topCommentText
+                })
+            });
+
+            if (!res.ok) {
+                const txt = await res.text();
+                throw new Error(txt || 'Failed to post comment');
+            }
+
+            setTopCommentText('');
+            if (refreshComments) {
+                refreshComments();
+            }
+        } catch (err: any) {
+            setTopCommentError(err.message || 'Error posting comment');
+        } finally {
+            setTopCommentSubmitting(false);
+        }
+    };
 
     // Load chat history when story changes
     useEffect(() => {
@@ -434,13 +483,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                             </div>
                         ) : (comments && comments.length > 0) || isIngesting ? (
                             <div className="pb-20 space-y-6">
-                                {isIngesting && (
-                                    <div className="flex items-center justify-center gap-2 py-2 px-4 bg-orange-500/10 border border-orange-500/20 rounded-xl animate-pulse">
-                                        <RefreshCw size={12} className="animate-spin text-orange-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400">Updating discussion from Hacker News...</span>
-                                    </div>
-                                )}
-                                
+
                                 {/* Discussion Summary Section */}
                                 {!isWebPreview() && (
                                     story.discussion_summary ? (
@@ -487,11 +530,39 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                     )
                                 )}
 
+                                {/* Top-Level Comment Submission Form */}
+                                <div className="p-4 bg-slate-50/50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 flex flex-col gap-2">
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Post a comment</h4>
+                                    <textarea
+                                        value={topCommentText}
+                                        onChange={(e) => setTopCommentText(e.target.value)}
+                                        placeholder="Add to the discussion..."
+                                        rows={3}
+                                        className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
+                                    />
+                                    {topCommentError && (
+                                        <div className="text-[10px] text-red-500 font-bold flex items-center gap-1">
+                                            <AlertCircle size={12} className="shrink-0" />
+                                            {topCommentError}
+                                        </div>
+                                    )}
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={handleTopCommentSubmit}
+                                            disabled={topCommentSubmitting || !topCommentText.trim()}
+                                            className="px-4 py-2 text-[10px] font-black text-white bg-[#ff6600] hover:bg-[#e65c00] rounded-xl disabled:opacity-50 transition-colors shadow-lg shadow-orange-500/10 flex items-center gap-1.5"
+                                        >
+                                            {topCommentSubmitting ? 'Posting...' : 'SUBMIT COMMENT'}
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <CommentList
                                     comments={comments}
                                     parentId={null}
                                     activeCommentId={activeCommentId}
                                     onFocusComment={onFocusComment}
+                                    refreshComments={refreshComments}
                                 />
 
                                 {/* Article Specific Topics (Suggested) - Moved from Header */}

@@ -99,6 +99,7 @@ func (s *Server) routes() {
 	s.router.Get("/api/stories/saved", s.handleGetSavedStories)
 	s.router.Get("/api/stories/{id}", s.handleGetStoryDetails)
 	s.router.Post("/api/stories/{id}/interact", s.handleInteract)
+	s.router.Post("/api/hn/interact", s.handleHNInteract)
 	s.router.Get("/api/content/readme", s.handleGetReadme)
 	s.router.Get("/api/stories/{id}/content", s.handleGetArticleContent)
 	s.router.Get("/api/stories/{id}/check-iframe", s.handleCheckIframe)
@@ -789,6 +790,41 @@ func (s *Server) fetchCommentsRecursive(ctx context.Context, storyID int, kids [
 }
 
 // ─── Interaction Handlers ───
+
+func (s *Server) handleHNInteract(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Action   string `json:"action"`
+		ItemID   int    `json:"item_id"`
+		How      string `json:"how"`
+		Text     string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if body.Username == "" || body.Password == "" {
+		http.Error(w, "HN Username and Password are required", http.StatusBadRequest)
+		return
+	}
+
+	if body.Action == "" || body.ItemID <= 0 {
+		http.Error(w, "Invalid action or item ID", http.StatusBadRequest)
+		return
+	}
+
+	err := s.hnClient.PerformHNInteract(r.Context(), body.Username, body.Password, body.Action, body.ItemID, body.How, body.Text)
+	if err != nil {
+		log.Printf("[hn_interact] Error performing interaction: %v", err)
+		http.Error(w, fmt.Sprintf("Hacker News action failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
 
 func (s *Server) handleInteract(w http.ResponseWriter, r *http.Request) {
 	userID := s.auth.GetUserIDFromRequest(r)

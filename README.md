@@ -60,10 +60,17 @@ A local-first Hacker News desktop client. Read articles and comments side by sid
 - ANY/ALL/Exclusive match modes for multi-topic filtering
 - Search-to-filter workflow: type and press Enter to create persistent topic chips
 
+### Hacker News Integration
+- **Zero-Login Proxy Architecture** — Configure Hacker News credentials in Settings. Credentials are saved locally in the browser's `localStorage` and sent over HTTPS via a secure Go proxy.
+- **Feed Voting** — Upvote and downvote stories directly from the story card in the feed with live score updating.
+- **Discussion Voting & Nested Replies** — Upvote/downvote comments and write nested replies directly in the discussion view.
+- **Top-level posting** — Submit top-level comments to Hacker News threads directly from the AI sidebar.
+
 ### Privacy Engine
 - Request-level ad and tracker blocking
 - Cookie stripping ("Ghost Mode")
 - No telemetry, no analytics, no external calls (except HN API and your chosen AI provider)
+
 
 ---
 

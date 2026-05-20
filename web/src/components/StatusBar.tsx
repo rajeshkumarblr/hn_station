@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getApiBase } from '../utils/apiBase';
+import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
 import { Clock, Zap, Loader2, CheckCircle2 } from 'lucide-react';
 
@@ -16,12 +16,18 @@ export function StatusBar() {
     const [status, setStatus] = useState<Status | null>(null);
     const [error, setError] = useState(false);
     const [retries, setRetries] = useState(0);
+    const [baseUrl, setBaseUrl] = useState(getApiBase());
 
     useEffect(() => {
-        const fetchStatus = async () => {
-            const baseUrl = getApiBase();
-            if (!baseUrl) return; // Wait for base URL
+        return subscribeApiBase(url => {
+            setBaseUrl(url);
+        });
+    }, []);
 
+    useEffect(() => {
+        if (!baseUrl) return; // Wait for base URL
+
+        const fetchStatus = async () => {
             try {
                 const res = await fetchWithAuth(`${baseUrl}/api/status`);
                 if (res.ok) {
@@ -42,7 +48,7 @@ export function StatusBar() {
         fetchStatus();
         const interval = setInterval(fetchStatus, 5000);
         return () => clearInterval(interval);
-    }, [retries]);
+    }, [baseUrl, retries]);
 
     if (error) {
         return (

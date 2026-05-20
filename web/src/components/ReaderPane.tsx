@@ -256,6 +256,21 @@ export function ReaderPane({
         return controller;
     };
 
+    const refreshComments = useCallback(() => {
+        if (!story.id) return;
+        const baseUrl = getApiBase();
+        if (!baseUrl) return;
+        fetchWithAuth(`${baseUrl}/api/stories/${story.id}`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+                if (data) {
+                    setComments(data.comments || []);
+                    setIsIngesting(data.is_ingesting_comments || false);
+                }
+            })
+            .catch(err => console.error('Failed to refresh comments:', err));
+    }, [story.id]);
+
     useEffect(() => {
         let controller: AbortController | undefined;
         if (story.id && baseUrl) {
@@ -656,6 +671,7 @@ export function ReaderPane({
                     onSummarizeStory={onSummarizeStory ? () => onSummarizeStory(story.id) : undefined}
                     comments={comments}
                     commentsLoading={commentsLoading}
+                    refreshComments={refreshComments}
                     isIngesting={isIngesting}
                     activeCommentId={activeCommentId}
                     onFocusComment={(id) => {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Bookmark, Check, Link, Terminal, ExternalLink, Columns, X, Sparkles } from 'lucide-react';
 import { getTagStyle } from '../utils/colors';
 import { isWebPreview } from '../utils/env';
+import { getApiBase } from '../utils/apiBase';
 
 export interface Story {
     id: number;
@@ -46,7 +47,7 @@ interface StoryCardProps {
 
 export function StoryCard({
     story, index, onSelect, onToggleSave, onHide, onOpenInTab,
-    isSelected, isHighlighted, isRead, activeTopics = [], selectedTopics = [],
+    isSelected, isHighlighted, isRead, isEven, activeTopics = [], selectedTopics = [],
     topicMatch = 'any'
 }: StoryCardProps) {
     let domain = '';
@@ -68,6 +69,59 @@ export function StoryCard({
     };
 
 
+
+    const [voted, setVoted] = useState<'up' | 'down' | null>(null);
+    const [localScore, setLocalScore] = useState(story.score);
+    const [voteError, setVoteError] = useState<string | null>(null);
+    const [voting, setVoting] = useState(false);
+
+    useEffect(() => {
+        setLocalScore(story.score);
+    }, [story.score]);
+
+    const handleVote = async (e: React.MouseEvent, direction: 'up' | 'down') => {
+        e.stopPropagation();
+        if (voting) return;
+
+        const hnUsername = localStorage.getItem('hn_username');
+        const hnPassword = localStorage.getItem('hn_password');
+
+        if (!hnUsername || !hnPassword) {
+            setVoteError("Set HN login in settings");
+            setTimeout(() => setVoteError(null), 3000);
+            return;
+        }
+
+        setVoting(true);
+        setVoteError(null);
+
+        try {
+            const res = await fetch(`${getApiBase()}/api/hn/interact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: hnUsername,
+                    password: hnPassword,
+                    action: 'vote',
+                    item_id: story.id,
+                    how: direction
+                })
+            });
+
+            if (!res.ok) {
+                const txt = await res.text();
+                throw new Error(txt || `Failed to ${direction}vote`);
+            }
+
+            setVoted(direction);
+            setLocalScore(prev => direction === 'up' ? prev + 1 : prev - 1);
+        } catch (err: any) {
+            setVoteError(err.message || 'Error voting');
+            setTimeout(() => setVoteError(null), 3000);
+        } finally {
+            setVoting(false);
+        }
+    };
 
     const displayRank = index !== undefined ? index + 1 : null;
     const dimmed = story.is_read || isRead;
@@ -94,12 +148,16 @@ export function StoryCard({
     // Fallback: If no topic match, check if title contains the active topic keyword
 
 
-    // Unified card styling with hover lifting effect
+    // Unified card styling with hover lifting effect and alternating colors
+    const cardBg = isEven
+        ? 'bg-white/70 dark:bg-slate-900/70 border-white/20 dark:border-slate-800/40'
+        : 'bg-slate-50/50 dark:bg-slate-950/40 border-white/10 dark:border-slate-800/20';
+
     const activeBg = isHighlighted
-        ? 'glass-card dark:from-lime-950/20 dark:to-slate-900/40 border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle'
+        ? `backdrop-blur-md ${cardBg} dark:from-lime-950/20 dark:to-slate-900/40 border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle`
         : isSelected
-            ? 'glass-card border-l-[3px] border-l-orange-500 shadow-md'
-            : `glass-card hover:bg-white dark:hover:bg-slate-800/40 hover:border-orange-500/30 hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
+            ? `backdrop-blur-md ${cardBg} border-l-[3px] border-l-orange-500 shadow-md`
+            : `backdrop-blur-md ${cardBg} border hover:border-orange-500/30 dark:hover:border-orange-500/30 hover:bg-white dark:hover:bg-slate-800/40 hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
 
     return (
         <div
@@ -109,59 +167,8 @@ export function StoryCard({
             onClick={() => onSelect && onSelect(story.id)}
             onContextMenu={handleContextMenu}
         >
-            {/* Action Buttons Container - Top Right - Subtler/Hover Only */}
-            <div className="absolute top-3 right-3 flex items-center gap-1.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                {!isWebPreview() && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab && onOpenInTab(story.id, 'split'); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all"
-                        title="Open in Tab"
-                    >
-                        <Columns size={14} />
-                    </button>
-                )}
-
-                <button
-                    onClick={(e) => { e.stopPropagation(); (window as any).electronAPI ? (window as any).electronAPI.openExternal(story.url) : window.open(story.url, '_blank'); }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                    title="Open in Browser"
-                >
-                    <ExternalLink size={14} />
-                </button>
-
-                <button
-                    onClick={(e) => { handleCopyLink(e); }}
-                    className={`p-1.5 rounded-lg transition-all ${isCopied ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                    title={isCopied ? 'Copied!' : 'Copy Link'}
-                >
-                    {isCopied ? <Check size={14} /> : <Link size={14} />}
-                </button>
-
-                <button
-                    onClick={(e) => { e.stopPropagation(); if (onToggleSave) onToggleSave(story.id, !saved); }}
-                    className={`p-1.5 rounded-lg transition-all ${saved
-                        ? 'text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-500/10'
-                        : onToggleSave 
-                            ? 'text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-                            : 'text-slate-200 dark:text-slate-800 cursor-not-allowed'
-                        }`}
-                    title={!onToggleSave ? 'Login to bookmark' : saved ? 'Unbookmark' : 'Bookmark'}
-                >
-                    <Bookmark size={14} fill={saved ? "currentColor" : "none"} />
-                </button>
-
-                {onHide && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onHide(story.id); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                        title="Hide Story"
-                    >
-                        <X size={14} />
-                    </button>
-                )}
-            </div>
-
-            <div className={`relative z-10 ${isSelected ? 'pr-6' : 'pr-8'}`}>
+            {/* Inline Actions Row - Prominent & Discoverable below title */}
+            <div className="relative z-10">
                 <div className="flex items-start gap-3">
                     {displayRank && (
                         <div className="flex flex-col items-center mt-0.5 shrink-0">
@@ -180,7 +187,7 @@ export function StoryCard({
                         </h3>
 
                         {/* Compact Metadata Row */}
-                        <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                        <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium pr-28">
                             {domain && (
                                 <div className="flex items-center gap-1.5">
                                     <img
@@ -198,10 +205,34 @@ export function StoryCard({
                                     <span>Ask HN</span>
                                 </div>
                             )}
-                            <span className="flex items-center gap-0.5 text-amber-500 dark:text-amber-400 font-bold">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
-                                {story.score}
-                            </span>
+                            <div className="relative flex items-center shrink-0">
+                                <div className="flex items-center gap-0.5 bg-slate-100/50 dark:bg-slate-800/30 rounded px-1.5 py-0.5 border border-slate-200/20 dark:border-slate-800/40">
+                                    <button
+                                        onClick={(e) => handleVote(e, 'up')}
+                                        disabled={voting}
+                                        title="Upvote story"
+                                        className={`transition-colors p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 ${voted === 'up' ? 'text-orange-500' : 'text-slate-400 hover:text-orange-500'}`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                                    </button>
+                                    <span className={`text-[11px] font-black select-none px-0.5 ${voted === 'up' ? 'text-orange-500' : voted === 'down' ? 'text-blue-500' : 'text-amber-500 dark:text-amber-400'}`}>
+                                        {localScore}
+                                    </span>
+                                    <button
+                                        onClick={(e) => handleVote(e, 'down')}
+                                        disabled={voting}
+                                        title="Downvote story"
+                                        className={`transition-colors p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 ${voted === 'down' ? 'text-blue-500' : 'text-slate-400 hover:text-blue-500'}`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                                    </button>
+                                </div>
+                                {voteError && (
+                                    <div className="absolute bottom-full mb-1.5 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-[100] animate-in fade-in zoom-in-95 duration-150">
+                                        {voteError}
+                                    </div>
+                                )}
+                            </div>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
                                 className={`flex items-center gap-0.5 transition-colors font-bold ${story.descendants > 0 ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400'}`}
@@ -268,6 +299,58 @@ export function StoryCard({
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Sleek Action Icons in the Bottom-Right Corner */}
+            <div className="absolute bottom-2 right-3 flex items-center gap-1 z-20">
+                {!isWebPreview() && onOpenInTab && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); }}
+                        className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title="Open in Tab"
+                    >
+                        <Columns size={12} />
+                    </button>
+                )}
+
+                <button
+                    onClick={(e) => { e.stopPropagation(); (window as any).electronAPI ? (window as any).electronAPI.openExternal(story.url) : window.open(story.url, '_blank'); }}
+                    className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-355 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    title="Open Website in Browser"
+                >
+                    <ExternalLink size={12} />
+                </button>
+
+                <button
+                    onClick={(e) => { handleCopyLink(e); }}
+                    className={`p-1 rounded transition-colors ${isCopied ? 'text-green-500 bg-green-50 dark:bg-green-950/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-355 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                    title={isCopied ? 'Copied!' : 'Copy Link'}
+                >
+                    {isCopied ? <Check size={12} /> : <Link size={12} />}
+                </button>
+
+                <button
+                    onClick={(e) => { e.stopPropagation(); if (onToggleSave) onToggleSave(story.id, !saved); }}
+                    className={`p-1 rounded transition-colors ${saved
+                        ? 'text-amber-500 bg-amber-50/80 dark:bg-amber-500/10'
+                        : onToggleSave 
+                            ? 'text-slate-400 dark:text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            : 'text-slate-200 dark:text-slate-800 cursor-not-allowed'
+                    }`}
+                    title={!onToggleSave ? 'Login to bookmark' : saved ? 'Unbookmark' : 'Bookmark'}
+                >
+                    <Bookmark size={12} fill={saved ? "currentColor" : "none"} />
+                </button>
+
+                {onHide && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onHide(story.id); }}
+                        className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors hover:bg-red-50/30 dark:hover:bg-red-950/10"
+                        title="Hide Story"
+                    >
+                        <X size={12} />
+                    </button>
+                )}
             </div>
 
 
