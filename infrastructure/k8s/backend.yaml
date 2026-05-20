@@ -25,6 +25,8 @@ spec:
       labels:
         app: backend
     spec:
+      nodeSelector:
+        agentpool: aipool
       containers:
         - name: backend
           image: myhnregistry270.azurecr.io/backend:latest

@@ -25,7 +25,7 @@ spec:
             - name: OLLAMA_URL
               value: "http://ollama-svc.default.svc.cluster.local:11434"
             - name: DISABLE_AI
-              value: "false"
+              value: "true"
           volumeMounts:
           - name: secrets-store-inline
             mountPath: "/mnt/secrets-store"

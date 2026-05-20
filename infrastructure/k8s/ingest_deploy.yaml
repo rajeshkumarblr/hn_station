@@ -45,7 +45,7 @@ spec:
         - name: OLLAMA_MODEL
           value: granite3.1-dense:2b
         - name: DISABLE_AI
-          value: "false"
+          value: "true"
         image: myhnregistry270.azurecr.io/backend:latest
         imagePullPolicy: Always
         name: ingest

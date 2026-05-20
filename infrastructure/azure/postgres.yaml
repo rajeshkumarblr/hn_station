@@ -43,6 +43,8 @@ spec:
       labels:
         app: postgres
     spec:
+      nodeSelector:
+        agentpool: aipool
       containers:
         - name: postgres
           image: pgvector/pgvector:pg16
