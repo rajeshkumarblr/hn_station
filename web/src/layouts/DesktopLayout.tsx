@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import pkg from '../../package.json';
-import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap, ChevronDown, Download } from 'lucide-react';
+import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getTagStyle } from '../utils/colors';
@@ -14,7 +14,7 @@ import { StatusBar } from '../components/StatusBar';
 import { MODES } from '../types';
 import { isElectron as getIsElectron, isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-
+ 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
         loading, mode, activeTopics,
@@ -31,6 +31,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         primaryTab, setPrimaryTab,
         disabledTopics, setDisabledTopics,
         fetchNextPage, fetchingMore,
+        theme, toggleTheme,
     } = app;
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
@@ -428,6 +429,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             Get Desktop App
                         </a>
                     )}
+                    <button 
+                        onClick={toggleTheme} 
+                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer mr-0.5" 
+                        title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                    >
+                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
                     <button 
                         onClick={() => setIsSettingsOpen(true)} 
                         className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors" 

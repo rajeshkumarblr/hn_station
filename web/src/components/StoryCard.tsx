@@ -150,14 +150,14 @@ export function StoryCard({
 
     // Unified card styling with hover lifting effect and alternating colors
     const cardBg = isEven
-        ? 'bg-white/70 dark:bg-slate-900/70 border-white/20 dark:border-slate-800/40'
-        : 'bg-slate-50/50 dark:bg-slate-950/40 border-white/10 dark:border-slate-800/20';
+        ? 'bg-white dark:bg-[#11192e] border-slate-200 dark:border-slate-800/60 shadow-sm'
+        : 'bg-slate-50/40 dark:bg-[#0a0f1d] border-slate-100 dark:border-slate-900/50';
 
     const activeBg = isHighlighted
-        ? `backdrop-blur-md ${cardBg} dark:from-lime-950/20 dark:to-slate-900/40 border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle`
+        ? `backdrop-blur-md bg-lime-500/5 dark:bg-[#182845] border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle`
         : isSelected
-            ? `backdrop-blur-md ${cardBg} border-l-[3px] border-l-orange-500 shadow-md`
-            : `backdrop-blur-md ${cardBg} border hover:border-orange-500/30 dark:hover:border-orange-500/30 hover:bg-white dark:hover:bg-slate-800/40 hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
+            ? `backdrop-blur-md bg-orange-500/5 dark:bg-[#1b2b4a] border-l-[3px] border-l-orange-500 shadow-md`
+            : `backdrop-blur-md ${cardBg} border hover:border-orange-500/30 dark:hover:border-orange-500/30 hover:bg-white dark:hover:bg-[#162744] hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
 
     return (
         <div
