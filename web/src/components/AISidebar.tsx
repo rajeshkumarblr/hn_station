@@ -531,14 +531,14 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                 )}
 
                                 {/* Top-Level Comment Submission Form */}
-                                <div className="p-4 bg-slate-50/50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 flex flex-col gap-2">
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Post a comment</h4>
+                                <div className="p-4 bg-slate-50/40 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-200/50 dark:border-slate-800/60 flex flex-col gap-2.5 transition-all duration-200 focus-within:border-orange-500/30 focus-within:ring-1 focus-within:ring-orange-500/10">
+                                    <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400 select-none">Post a comment</h4>
                                     <textarea
                                         value={topCommentText}
                                         onChange={(e) => setTopCommentText(e.target.value)}
                                         placeholder="Add to the discussion..."
                                         rows={3}
-                                        className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
+                                        className="w-full text-xs p-3 rounded-xl border border-slate-250 dark:border-slate-800 bg-white/70 dark:bg-slate-950/60 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500/80 outline-none transition-all resize-none shadow-sm"
                                     />
                                     {topCommentError && (
                                         <div className="text-[10px] text-red-500 font-bold flex items-center gap-1">
@@ -550,7 +550,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                         <button
                                             onClick={handleTopCommentSubmit}
                                             disabled={topCommentSubmitting || !topCommentText.trim()}
-                                            className="px-4 py-2 text-[10px] font-black text-white bg-[#ff6600] hover:bg-[#e65c00] rounded-xl disabled:opacity-50 transition-colors shadow-lg shadow-orange-500/10 flex items-center gap-1.5"
+                                            className="px-4.5 py-2.5 text-[9px] font-black tracking-wider uppercase text-white bg-gradient-to-r from-[#ff6600] to-[#ff8c3a] hover:from-[#e65c00] hover:to-[#e67e30] rounded-xl disabled:opacity-50 disabled:from-slate-400 disabled:to-slate-400 transition-all duration-200 shadow-md shadow-orange-500/15 active:scale-98 flex items-center gap-1.5 cursor-pointer"
                                         >
                                             {topCommentSubmitting ? 'Posting...' : 'SUBMIT COMMENT'}
                                         </button>

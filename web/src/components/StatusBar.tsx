@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
-import { Clock, Zap, Loader2, CheckCircle2 } from 'lucide-react';
+import { Clock, Zap, CheckCircle2 } from 'lucide-react';
 
 interface Status {
     next_refresh_at: string;
@@ -52,10 +52,12 @@ export function StatusBar() {
 
     if (error) {
         return (
-            <div className="h-7 bg-slate-50 dark:bg-[#0f172a] border-t border-slate-200 dark:border-slate-800 px-4 flex items-center justify-between text-[10px] font-bold uppercase">
-                <div className="flex items-center gap-2 text-slate-400">
-                    <CheckCircle2 size={11} className="text-indigo-500" />
-                    Web Preview Mode
+            <div className="h-7 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
+                <div className="flex items-center gap-2 text-slate-550 dark:text-slate-400">
+                    <span className="flex h-2 w-2 relative">
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span>Web Preview Mode</span>
                 </div>
                 <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400/80">
                     <span>HN Station</span>
@@ -66,9 +68,17 @@ export function StatusBar() {
 
     if (!status) {
         return (
-            <div className="h-7 bg-slate-50 dark:bg-[#0f172a] border-t border-slate-200 dark:border-slate-800 px-4 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
-                <Loader2 size={11} className="animate-spin" />
-                Connecting...
+            <div className="h-7 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
+                <div className="flex items-center gap-2 text-slate-550 dark:text-slate-400">
+                    <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                    <span>Connecting to local agent...</span>
+                </div>
+                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400/80">
+                    <span>HN Station</span>
+                </div>
             </div>
         );
     }

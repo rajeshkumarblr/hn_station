@@ -357,7 +357,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                 e.stopPropagation(); 
                                                 setActiveTopics(prev => prev.filter(x => x !== t));
                                                 setDisabledTopics(prev => prev.filter(x => x !== t));
-                                            }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer" />
+                                            }} className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer shrink-0" />
                                         </div>
                                     );
                                 })}
@@ -392,25 +392,25 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         </div>
                     )}
                     {!isElectron && isWebPreview() && (
-                        <div className="flex items-center bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner shrink-0 mr-2" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl p-1 text-[9px] font-black uppercase tracking-widest shadow-inner shrink-0 mr-2" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
                             <button 
                                 onClick={() => app.setTopicMatch('any')}
                                 title="Show stories that contain ANY of the selected topics"
-                                className={`px-1.5 py-0.5 rounded transition-all ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                             >
                                 Any
                             </button>
                             <button 
                                 onClick={() => app.setTopicMatch('all')}
                                 title="Show stories that contain ALL selected topics (AND logic)"
-                                className={`px-1.5 py-0.5 rounded transition-all ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                             >
                                 All
                             </button>
                             <button 
                                 onClick={() => app.setTopicMatch('exclusive')}
                                 title="Exclusive mode: Selecting a topic clears others"
-                                className={`px-1.5 py-0.5 rounded transition-all ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                             >
                                 Excl
                             </button>
@@ -551,7 +551,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                 e.stopPropagation(); 
                                                 setActiveTopics(prev => prev.filter(x => x !== t));
                                                 setDisabledTopics(prev => prev.filter(x => x !== t));
-                                            }} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer" />
+                                            }} className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer shrink-0" />
                                         </div>
                                     );
                                 })}

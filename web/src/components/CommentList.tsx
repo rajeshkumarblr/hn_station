@@ -157,77 +157,69 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                         }}
                         className={`hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded px-1.5 py-0.5 -ml-1 transition-colors cursor-pointer flex items-center gap-1.5 focus:outline-none ${isActive ? 'text-blue-600 dark:text-blue-300' : ''}`}
                         aria-expanded={!isCollapsed}
-                    >
-                        <span className="text-slate-400 dark:text-slate-500 font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-1 rounded-sm border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center shrink-0">
-                            {isCollapsed ? '[+]' : '[-]'}
+                    >                        <span className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 transition-transform duration-250 shrink-0">
+                            <ChevronDown size={12} className={`transition-transform duration-200 ${isCollapsed ? '-rotate-90 text-indigo-500' : ''}`} />
                         </span>
                         <span className={`font-bold ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-[#ff6600]'}`}>{comment.by}</span>
                         <span>{getTimeAgo(new Date(comment.time))}</span>
                     </button>
-
+ 
                     {isCollapsed && descendantCount > 0 && (
-                        <span className="text-slate-400 dark:text-slate-500">
-                            ({descendantCount} {descendantCount === 1 ? 'child' : 'children'})
+                        <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded text-slate-400 dark:text-slate-500 font-black tracking-wider uppercase">
+                            {descendantCount} {descendantCount === 1 ? 'reply' : 'replies'}
                         </span>
                     )}
                 </div>
-
-                {/* Body */}
+ 
                 {!isCollapsed && (
                     <div
                         className="font-reading text-slate-800 dark:text-slate-300 overflow-hidden break-words prose prose-sm dark:prose-invert max-w-none leading-relaxed [&>p]:mb-2 [&>pre]:bg-slate-100 dark:[&>pre]:bg-slate-800 [&>pre]:p-2 [&>pre]:overflow-x-auto [&>a]:text-blue-600 dark:[&>a]:text-indigo-400 hover:[&>a]:underline ml-5"
                         dangerouslySetInnerHTML={{ __html: comment.text }}
                     />
                 )}
-
-                {/* Actions Toolbar - Only shown if not collapsed */}
+ 
                 {!isCollapsed && (
-                    <div className="flex items-center gap-3 mt-1.5 ml-5 text-[10px] font-bold text-slate-400 select-none">
-                        {/* Upvote Button */}
+                    <div className="flex items-center gap-2 mt-2.5 ml-5 text-[10px] font-black tracking-wider uppercase text-slate-400 select-none">
                         <button
                             onClick={handleUpvote}
                             disabled={voting}
                             title="Upvote comment"
-                            className={`flex items-center gap-0.5 hover:text-orange-500 transition-colors p-0.5 rounded ${voted === 'up' ? 'text-orange-500 font-black' : ''}`}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 bg-slate-100/50 dark:bg-slate-800/40 hover:bg-slate-200/80 dark:hover:bg-slate-700/65 hover:text-orange-500 dark:hover:text-orange-400 transition-all rounded-full border border-slate-250/20 dark:border-slate-800/40 ${voted === 'up' ? 'text-orange-500 bg-orange-50/50 dark:bg-orange-950/20 border-orange-500/20 font-black' : ''}`}
                         >
-                            <ChevronUp size={12} />
+                            <ChevronUp size={11} />
                             <span>Upvote</span>
                         </button>
-
-                        {/* Downvote Button */}
+ 
                         <button
                             onClick={handleDownvote}
                             disabled={voting}
                             title="Downvote comment"
-                            className={`flex items-center gap-0.5 hover:text-blue-500 transition-colors p-0.5 rounded ${voted === 'down' ? 'text-blue-500 font-black' : ''}`}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 bg-slate-100/50 dark:bg-slate-800/40 hover:bg-slate-200/80 dark:hover:bg-slate-700/65 hover:text-blue-500 dark:hover:text-blue-400 transition-all rounded-full border border-slate-250/20 dark:border-slate-800/40 ${voted === 'down' ? 'text-blue-500 bg-blue-50/50 dark:bg-blue-950/20 border-blue-500/20 font-black' : ''}`}
                         >
-                            <ChevronDown size={12} />
+                            <ChevronDown size={11} />
                             <span>Downvote</span>
                         </button>
-
-                        {/* Reply Button */}
+ 
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsReplying(!isReplying);
                             }}
-                            className={`flex items-center gap-1 hover:text-indigo-500 transition-colors p-0.5 rounded ${isReplying ? 'text-indigo-500 font-black' : ''}`}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 bg-slate-100/50 dark:bg-slate-800/40 hover:bg-slate-200/80 dark:hover:bg-slate-700/65 hover:text-indigo-500 dark:hover:text-indigo-400 transition-all rounded-full border border-slate-250/20 dark:border-slate-800/40 ${isReplying ? 'text-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-500/20 font-black' : ''}`}
                         >
                             <MessageSquare size={10} />
                             <span>Reply</span>
                         </button>
-
-                        {/* Error Message */}
+ 
                         {voteError && (
-                            <span className="flex items-center gap-0.5 text-red-500 animate-pulse text-[9px]">
-                                <AlertCircle size={10} />
+                            <span className="flex items-center gap-1 text-red-500 animate-pulse text-[9px] px-2 py-1 rounded bg-red-550/10 border border-red-550/20">
+                                <AlertCircle size={10} className="shrink-0" />
                                 {voteError}
                             </span>
                         )}
                     </div>
                 )}
 
-                {/* Reply Form */}
                 {!isCollapsed && isReplying && (
                     <div className="mt-2.5 ml-5 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/50 dark:border-slate-800/40 flex flex-col gap-2 cursor-default" onClick={e => e.stopPropagation()}>
                         <textarea
@@ -291,12 +283,21 @@ export function CommentList({ comments, parentId, depth = 0, onCollapse, activeC
         return null;
     }
 
+    const lineColors = [
+        'bg-indigo-500/30 dark:bg-indigo-500/20',
+        'bg-emerald-500/30 dark:bg-emerald-500/20',
+        'bg-amber-500/30 dark:bg-amber-500/20',
+        'bg-rose-500/30 dark:bg-rose-500/20',
+        'bg-sky-500/30 dark:bg-sky-500/20',
+    ];
+    const lineColor = lineColors[(depth - 1) % lineColors.length];
+
     return (
         <div className={`flex flex-col gap-4 relative ${depth > 0 ? 'pl-4' : ''}`}>
             {/* Thread Line - Only for nested levels */}
             {depth > 0 && (
                 <div
-                    className="absolute left-0 top-0 bottom-0 w-[2px] bg-slate-200 dark:bg-slate-800/60 hover:bg-orange-400 dark:hover:bg-orange-500/80 cursor-pointer transition-all z-10 group/line"
+                    className={`absolute left-0 top-0 bottom-0 w-[2px] ${lineColor} hover:bg-orange-400 dark:hover:bg-orange-500/80 cursor-pointer transition-all z-10 group/line`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onCollapse?.();
