@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
+import { isWebPreview } from '../utils/env';
 import { Clock, Zap, CheckCircle2 } from 'lucide-react';
 
 interface Status {
@@ -17,6 +18,7 @@ export function StatusBar() {
     const [error, setError] = useState(false);
     const [retries, setRetries] = useState(0);
     const [baseUrl, setBaseUrl] = useState(getApiBase());
+    const isWeb = isWebPreview();
 
     useEffect(() => {
         return subscribeApiBase(url => {
@@ -25,7 +27,8 @@ export function StatusBar() {
     }, []);
 
     useEffect(() => {
-        if (!baseUrl) return; // Wait for base URL
+        // In web preview mode, don't poll /api/status — it will always fail
+        if (!baseUrl || isWeb) return;
 
         const fetchStatus = async () => {
             try {
@@ -48,9 +51,10 @@ export function StatusBar() {
         fetchStatus();
         const interval = setInterval(fetchStatus, 5000);
         return () => clearInterval(interval);
-    }, [baseUrl, retries]);
+    }, [baseUrl, retries, isWeb]);
 
-    if (error) {
+    // Web preview mode: always show a clean status immediately
+    if (isWeb || error) {
         return (
             <div className="h-7 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
                 <div className="flex items-center gap-2 text-slate-550 dark:text-slate-400">

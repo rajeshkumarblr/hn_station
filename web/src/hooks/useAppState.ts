@@ -277,48 +277,7 @@ export function useAppState() {
         localStorage.setItem('hn_disabled_topics', JSON.stringify(disabledTopics));
     }, [disabledTopics]);
 
-    useEffect(() => {
-        // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
-        if (isElectron() && (!apiBase || apiBase.includes('hnstation.dev'))) {
-            return;
-        }
 
-        // Auto-refresh polling (every 60s)
-        const autoRefreshInterval = setInterval(() => {
-            // Don't auto-refresh if user is busy with a search, loading, or in saved mode
-            if (searchQuery.trim() !== '' || loading || fetchingMore || currentView !== 'feed' || mode === 'saved') return;
-
-            const baseUrl = getApiBase();
-            const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
-            let url = `${baseUrl}/api/stories?limit=10&offset=0&sort=${mode}&topic_match=${topicMatch}`;
-            enabledTopics.forEach(t => url += `&topic=${encodeURIComponent(t)}`);
-
-            fetchWithAuth(url)
-                .then(res => res.json())
-                .then(data => {
-                    if (data && data.stories && data.stories.length > 0) {
-                        const currentTopId = storyBuffer[0]?.id;
-                        const newStories: Story[] = [];
-                        for (const s of data.stories) {
-                            if (s.id === currentTopId) break;
-                            if (!storyBuffer.some(os => os.id === s.id)) {
-                                newStories.push(s);
-                            }
-                        }
-
-                        if (newStories.length > 0) {
-                            console.log(`Auto-refresh: Found ${newStories.length} new stories`);
-                            // Prepend new stories and update total
-                            setStoryBuffer(prev => [...newStories, ...prev]);
-                            setTotalStories(prev => prev + newStories.length);
-                        }
-                    }
-                })
-                .catch(() => {});
-        }, 60000);
-
-        return () => clearInterval(autoRefreshInterval);
-    }, [apiBase, storyBuffer, searchQuery, loading, fetchingMore, currentView, mode, topicMatch, activeTopics, disabledTopics]);
 
     useEffect(() => {
         // Initial fetch
@@ -512,6 +471,67 @@ export function useAppState() {
             setStoryBuffer(prev => prev.map(s => s.id === id ? { ...s, is_read: true } : s));
         }
     }, [user, storyBuffer]);
+
+    useEffect(() => {
+        // Wait for apiBase to be resolved in Electron to avoid 401 on fallback
+        if (isElectron() && (!apiBase || apiBase.includes('hnstation.dev'))) {
+            return;
+        }
+
+        // Auto-refresh polling (every 60s)
+        const autoRefreshInterval = setInterval(() => {
+            // Don't auto-refresh if user is busy with a search, loading, or in saved mode
+            if (searchQuery.trim() !== '' || loading || fetchingMore || currentView !== 'feed' || mode === 'saved') return;
+
+            const baseUrl = getApiBase();
+            const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
+            let url = `${baseUrl}/api/stories?limit=10&offset=0&sort=${mode}&topic_match=${topicMatch}`;
+            enabledTopics.forEach(t => url += `&topic=${encodeURIComponent(t)}`);
+
+            fetchWithAuth(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.stories && data.stories.length > 0) {
+                        const currentTopId = storyBuffer[0]?.id;
+                        const newStories: Story[] = [];
+                        for (const s of data.stories) {
+                            if (s.id === currentTopId) break;
+                            if (!storyBuffer.some(os => os.id === s.id)) {
+                                newStories.push(s);
+                            }
+                        }
+
+                        if (newStories.length > 0) {
+                            console.log(`Auto-refresh: Found ${newStories.length} new stories`);
+                            // Prepend new stories and update total
+                            setStoryBuffer(prev => [...newStories, ...prev]);
+                            setTotalStories(prev => prev + newStories.length);
+
+                            // Trigger notifications for favorite topics if enabled
+                            const notificationsEnabled = localStorage.getItem('hn_notifications_enabled') === 'true';
+                            if (notificationsEnabled && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                                newStories.forEach(story => {
+                                    const matchedTopic = story.topics?.find(t => enabledTopics.some(et => et.toLowerCase() === t.toLowerCase()));
+                                    if (matchedTopic) {
+                                        const notification = new Notification(`New in #${matchedTopic}`, {
+                                            body: story.title,
+                                            icon: '/hn_256.png',
+                                        });
+                                        notification.onclick = () => {
+                                            window.focus();
+                                            handleStorySelect(Number(story.id));
+                                        };
+                                    }
+                                });
+                            }
+                        }
+                    }
+                })
+                .catch(() => {});
+        }, 60000);
+
+        return () => clearInterval(autoRefreshInterval);
+    }, [apiBase, storyBuffer, searchQuery, loading, fetchingMore, currentView, mode, topicMatch, activeTopics, disabledTopics, handleStorySelect]);
 
     const handleHideStory = useCallback((id: number) => {
         setStoryBuffer(prev => prev.filter(s => s.id !== id));

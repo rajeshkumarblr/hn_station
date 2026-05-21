@@ -123,7 +123,6 @@ export function StoryCard({
         }
     };
 
-    const displayRank = index !== undefined ? index + 1 : null;
     const dimmed = story.is_read || isRead;
     const saved = story.is_saved || false;
 
@@ -159,6 +158,17 @@ export function StoryCard({
             ? `backdrop-blur-md bg-orange-500/5 dark:bg-[#1b2b4a] border-l-[3px] border-l-orange-500 shadow-md`
             : `backdrop-blur-md ${cardBg} border hover:border-orange-500/30 dark:hover:border-orange-500/30 hover:bg-white dark:hover:bg-[#162744] hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
 
+    // Compute time-ago for the story
+    const timeAgo = (() => {
+        if (!story.time) return '';
+        const d = new Date(story.time);
+        const s = Math.floor((Date.now() - d.getTime()) / 1000);
+        if (s > 86400) return Math.floor(s / 86400) + 'd';
+        if (s > 3600) return Math.floor(s / 3600) + 'h';
+        if (s > 60) return Math.floor(s / 60) + 'm';
+        return s + 's';
+    })();
+
     return (
         <div
             id={`story-${story.id}`}
@@ -170,13 +180,6 @@ export function StoryCard({
             {/* Inline Actions Row - Prominent & Discoverable below title */}
             <div className="relative z-10">
                 <div className="flex items-start gap-3">
-                    {displayRank && (
-                        <div className="flex flex-col items-center mt-0.5 shrink-0">
-                            <div className="absolute left-[-45px] top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-slate-200/30 dark:bg-slate-800/30 text-[11px] font-bold text-slate-400/60 dark:text-slate-500/50 group-hover:bg-indigo-500/10 group-hover:text-indigo-400 transition-all">
-                                {displayRank}
-                            </div>
-                        </div>
-                    )}
                     <div className="flex-1">
                         <h3 className="text-[15px] leading-snug mb-1 font-bold whitespace-normal transition-all duration-200">
                             <span
@@ -188,6 +191,15 @@ export function StoryCard({
 
                         {/* Compact Metadata Row */}
                         <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium pr-28">
+                            {story.by && (
+                                <span className="font-bold text-orange-600/70 dark:text-[#ff6600]/70">{story.by}</span>
+                            )}
+                            {timeAgo && (
+                                <span className="text-slate-400/80 dark:text-slate-500/80">{timeAgo}</span>
+                            )}
+                            {(story.by || timeAgo) && (domain || (!domain && story.title.startsWith('Ask HN'))) && (
+                                <span className="text-slate-300 dark:text-slate-700">·</span>
+                            )}
                             {domain && (
                                 <div className="flex items-center gap-1.5">
                                     <img
@@ -196,7 +208,7 @@ export function StoryCard({
                                         className="w-3.5 h-3.5 rounded-sm grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all"
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                     />
-                                    <span className="truncate max-w-[120px] text-slate-300 dark:text-slate-400 font-bold">{domain}</span>
+                                    <span className="truncate max-w-[120px] text-slate-400 dark:text-slate-400 font-bold">{domain}</span>
                                 </div>
                             )}
                             {!domain && story.title.startsWith('Ask HN') && (

@@ -550,9 +550,9 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                         <button
                                             onClick={handleTopCommentSubmit}
                                             disabled={topCommentSubmitting || !topCommentText.trim()}
-                                            className="px-4.5 py-2.5 text-[9px] font-black tracking-wider uppercase text-white bg-gradient-to-r from-[#ff6600] to-[#ff8c3a] hover:from-[#e65c00] hover:to-[#e67e30] rounded-xl disabled:opacity-50 disabled:from-slate-400 disabled:to-slate-400 transition-all duration-200 shadow-md shadow-orange-500/15 active:scale-98 flex items-center gap-1.5 cursor-pointer"
+                                            className="px-4 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 rounded-lg transition-all shadow-sm cursor-pointer"
                                         >
-                                            {topCommentSubmitting ? 'Posting...' : 'SUBMIT COMMENT'}
+                                            {topCommentSubmitting ? 'Posting...' : 'Post'}
                                         </button>
                                     </div>
                                 </div>

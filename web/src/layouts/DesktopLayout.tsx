@@ -112,6 +112,41 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         };
     }, [isResizing, resize, stopResizing]);
 
+    // OS-aware installer download logic
+    const { downloadUrl, downloadLabel, isDesktopOS } = (() => {
+        const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
+        const platform = typeof window !== 'undefined' ? (window.navigator.platform || '') : '';
+        
+        let os: 'Windows' | 'macOS' | 'Linux' | 'mobile' | 'unknown' = 'unknown';
+        
+        if (/Mac|Macintosh|MacIntel|MacPPC|Mac68K/.test(platform) || /Macintosh|Mac OS X/.test(userAgent)) {
+            os = 'macOS';
+        } else if (/Win|Win32|Win64|Windows|WinCE/.test(platform) || /Windows/.test(userAgent)) {
+            os = 'Windows';
+        } else if (/Android|iPhone|iPad|iPod/.test(userAgent) || /iPhone|iPad|iPod/.test(platform)) {
+            os = 'mobile';
+        } else if (/Linux/.test(platform) || /Linux/.test(userAgent)) {
+            os = 'Linux';
+        }
+        
+        let url = 'https://github.com/rajeshkumarblr/hn_station';
+        let label = 'Get Desktop App';
+        const isDesktop = os === 'Windows' || os === 'macOS' || os === 'Linux';
+        
+        if (os === 'Windows') {
+            url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/HN%20Station%20Setup%200.10.0.exe';
+            label = 'Get for Windows';
+        } else if (os === 'macOS') {
+            url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/HN-Station-0.10.0.dmg';
+            label = 'Get for macOS';
+        } else if (os === 'Linux') {
+            url = 'https://github.com/rajeshkumarblr/hn_station/releases/latest';
+            label = 'Get for Linux';
+        }
+        
+        return { downloadUrl: url, downloadLabel: label, isDesktopOS: isDesktop };
+    })();
+
     const parentRef = useRef<HTMLDivElement>(null);
 
     const virtualizer = useVirtualizer({
@@ -306,6 +341,15 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     }}
                                     className="bg-transparent border-none outline-none text-[11px] font-bold ml-1.5 w-24 focus:w-36 transition-all placeholder:text-slate-500 dark:placeholder:text-slate-600 text-slate-800 dark:text-slate-200"
                                 />
+                                {app.searchQuery && (
+                                    <button
+                                        onClick={() => app.setSearchQuery('')}
+                                        className="ml-1 p-0.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
+                                        title="Clear filter"
+                                    >
+                                        <X size={10} />
+                                    </button>
+                                )}
                             </div>
 
                             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 min-w-0">
@@ -363,6 +407,30 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     );
                                 })}
                             </div>
+
+                                <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/60 rounded-xl p-0.5 text-[9px] font-black uppercase tracking-widest shadow-inner shrink-0 ml-1.5" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
+                                    <button 
+                                        onClick={() => app.setTopicMatch('any')}
+                                        title="Show stories that contain ANY of the selected topics"
+                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    >
+                                        Any
+                                    </button>
+                                    <button 
+                                        onClick={() => app.setTopicMatch('all')}
+                                        title="Show stories that contain ALL selected topics (AND logic)"
+                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    >
+                                        All
+                                    </button>
+                                    <button 
+                                        onClick={() => app.setTopicMatch('exclusive')}
+                                        title="Exclusive mode: Selecting a topic clears others"
+                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    >
+                                        Excl
+                                    </button>
+                                </div>
                         </>
                     )}
                 </div>
@@ -393,40 +461,18 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         </div>
                     )}
                     {!isElectron && isWebPreview() && (
-                        <div className="flex items-center bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl p-1 text-[9px] font-black uppercase tracking-widest shadow-inner shrink-0 mr-2" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
-                            <button 
-                                onClick={() => app.setTopicMatch('any')}
-                                title="Show stories that contain ANY of the selected topics"
-                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-                            >
-                                Any
-                            </button>
-                            <button 
-                                onClick={() => app.setTopicMatch('all')}
-                                title="Show stories that contain ALL selected topics (AND logic)"
-                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-                            >
-                                All
-                            </button>
-                            <button 
-                                onClick={() => app.setTopicMatch('exclusive')}
-                                title="Exclusive mode: Selecting a topic clears others"
-                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-                            >
-                                Excl
-                            </button>
-                        </div>
+                        <div className="w-0" />
                     )}
-                    {!isElectron && (
+                    {!isElectron && isDesktopOS && (
                         <a
-                            href="https://github.com/rajeshkumarblr/hn_station"
+                            href={downloadUrl}
                             target="_blank"
                             rel="noreferrer"
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[10px] font-black rounded-full shadow-sm hover:shadow-lg transition-all uppercase tracking-wider shrink-0 active:scale-[0.98] mr-2"
                             title="Desktop App has IDE like split pane view for articles and AI summary."
                         >
                             <Download size={11} />
-                            Get Desktop App
+                            {downloadLabel}
                         </a>
                     )}
                     <button 

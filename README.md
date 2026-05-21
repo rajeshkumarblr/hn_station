@@ -65,6 +65,7 @@ A local-first Hacker News desktop client. Read articles and comments side by sid
 - **Feed Voting** — Upvote and downvote stories directly from the story card in the feed with live score updating.
 - **Discussion Voting & Nested Replies** — Upvote/downvote comments and write nested replies directly in the discussion view.
 - **Top-level posting** — Submit top-level comments to Hacker News threads directly from the AI sidebar.
+- **Desktop Notifications for Favorite Topics** — Enable desktop notifications in UI Settings to receive native alerts when new stories matching your active/favorite topics are fetched. Clicking the notification focuses the app and opens the story automatically.
 
 ### Privacy Engine
 - Request-level ad and tracker blocking

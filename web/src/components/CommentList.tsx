@@ -173,13 +173,13 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
  
                 {!isCollapsed && (
                     <div
-                        className="font-reading text-slate-800 dark:text-slate-300 overflow-hidden break-words prose prose-sm dark:prose-invert max-w-none leading-relaxed [&>p]:mb-2 [&>pre]:bg-slate-100 dark:[&>pre]:bg-slate-800 [&>pre]:p-2 [&>pre]:overflow-x-auto [&>a]:text-blue-600 dark:[&>a]:text-indigo-400 hover:[&>a]:underline ml-5"
+                        className="font-reading text-[14px] text-slate-800 dark:text-slate-300 overflow-hidden break-words prose prose-base dark:prose-invert max-w-none leading-relaxed [&>p]:mb-2 [&>pre]:bg-slate-100 dark:[&>pre]:bg-slate-800 [&>pre]:p-2 [&>pre]:overflow-x-auto [&>a]:text-blue-600 dark:[&>a]:text-indigo-400 hover:[&>a]:underline ml-5"
                         dangerouslySetInnerHTML={{ __html: comment.text }}
                     />
                 )}
  
                 {!isCollapsed && (
-                    <div className="flex items-center gap-2 mt-2.5 ml-5 text-[10px] font-black tracking-wider uppercase text-slate-400 select-none">
+                    <div className="flex items-center gap-2 mt-2.5 ml-5 text-[11px] font-black tracking-wider uppercase text-slate-400 select-none">
                         <button
                             onClick={handleUpvote}
                             disabled={voting}
@@ -239,9 +239,9 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                             <button
                                 onClick={handleReplySubmit}
                                 disabled={replying || !replyText.trim()}
-                                className="px-3 py-1.5 text-[10px] font-black text-white bg-[#ff6600] hover:bg-[#e65c00] rounded-lg disabled:opacity-50 transition-colors shadow-sm"
+                                className="px-3 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 rounded-lg transition-colors shadow-sm cursor-pointer"
                             >
-                                {replying ? 'Submitting...' : 'SUBMIT REPLY'}
+                                {replying ? 'Posting...' : 'Post'}
                             </button>
                             <button
                                 onClick={() => {
@@ -249,9 +249,9 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                                     setReplyText('');
                                     setReplyError(null);
                                 }}
-                                className="px-3 py-1.5 text-[10px] font-black text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/60 rounded-lg transition-colors"
+                                className="px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700/60 rounded-lg transition-colors cursor-pointer"
                             >
-                                CANCEL
+                                Cancel
                             </button>
                         </div>
                     </div>
@@ -293,7 +293,7 @@ export function CommentList({ comments, parentId, depth = 0, onCollapse, activeC
     const lineColor = lineColors[(depth - 1) % lineColors.length];
 
     return (
-        <div className={`flex flex-col gap-4 relative ${depth > 0 ? 'pl-4' : ''}`}>
+        <div className={`flex flex-col gap-4 relative ${depth > 0 ? (depth >= 5 ? 'pl-2' : 'pl-4') : ''}`}>
             {/* Thread Line - Only for nested levels */}
             {depth > 0 && (
                 <div

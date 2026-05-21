@@ -3,7 +3,7 @@ import { getApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
 import { getClientAISettings, saveClientAISettings } from '../utils/aiClient';
-import { X, Save, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap, Sparkles, User } from 'lucide-react';
+import { X, Save, Monitor, Cpu, Keyboard, Moon, Sun, Layout, MessageSquare, Split, Zap, Sparkles, User, Bell } from 'lucide-react';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -34,6 +34,29 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const [hnUsername, setHnUsername] = useState('');
     const [hnPassword, setHnPassword] = useState('');
 
+    const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+        return localStorage.getItem('hn_notifications_enabled') === 'true';
+    });
+
+    const handleToggleNotifications = () => {
+        if (!notificationsEnabled) {
+            if (typeof window !== 'undefined' && 'Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        setNotificationsEnabled(true);
+                    } else {
+                        setNotificationsEnabled(false);
+                        alert('Notification permission denied. Please enable notifications in your browser settings to use this feature.');
+                    }
+                });
+            } else {
+                alert('Notifications are not supported in this browser.');
+            }
+        } else {
+            setNotificationsEnabled(false);
+        }
+    };
+
     // Context from window or props for theme and reader mode
     // Note: In a real app we'd use useAppState, but we are keeping this somewhat self-contained
     // for now as it's triggered from DesktopLayout.
@@ -55,6 +78,7 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
             setClientOllamaUrl(clientSettings.ollamaUrl);
             setHnUsername(localStorage.getItem('hn_username') || '');
             setHnPassword(localStorage.getItem('hn_password') || '');
+            setNotificationsEnabled(localStorage.getItem('hn_notifications_enabled') === 'true');
         }
     }, [isOpen, user]);
 
@@ -95,6 +119,7 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
 
             localStorage.setItem('hn_username', hnUsername);
             localStorage.setItem('hn_password', hnPassword);
+            localStorage.setItem('hn_notifications_enabled', notificationsEnabled ? 'true' : 'false');
 
             // Apply theme change locally
             if (theme === 'dark') {
@@ -286,6 +311,24 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                                 <span className={`text-sm font-bold ${theme === 'dark' ? 'text-orange-600' : 'text-slate-500'}`}>Dark</span>
                                             </button>
                                         </div>
+                                    </div>
+
+                                    {/* Desktop Notifications Toggle */}
+                                    <div className="flex items-center justify-between p-5 bg-blue-500/5 dark:bg-blue-500/10 rounded-2xl border border-blue-200 dark:border-blue-500/20">
+                                        <div className="space-y-1">
+                                            <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                                <Bell size={16} className="text-blue-500" />
+                                                Desktop Notifications
+                                            </h4>
+                                            <p className="text-[11px] text-slate-500 leading-tight">Notify me of new stories matching my active/favorite topics.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleToggleNotifications}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all ${notificationsEnabled ? 'bg-blue-600 shadow-md shadow-blue-600/20' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
                                     </div>
 
                                     {/* Default View - Hidden in Web Preview */}
