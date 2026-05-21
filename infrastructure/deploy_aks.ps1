@@ -9,9 +9,15 @@ $ACR_SERVER = "${ACR_NAME}.azurecr.io"
 
 Write-Host "1. Logging into ACR..." -ForegroundColor Cyan
 docker system prune -af
-# Continue even if prune fails
 if ($LASTEXITCODE -ne 0) { Write-Host "Docker prune failed but continuing..." -ForegroundColor Yellow }
-if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
+
+Write-Host "Retrieving ACR Refresh Token..." -ForegroundColor Cyan
+$token = (az acr login --name $ACR_NAME --expose-token --output tsv --query accessToken)
+if ($LASTEXITCODE -ne 0) { throw "Retrieving ACR Token failed" }
+
+Write-Host "Logging into Docker Registry..." -ForegroundColor Cyan
+$token | docker login $ACR_SERVER -u "00000000-0000-0000-0000-000000000000" --password-stdin
+if ($LASTEXITCODE -ne 0) { throw "ACR Docker login failed" }
 
 Write-Host "2. Building and Pushing Backend..." -ForegroundColor Cyan
 docker build --no-cache --pull -t "${ACR_SERVER}/backend:latest" -f Dockerfile.backend .
