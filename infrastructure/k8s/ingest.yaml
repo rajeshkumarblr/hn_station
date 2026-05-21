@@ -26,17 +26,17 @@ spec:
               value: "http://ollama-svc.default.svc.cluster.local:11434"
             - name: DISABLE_AI
               value: "true"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "300m"
+              memory: "512Mi"
           volumeMounts:
           - name: secrets-store-inline
             mountPath: "/mnt/secrets-store"
             readOnly: true
-            resources:
-              requests:
-                cpu: "100m"
-                memory: "256Mi"
-              limits:
-                cpu: "300m"
-                memory: "512Mi"
       volumes:
         - name: secrets-store-inline
           csi:

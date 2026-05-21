@@ -8,17 +8,19 @@ $ACR_NAME = "myhnregistry270"
 $ACR_SERVER = "${ACR_NAME}.azurecr.io"
 
 Write-Host "1. Logging into ACR..." -ForegroundColor Cyan
-az acr login --name $ACR_NAME
+docker system prune -af
+# Continue even if prune fails
+if ($LASTEXITCODE -ne 0) { Write-Host "Docker prune failed but continuing..." -ForegroundColor Yellow }
 if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
 
 Write-Host "2. Building and Pushing Backend..." -ForegroundColor Cyan
-docker build --no-cache -t "${ACR_SERVER}/backend:latest" -f Dockerfile.backend .
+docker build --no-cache --pull -t "${ACR_SERVER}/backend:latest" -f Dockerfile.backend .
 if ($LASTEXITCODE -ne 0) { throw "Docker build backend failed" }
 docker push "${ACR_SERVER}/backend:latest"
 if ($LASTEXITCODE -ne 0) { throw "Docker push backend failed" }
 
 Write-Host "3. Building and Pushing Frontend..." -ForegroundColor Cyan
-docker build --no-cache -t "${ACR_SERVER}/frontend:latest" -f web/Dockerfile ./web
+docker build --no-cache --pull -t "${ACR_SERVER}/frontend:latest" -f web/Dockerfile ./web
 if ($LASTEXITCODE -ne 0) { throw "Docker build frontend failed" }
 docker push "${ACR_SERVER}/frontend:latest"
 if ($LASTEXITCODE -ne 0) { throw "Docker push frontend failed" }

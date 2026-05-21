@@ -8,6 +8,10 @@ ACR_SERVER="${ACR_NAME}.azurecr.io"
 echo "1. Logging into ACR..."
 az acr login --name $ACR_NAME
 
+echo "Cleaning Docker cache..."
+# Remove dangling images and build cache to avoid snapshot errors
+docker system prune -af || true
+
 echo "2. Building and Pushing Backend..."
 docker build --no-cache -t $ACR_SERVER/backend:latest -f Dockerfile.backend .
 docker push $ACR_SERVER/backend:latest
