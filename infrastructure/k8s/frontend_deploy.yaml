@@ -12,6 +12,8 @@ spec:
       labels:
         app: frontend
     spec:
+      nodeSelector:
+        agentpool: aipool
       containers:
       - image: myhnregistry270.azurecr.io/frontend:latest
         imagePullPolicy: Always
