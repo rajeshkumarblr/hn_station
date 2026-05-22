@@ -17,6 +17,7 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
         readIds, currentView,
         handleBack, handleHome,
         isWebMode,
+        handleStorySelect,
     } = app;
 
     return (
@@ -113,6 +114,7 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                                         key={story.id}
                                         onClick={() => {
                                             // On mobile, interacting always opens the reader view
+                                            handleStorySelect(story.id);
                                             setCurrentView('reader');
                                         }}
                                         className={`w-full p-2 active:bg-slate-800/50 transition-colors ${isRead ? 'opacity-80' : ''}`}
@@ -120,6 +122,7 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
                                     >
                                         <StoryCard
                                             story={story} index={index} isSelected={false} isRead={isRead} isEven={index % 2 === 0}
+                                            onSelect={handleStorySelect}
                                             onToggleSave={(isWebMode || user) ? handleToggleSave : undefined} onHide={handleHideStory}
                                         />
                                     </div>
