@@ -406,7 +406,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
     return (
         <div 
             className="h-full flex flex-col bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-2xl border-l border-slate-200/50 dark:border-white/5 shadow-2xl relative transition-all duration-300 ease-in-out"
-            style={isWebPreview() ? {
+            style={(isWebPreview() || (typeof window !== 'undefined' && window.innerWidth < 768)) ? {
                 display: isOpen ? 'flex' : 'none',
                 width: '100%',
                 minWidth: '100%',
@@ -418,7 +418,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
             }}
         >
             {/* Header / Tabs Unified */}
-            {!isWebPreview() && (
+            {(!isWebPreview() || (typeof window !== 'undefined' && window.innerWidth < 768)) && (
                 <div className="flex items-center justify-between px-2 bg-slate-50/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
                     <div className="flex flex-1 overflow-x-auto no-scrollbar">
                         <>
@@ -452,12 +452,14 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                         >
                             <RefreshCw size={14} />
                         </button>
-                        <button 
-                            onClick={onClose}
-                            className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
-                        >
-                            <X size={18} />
-                        </button>
+                        {!(typeof window !== 'undefined' && window.innerWidth < 768) && (
+                            <button 
+                                onClick={onClose}
+                                className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

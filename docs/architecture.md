@@ -2,7 +2,7 @@
 
 > Live at **[hnstation.dev](https://hnstation.dev)** · [README](README.md) · [Source](https://github.com/rajeshkumarblr/hn_station)
 
-![Screenshot](screenshot.png)
+![Screenshot](../screenshots/screenshot.png)
 
 HN Station is a high-performance Hacker News reader featuring a dual-mode architecture: a **Cloud-based Web Version** (AKS) and a **Local-First Desktop Client** (Electron). It provides rich AI summaries, advanced story extraction (including PDF and GitHub READMEs), and a seamless split-pane workspace.
 

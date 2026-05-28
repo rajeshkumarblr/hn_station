@@ -58,6 +58,37 @@ export function ReaderPane({
     const [iframeBlocked, setIframeBlocked] = useState<boolean>(story.iframe_blocked || false);
     const [sidebarTab, setSidebarTab] = useState<'discussion' | 'summary' | 'ai'>('discussion');
 
+    const [isMobileView, setIsMobileView] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+    const [mobileTab, setMobileTab] = useState<'article' | 'comments' | 'ai'>('comments');
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobileView(window.innerWidth < 768);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        setMobileTab('comments');
+    }, [story.id]);
+
+    useEffect(() => {
+        if (mobileTab === 'ai' && sidebarTab === 'discussion') {
+            setSidebarTab('ai');
+        } else if (mobileTab === 'comments' && sidebarTab !== 'discussion') {
+            setSidebarTab('discussion');
+        }
+    }, [mobileTab]);
+
+    useEffect(() => {
+        if (sidebarTab === 'discussion') {
+            setMobileTab('comments');
+        } else if (sidebarTab === 'ai' || sidebarTab === 'summary') {
+            setMobileTab('ai');
+        }
+    }, [sidebarTab]);
+
     const [isCopied, setIsCopied] = useState(false);
     
     // Sidebar resizing state
@@ -614,8 +645,12 @@ export function ReaderPane({
                 )}
                 
                 {/* Article Content */}
-                {!isWebMode && (
-                    <div ref={paneRef} className="flex-1 bg-white relative overflow-hidden h-full">
+                {(!isWebMode || (isMobileView && mobileTab === 'article')) && (
+                    <div 
+                        ref={paneRef} 
+                        className="flex-1 bg-white relative overflow-hidden h-full"
+                        style={isMobileView && mobileTab !== 'article' ? { display: 'none' } : undefined}
+                    >
                         {!isWebMode ? (
                             <webview
                                 ref={articleWebviewRef}
@@ -624,15 +659,15 @@ export function ReaderPane({
                                 title="Article Web View"
                             />
                         ) : iframeBlocked ? (
-                            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-900/50">
-                                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-[#0f172a]">
+                                <div className="w-16 h-16 bg-red-100 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-4">
                                     <ExternalLink size={32} className="text-red-500" />
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Iframe Preview Blocked</h3>
                                 <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm text-sm">
-                                    This website prohibits being nested in other apps. Please use the Discussion tab on the right to read the conversation.
+                                    This website prohibits being nested in other apps. Please use the comments or AI summaries on other tabs, or open the link below.
                                 </p>
-                                <a href={storyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all">
+                                <a href={storyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-lg shadow-orange-500/20 transition-all">
                                     Open Original Article <ExternalLink size={14} />
                                 </a>
                             </div>
@@ -659,7 +694,7 @@ export function ReaderPane({
 
                 <AISidebar
                     story={story}
-                    isOpen={isWebMode ? true : isAISidebarOpen}
+                    isOpen={isMobileView ? (mobileTab !== 'article') : (isWebMode ? true : isAISidebarOpen)}
                     onClose={() => onToggleAISidebar?.(false)}
                     user={user}
                     onSetSummary={(summary, topics) => {
@@ -689,6 +724,68 @@ export function ReaderPane({
                     topicMatch={topicMatch}
                 />
             </div>
+
+            {/* Mobile Bottom Navigation Bar */}
+            {isMobileView && (
+                <div className="flex items-center justify-around bg-white/95 dark:bg-[#0c1020]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800/80 px-4 py-2 shrink-0 z-50 shadow-2xl relative select-none">
+                    <button
+                        onClick={() => setMobileTab('article')}
+                        className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all duration-300 relative ${mobileTab === 'article' ? 'text-orange-500 font-bold scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    >
+                        <FileText size={18} />
+                        <span className="text-[10px] tracking-wide">Article</span>
+                        {mobileTab === 'article' && (
+                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-1 bg-orange-500 rounded-full" />
+                        )}
+                    </button>
+                    <button
+                        onClick={() => {
+                            setMobileTab('comments');
+                            setSidebarTab('discussion');
+                        }}
+                        className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all duration-300 relative ${mobileTab === 'comments' && sidebarTab === 'discussion' ? 'text-orange-500 font-bold scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    >
+                        <MessageSquare size={18} />
+                        <span className="text-[10px] tracking-wide">Comments</span>
+                        {mobileTab === 'comments' && sidebarTab === 'discussion' && (
+                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-1 bg-orange-500 rounded-full" />
+                        )}
+                    </button>
+                    <button
+                        onClick={() => {
+                            setMobileTab('ai');
+                            setSidebarTab('ai');
+                        }}
+                        className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all duration-300 relative ${mobileTab === 'ai' || (mobileTab === 'comments' && sidebarTab === 'ai') ? 'text-orange-500 font-bold scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                    >
+                        <Sparkles size={18} />
+                        <span className="text-[10px] tracking-wide">AI</span>
+                        {(mobileTab === 'ai' || (mobileTab === 'comments' && sidebarTab === 'ai')) && (
+                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-1 bg-orange-500 rounded-full" />
+                        )}
+                    </button>
+
+                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-800" />
+
+                    {onToggleSave && (
+                        <button
+                            onClick={() => onToggleSave(story.id, !story.is_saved)}
+                            className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all duration-300 ${story.is_saved ? 'text-amber-500 scale-105' : 'text-slate-400 hover:text-amber-500'}`}
+                        >
+                            <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
+                            <span className="text-[10px] tracking-wide">{story.is_saved ? 'Saved' : 'Save'}</span>
+                        </button>
+                    )}
+                    
+                    <button
+                        onClick={() => window.open(storyUrl, '_blank')}
+                        className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl text-slate-400 hover:text-orange-500 transition-all duration-300"
+                    >
+                        <ExternalLink size={18} />
+                        <span className="text-[10px] tracking-wide">Open</span>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

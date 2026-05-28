@@ -143,26 +143,28 @@ export function MobileLayout({ app }: { app: ReturnType<typeof import('../hooks/
             </div>
 
             {/* ─── Bottom Navigation Bar ─── */}
-            <nav className="fixed bottom-0 w-full h-[65px] bg-[#1a2332] border-t border-slate-700/80 flex items-center justify-around pb-safe px-2 z-50">
-                {MODES.map((m) => {
-                    const isActive = mode === m.key && currentView !== 'reader';
-                    const Icon = m.key === 'saved' ? Bookmark : m.key === 'show' ? Settings : Home; // Map simplified icons
-                    return (
-                        <button
-                            key={m.key}
-                            onClick={() => {
-                                setMode(m.key as any);
-                                setOffset?.(0);
-                                setCurrentView('feed');
-                            }}
-                            className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${isActive ? 'text-orange-500' : 'text-slate-500 hover:text-slate-300'}`}
-                        >
-                            <Icon size={20} className={isActive ? 'fill-orange-500/20' : ''} />
-                            <span className="text-[10px] font-medium">{m.label}</span>
-                        </button>
-                    );
-                })}
-            </nav>
+            {currentView !== 'reader' && (
+                <nav className="fixed bottom-0 w-full h-[65px] bg-[#1a2332] border-t border-slate-700/80 flex items-center justify-around pb-safe px-2 z-50">
+                    {MODES.map((m) => {
+                        const isActive = mode === m.key;
+                        const Icon = m.key === 'saved' ? Bookmark : m.key === 'show' ? Settings : Home; // Map simplified icons
+                        return (
+                            <button
+                                key={m.key}
+                                onClick={() => {
+                                    setMode(m.key as any);
+                                    setOffset?.(0);
+                                    setCurrentView('feed');
+                                }}
+                                className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${isActive ? 'text-orange-500' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                <Icon size={20} className={isActive ? 'fill-orange-500/20' : ''} />
+                                <span className="text-[10px] font-medium">{m.label}</span>
+                            </button>
+                        );
+                    })}
+                </nav>
+            )}
 
         </div>
     );

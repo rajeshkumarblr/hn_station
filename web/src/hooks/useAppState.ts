@@ -157,7 +157,16 @@ export function useAppState() {
     const [hiddenStories, setHiddenStories] = useState<Set<number>>(loadHiddenIds);
 
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [currentView, setCurrentView] = useState<'feed' | 'reader' | 'admin'>(loadPersistedCurrentView);
+    const [currentView, setCurrentView] = useState<'feed' | 'reader' | 'admin'>(() => {
+        const persisted = loadPersistedCurrentView();
+        // Guard: if persisted view is 'reader' but there are no tabs, reset to 'feed'
+        // to prevent a blank page for fresh visitors or after localStorage gets stale.
+        if (persisted === 'reader') {
+            const hasTabs = loadPersistedTabs().length > 0;
+            if (!hasTabs) return 'feed';
+        }
+        return persisted;
+    });
     const [isFilterActive, setIsFilterActive] = useState(() => {
         try {
             const saved = localStorage.getItem('hn_filter_active');
@@ -420,7 +429,8 @@ export function useAppState() {
 
         // In Web Preview mode, always open story.url in a new browser tab
         // and highlight the story on the right-hand comments workspace
-        if (isWebPreview()) {
+        // EXCEPT on mobile screens where we want to open the in-app Reader.
+        if (isWebPreview() && !(typeof window !== 'undefined' && window.innerWidth < 768)) {
             if (story.url) {
                 window.open(story.url, '_blank');
             }

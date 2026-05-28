@@ -1,6 +1,6 @@
 # HN Station — Design Document
 
-> **Version**: 0.9.6 · **Last Updated**: 2026-04-30
+> **Version**: 0.10.0 · **Last Updated**: 2026-05-28
 > Live at [hnstation.dev](https://hnstation.dev)
 
 This document captures the **architectural decisions, design rationale, and operational constraints** that govern HN Station. It serves as the source of truth for the project's evolution from a cloud-first reader to a local-first productivity tool.
