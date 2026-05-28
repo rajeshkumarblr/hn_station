@@ -461,7 +461,16 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         </div>
                     )}
                     {!isElectron && isWebPreview() && (
-                        <div className="w-0" />
+                        <a
+                            href="https://github.com/rajeshkumarblr/hn_station"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300/50 dark:hover:bg-slate-700/50 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-full shadow-sm hover:shadow-md transition-all uppercase tracking-wider shrink-0 active:scale-[0.98] mr-1"
+                            title="View source code on GitHub"
+                        >
+                            <Github size={13} />
+                            <span className="hidden sm:inline">GitHub</span>
+                        </a>
                     )}
                     {!isElectron && isDesktopOS && (
                         <a

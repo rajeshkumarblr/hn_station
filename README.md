@@ -9,6 +9,8 @@
 
 A local-first Hacker News desktop client. Read articles and comments side by side, get AI-powered summaries, and keep a searchable archive — all on your machine.
 
+### 🔗 [Try it live → hnstation.dev](https://hnstation.dev)
+
 ![Workflow Demo](screenshots/workflow_demo.gif)
 
 ---
