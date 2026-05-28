@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import pkg from '../../package.json';
-import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon } from 'lucide-react';
+import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon, Github } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getTagStyle } from '../utils/colors';
