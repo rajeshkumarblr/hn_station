@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import pkg from '../../package.json';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
 import { isWebPreview } from '../utils/env';
-import { Clock, Zap, CheckCircle2 } from 'lucide-react';
+import { Clock, Zap, CheckCircle2, Github } from 'lucide-react';
 
 interface Status {
     next_refresh_at: string;
@@ -63,8 +64,18 @@ export function StatusBar() {
                     </span>
                     <span>Web Preview Mode</span>
                 </div>
-                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400/80">
-                    <span>HN Station</span>
+                <div className="flex items-center gap-4 text-indigo-600 dark:text-indigo-400/80">
+                    <span>HN Station v{pkg.version}</span>
+                    <a
+                        href="https://github.com/rajeshkumarblr/hn_station"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 text-slate-400 hover:text-orange-500 transition-colors normal-case tracking-normal"
+                        title="View source on GitHub"
+                    >
+                        <Github size={13} />
+                        <span className="text-[9px] font-bold">GitHub</span>
+                    </a>
                 </div>
             </div>
         );
@@ -125,7 +136,7 @@ export function StatusBar() {
 
             <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400/80">
                 <CheckCircle2 size={12} />
-                <span>Station Engine v1.0.0-RC40</span>
+                <span>Station Engine v{pkg.version}</span>
             </div>
         </div>
     );
