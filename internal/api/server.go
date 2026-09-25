@@ -493,7 +493,7 @@ func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
 	// Determine Ollama availability
 	ollamaURL := os.Getenv("OLLAMA_URL")
 	if ollamaURL == "" {
-		ollamaURL = "http://localhost:11434"
+		ollamaURL = "http://localhost:9379"
 	}
 	ollamaAvailable := s.aiClient.CheckAvailability(r.Context(), ollamaURL)
 
@@ -988,7 +988,7 @@ func (s *Server) handleSummarizeDiscussion(w http.ResponseWriter, r *http.Reques
 		// If Gemini failed or wasn't configured, try Ollama with specific prompt
 		ollamaURL := os.Getenv("OLLAMA_URL")
 		if ollamaURL == "" {
-			ollamaURL = "http://localhost:11434"
+			ollamaURL = "http://localhost:9379"
 		}
 		model, _ := s.store.GetSetting(r.Context(), "ollama_model")
 		prompt := fmt.Sprintf("Summarize the following Hacker News discussion in 3-5 bullet points. Focus on community reaction and top insights:\n\n%s", sb.String())
@@ -1069,7 +1069,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	// 3. Generate AI Response
 		ollamaURL := os.Getenv("OLLAMA_URL")
 		if ollamaURL == "" {
-			ollamaURL = "http://localhost:11434"
+			ollamaURL = "http://localhost:9379"
 		}
 		model, _ := s.store.GetSetting(r.Context(), "ollama_model")
 	response, chatErr = s.aiClient.GenerateChatResponse(r.Context(), ollamaURL, model, sb.String(), aiHistory, req.Message)
@@ -1159,7 +1159,7 @@ func (s *Server) handleStreamChat(w http.ResponseWriter, r *http.Request) {
 
 	var fullResponse strings.Builder
 	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" { ollamaURL = "http://localhost:11434" }
+	if ollamaURL == "" { ollamaURL = "http://localhost:9379" }
 	model, _ := s.store.GetSetting(r.Context(), "ollama_model")
 
 	streamErr := s.aiClient.StreamChatResponse(r.Context(), ollamaURL, model, sb.String(), aiHistory, req.Message, func(chunk string) {
@@ -1432,7 +1432,7 @@ func (s *Server) handleGetAdminUsers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListOllamaModels(w http.ResponseWriter, r *http.Request) {
 	ollamaURL := os.Getenv("OLLAMA_URL")
 	if ollamaURL == "" {
-		ollamaURL = "http://localhost:11434"
+		ollamaURL = "http://localhost:9379"
 	}
 
 	models, err := s.aiClient.ListModels(r.Context(), ollamaURL)

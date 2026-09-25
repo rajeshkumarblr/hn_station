@@ -288,9 +288,16 @@ export function AISidebar({
             }
         };
 
+        let attempts = 0;
         const interval = setInterval(() => {
-            if (isPolling) pollSummary();
-        }, 5000);
+            if (!isPolling || document.hidden) return;
+            attempts++;
+            if (attempts > 6) {
+                clearInterval(interval);
+                return;
+            }
+            pollSummary();
+        }, 10000);
 
         // Fire once immediately just in case the background worker literally just finished it
         pollSummary();
@@ -346,15 +353,20 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                     const data = await res.json();
                     discussionSummary = data.choices?.[0]?.message?.content || '';
                 } else if (aiSettings.provider === 'ollama') {
-                    const ollamaModel = aiSettings.model || 'llama3.2:3b';
-                    const res = await fetch(`${aiSettings.ollamaUrl}/api/generate`, {
+                    const cleanBase = (aiSettings.ollamaUrl || 'http://localhost:9379').replace(/\/+$/, '').replace(/\/v1$/, '');
+                    const ollamaModel = aiSettings.model || 'gemma4-e2b-hw-int4-20260622';
+                    const res = await fetch(`${cleanBase}/v1/chat/completions`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: ollamaModel, prompt: prompt, stream: false })
+                        body: JSON.stringify({
+                            model: `${ollamaModel},,4096`,
+                            messages: [{ role: 'user', content: prompt }],
+                            stream: false
+                        })
                     });
-                    if (!res.ok) throw new Error(`Ollama failed: ${res.status}`);
+                    if (!res.ok) throw new Error(`LiteRT-LM failed: ${res.status}`);
                     const data = await res.json();
-                    discussionSummary = data.response || '';
+                    discussionSummary = data.choices?.[0]?.message?.content || data.response || '';
                 } else if (aiSettings.provider === 'server-granite') {
                     const res = await fetchWithAuth(`${getApiBase()}/api/ai/proxy/api/generate`, {
                         method: 'POST',

@@ -20,7 +20,7 @@
     "build:win": "cross-env VITE_ELECTRON=true tsc && cross-env VITE_ELECTRON=true vite build && electron-builder --win",
     "build:dir": "tsc -b && vite build && electron-builder --win --dir",
     "build:linux": "tsc -b && vite build && electron-builder --linux",
-    "build:mac": "tsc -b && vite build && electron-builder --mac",
+    "build:mac": "killall 'HN Station' hn-local 2>/dev/null || true; (cd .. && PATH=\"$HOME/go-sdk/bin:$PATH\" go build -o web/resources/hn-local ./cmd/local) && chmod +x resources/hn-local && VITE_ELECTRON=true CSC_IDENTITY_AUTO_DISCOVERY=false tsc -b && VITE_ELECTRON=true CSC_IDENTITY_AUTO_DISCOVERY=false vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac && rm -rf '/Applications/HN Station.app' && cp -R 'release/mac-arm64/HN Station.app' /Applications/ && xattr -cr '/Applications/HN Station.app' && codesign --force --deep --sign - '/Applications/HN Station.app'",
     "lint": "eslint .",
     "preview": "vite preview"
   },

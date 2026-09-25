@@ -13,13 +13,13 @@ export function getClientAISettings(): AISettings {
     try {
         const storedProvider = localStorage.getItem('hn_ai_provider');
         const validProviders = ['disabled', 'gemini', 'openai', 'ollama', 'server-granite'];
-        const provider = validProviders.includes(storedProvider as any) ? storedProvider as any : 'server-granite';
+        const provider = validProviders.includes(storedProvider as any) ? storedProvider as any : 'ollama';
         const apiKey = localStorage.getItem('hn_ai_key') || '';
         const model = localStorage.getItem('hn_ai_model') || '';
-        const ollamaUrl = localStorage.getItem('hn_ollama_url') || 'http://localhost:11434';
+        const ollamaUrl = localStorage.getItem('hn_ollama_url') || 'http://localhost:9379';
         return { provider, apiKey, model, ollamaUrl };
     } catch {
-        return { provider: 'server-granite', apiKey: '', model: '', ollamaUrl: 'http://localhost:11434' };
+        return { provider: 'ollama', apiKey: '', model: '', ollamaUrl: 'http://localhost:9379' };
     }
 }
 
@@ -135,26 +135,29 @@ INSTRUCTIONS:
         const data = await res.json();
         responseText = data.choices?.[0]?.message?.content || '';
     } else if (provider === 'ollama' || provider === 'server-granite') {
-        const ollamaModel = provider === 'server-granite' ? 'granite3.1-dense:2b' : (model || 'llama3.2:3b');
-        const url = provider === 'server-granite' ? '/api/ai/proxy/api/generate' : `${ollamaUrl}/api/generate`;
+        const isLiteRT = ollamaUrl.includes(':9379') || ollamaUrl.includes('/v1') || !ollamaUrl.includes(':11434');
+        const ollamaModel = provider === 'server-granite'
+            ? 'granite3.1-dense:2b'
+            : (model || (isLiteRT ? 'gemma4-e2b-hw-int4-20260622' : 'llama3.2:3b'));
+        const cleanBase = ollamaUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+        const url = provider === 'server-granite'
+            ? '/api/ai/proxy/api/generate'
+            : (isLiteRT ? `${cleanBase}/v1/chat/completions` : `${cleanBase}/api/generate`);
+        const reqBody = (provider !== 'server-granite' && isLiteRT)
+            ? { model: ollamaModel, messages: [{ role: 'user', content: prompt }], stream: false }
+            : { model: ollamaModel, prompt: prompt, stream: false, format: 'json' };
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: ollamaModel,
-                prompt: prompt,
-                stream: false,
-                format: 'json'
-            })
+            body: JSON.stringify(reqBody)
         });
 
         if (!res.ok) {
-            throw new Error(`${provider === 'server-granite' ? 'Server AI' : 'Ollama'} API call failed with status: ${res.status}`);
+            throw new Error(`${provider === 'server-granite' ? 'Server AI' : 'LiteRT-LM / Local AI'} API call failed with status: ${res.status}`);
         }
 
         const data = await res.json();
-        // Ollama returns { response: string, ... }
-        responseText = data.response || '';
+        responseText = data.choices?.[0]?.message?.content || data.response || '';
         // For server‑granite we expect the model to output JSON, but if it doesn't we fallback to plain text.
         if (provider === 'server-granite') {
             // Try to parse JSON if present
@@ -258,8 +261,14 @@ Please answer the user's questions based on this context, formatting your respon
         const data = await res.json();
         return data.choices?.[0]?.message?.content || 'No response generated.';
     } else if (provider === 'ollama' || provider === 'server-granite') {
-        const ollamaModel = provider === 'server-granite' ? 'granite3.1-dense:2b' : (model || 'llama3.2:3b');
-        const url = provider === 'server-granite' ? `${getApiBase()}/api/ai/proxy/api/chat` : `${ollamaUrl}/api/chat`;
+        const isLiteRT = ollamaUrl.includes(':9379') || ollamaUrl.includes('/v1') || !ollamaUrl.includes(':11434');
+        const ollamaModel = provider === 'server-granite'
+            ? 'granite3.1-dense:2b'
+            : (model || (isLiteRT ? 'gemma4-e2b-hw-int4-20260622' : 'llama3.2:3b'));
+        const cleanBase = ollamaUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+        const url = provider === 'server-granite'
+            ? `${getApiBase()}/api/ai/proxy/api/chat`
+            : (isLiteRT ? `${cleanBase}/v1/chat/completions` : `${cleanBase}/api/chat`);
         
         const messages = [
             { role: 'system', content: systemPrompt },
@@ -279,11 +288,11 @@ Please answer the user's questions based on this context, formatting your respon
         });
         if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
-            throw new Error(errorData.error || `Ollama API call failed with status: ${res.status}`);
+            throw new Error(errorData.error || `LiteRT-LM / Local AI call failed with status: ${res.status}`);
         }
 
         const data = await res.json();
-        return data.message?.content || data.response || 'No response generated.';
+        return data.choices?.[0]?.message?.content || data.message?.content || data.response || 'No response generated.';
     }
     return "Chat provider not supported.";
 }

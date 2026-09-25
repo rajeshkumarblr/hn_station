@@ -50,14 +50,16 @@ export function StatusBar() {
         };
 
         fetchStatus();
-        const interval = setInterval(fetchStatus, 5000);
+        const interval = setInterval(() => {
+            if (!document.hidden) fetchStatus();
+        }, 12000);
         return () => clearInterval(interval);
     }, [baseUrl, retries, isWeb]);
 
     // Web preview mode: always show a clean status immediately
     if (isWeb || error) {
         return (
-            <div className="h-7 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
+            <div className="h-7 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
                 <div className="flex items-center gap-2 text-slate-550 dark:text-slate-400">
                     <span className="flex h-2 w-2 relative">
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -83,10 +85,9 @@ export function StatusBar() {
 
     if (!status) {
         return (
-            <div className="h-7 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
+            <div className="h-7 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
                 <div className="flex items-center gap-2 text-slate-550 dark:text-slate-400">
                     <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                     </span>
                     <span>Connecting to local agent...</span>
@@ -104,10 +105,10 @@ export function StatusBar() {
     const diffMins = Math.max(0, Math.ceil(diffMs / 60000));
 
     return (
-        <div className="h-7 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
+        <div className="h-7 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
             <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                    <Clock size={12} className={status.is_refreshing ? "animate-spin text-indigo-500" : ""} />
+                    <Clock size={12} className={status.is_refreshing ? "text-indigo-500" : ""} />
                     {status.is_refreshing ? (
                         <span className="text-indigo-500">Refreshing Feed...</span>
                     ) : (
@@ -118,7 +119,7 @@ export function StatusBar() {
                 <div className="w-px h-3 bg-slate-200 dark:bg-slate-800" />
 
                 <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                    <Zap size={12} className={status.ai_status === 'Busy' ? "text-orange-500 animate-pulse" : "text-indigo-500"} />
+                    <Zap size={12} className={status.ai_status === 'Busy' ? "text-orange-500" : "text-indigo-500"} />
                     AI Insights: 
                     <span className={
                         status.ai_status === 'Rate-Limited' ? "text-amber-500 font-bold" : 

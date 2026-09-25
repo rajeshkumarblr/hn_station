@@ -442,7 +442,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
                     >
                         <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                            <div className="w-2 h-2 rounded-full bg-orange-500" />
                             <span className="text-[13px] font-black tracking-[0.2em] bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent uppercase leading-none">HN Station</span>
                             <div className="flex items-center gap-1">
                                 <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 tracking-normal lowercase">v{pkg.version}</span>
@@ -456,7 +456,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 <div className="flex items-center gap-1.5 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                     {isElectron && (
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/5 border border-emerald-500/20 rounded-full mr-2 hidden md:flex">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live Ingest</span>
                         </div>
                     )}
@@ -802,7 +802,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <div key={tab.id} style={{ display: activeTabId === tab.id ? 'block' : 'none' }} className="h-full">
                             <ReaderPane
                                 story={tab.story}
-                                isActive={activeTabId === tab.id}
+                                isActive={currentView === 'reader' && activeTabId === tab.id}
                                 activeTab={(tab.mode || 'split') as any}
                                 onTabChange={(m) => app.handleStorySelect?.(tab.storyId, m)}
                                 onHome={app.handleHome}

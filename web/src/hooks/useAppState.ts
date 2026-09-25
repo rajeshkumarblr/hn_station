@@ -813,6 +813,77 @@ export function useAppState() {
         }).catch(err => console.error('[useAppState] priority sync error:', err));
     }, [storyBuffer, apiBase]);
 
+    // Live background sync: as auto-summarization finishes stories in the background,
+    // automatically pull their new summaries and topics into storyBuffer & open tabs.
+    const hasUnsummarizedStories = useMemo(
+        () => storyBuffer.slice(0, 40).some(s => !s.summary || s.summary.trim() === ''),
+        [storyBuffer]
+    );
+
+    useEffect(() => {
+        if (!apiBase || isWebPreview() || !hasUnsummarizedStories || loading || fetchingMore) return;
+
+        const syncSummaries = () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            const url = buildUrl(0, Math.min(Math.max(storyBuffer.length, PAGE_SIZE), 40));
+            if (!url) return;
+
+            fetchWithAuth(url)
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (!data || !Array.isArray(data.stories)) return;
+                    const updatedMap = new Map<number, Story>();
+                    for (const s of data.stories) {
+                        if (s.summary && s.summary.trim() !== '') {
+                            updatedMap.set(Number(s.id), s);
+                        }
+                    }
+                    if (updatedMap.size === 0) return;
+
+                    setStoryBuffer(prev => {
+                        let changed = false;
+                        const next = prev.map(item => {
+                            const fresh = updatedMap.get(Number(item.id));
+                            if (fresh && (!item.summary || item.summary !== fresh.summary || (fresh.topics?.length || 0) !== (item.topics?.length || 0))) {
+                                changed = true;
+                                return {
+                                    ...item,
+                                    summary: fresh.summary,
+                                    topics: fresh.topics && fresh.topics.length > 0 ? fresh.topics : item.topics,
+                                };
+                            }
+                            return item;
+                        });
+                        return changed ? next : prev;
+                    });
+
+                    setTabs(prev => {
+                        let changed = false;
+                        const next = prev.map(tab => {
+                            const fresh = updatedMap.get(Number(tab.storyId));
+                            if (fresh && (!tab.story.summary || tab.story.summary !== fresh.summary)) {
+                                changed = true;
+                                return {
+                                    ...tab,
+                                    story: {
+                                        ...tab.story,
+                                        summary: fresh.summary,
+                                        topics: fresh.topics && fresh.topics.length > 0 ? fresh.topics : tab.story.topics,
+                                    },
+                                };
+                            }
+                            return tab;
+                        });
+                        return changed ? next : prev;
+                    });
+                })
+                .catch(() => {});
+        };
+
+        const interval = setInterval(syncSummaries, 15000);
+        return () => clearInterval(interval);
+    }, [apiBase, hasUnsummarizedStories, loading, fetchingMore, buildUrl, storyBuffer.length]);
+
     useEffect(() => {
         const fetchStats = () => {
             const baseUrl = getApiBase();
@@ -935,25 +1006,28 @@ export function useAppState() {
                 }
             }
 
-            const response = await fetchWithAuth(`${baseUrl}/api/stories/${id}/summarize?force=true`, {
+            const response = await fetchWithAuth(`${baseUrl}/api/stories/${id}/summarize?force=true&priority=true`, {
                 method: 'POST'
             });
 
             if (response.status === 429) {
-                const data = await response.json();
+                const data = await response.json().catch(() => ({}));
                 const msg = data.error || "AI rate limit reached. Please try again in a moment.";
                 console.error('AI Rate Limit:', msg);
                 setGlobalWarning(msg);
-                return;
+                return { error: msg };
             }
 
             if (!response.ok) {
                 const text = await response.text();
-                const status = response.status;
-                const msg = `AI Error (${status}): ${text || 'Empty response from server'}`;
+                let msg = `AI Error (${response.status}): ${text || 'Empty response from server'}`;
+                try {
+                    const parsed = JSON.parse(text);
+                    if (parsed.error) msg = parsed.error;
+                } catch {}
                 console.error('AI Fetch failure:', msg);
                 setGlobalWarning(msg);
-                return;
+                return { error: msg };
             }
 
             const data = await response.json();

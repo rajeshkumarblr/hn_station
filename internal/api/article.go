@@ -96,8 +96,9 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 	force := r.URL.Query().Get("force") == "true"
 	priority := r.URL.Query().Get("priority") == "true"
 	log.Printf("[summarize] Handling request for story %d (force=%v, priority=%v)", id, force, priority)
-	
-	if priority && s.Prioritizer != nil {
+
+	// Always preempt background worker when the user explicitly triggers summarization
+	if s.Prioritizer != nil {
 		s.Prioritizer.CancelOngoing()
 	}
 
@@ -111,39 +112,42 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(map[string]string{"summary": *story.Summary})
 		return
 	}
-	
+
 	if force {
 		log.Printf("[summarize] Cache bypass triggered for story %d. Initiating fresh fetch/AI call...", id)
 	}
 
-	// 2. Fetch and Parse Article
+	// 2. Fetch and Parse Article (with automatic fallback to HN comments/metadata for SPAs & 403 pages)
 	var textContent string
-	var errFetch error
 
 	if story.URL != "" {
-		content, _, _, _, err := s.fetchArticleContent(story.URL)
-		if err == nil {
-			// For summarization, we'd prefer text content, but Go-Readability's Content is HTML.
-			// Ideally we should strip tags for Gemini to save tokens, but Gemini handles HTML fine.
-			// Let's use the content we got.
+		content, title, _, _, err := s.fetchArticleContent(story.URL)
+		if err == nil && title != "Protection Challenge" && len(content) >= 100 {
 			textContent = content
 		} else {
-			errFetch = err
+			log.Printf("[summarize] Direct extraction short/blocked for %s (err=%v, len=%d); falling back to HN context", story.URL, err, len(content))
 		}
-	} else {
-		// Text-only post
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"summary": "This is a text-only post (Ask HN / Show HN) with no external link. Please use 'Summarize Discussion' to summarize the comments."})
-		return
 	}
 
-	if errFetch != nil || len(textContent) < 100 {
-		http.Error(w, "Failed to fetch article content. It might be behind a paywall or inaccessible.", http.StatusBadGateway)
-		return
+	if len(textContent) < 100 {
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("Title: %s\nURL: %s\n\n", story.Title, story.URL))
+		if comments, err := s.store.GetComments(r.Context(), id); err == nil && len(comments) > 0 {
+			sb.WriteString("Key Hacker News Community Discussion & Insights:\n")
+			for i, c := range comments {
+				if i >= 25 {
+					break
+				}
+				sb.WriteString(fmt.Sprintf("- %s: %s\n", c.By, c.Text))
+			}
+		} else {
+			sb.WriteString("Summarize the key topic, purpose, and technical relevance of this Hacker News submission based on its title and URL.")
+		}
+		textContent = sb.String()
 	}
 
-	// 3. Summarize with Ollama
-	// Truncate content for CPU inference speed (20000 chars)
+	// 3. Summarize with LiteRT-LM / Ollama
+	// Truncate content for local LLM inference speed
 	finalContent := textContent
 	if len(finalContent) > 20000 {
 		finalContent = finalContent[:20000] + "..."
@@ -154,7 +158,7 @@ func (s *Server) handleSummarizeArticle(w http.ResponseWriter, r *http.Request) 
 
 	ollamaURL := os.Getenv("OLLAMA_URL")
 	if ollamaURL == "" {
-		ollamaURL = "http://localhost:11434"
+		ollamaURL = "http://localhost:9379"
 	}
 	model, _ := s.store.GetSetting(r.Context(), "ollama_model")
 	responseStr, err = s.aiClient.GenerateSummary(r.Context(), ollamaURL, model, story.Title, finalContent)
