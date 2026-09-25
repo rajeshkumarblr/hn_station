@@ -5,7 +5,7 @@ import renderer from 'vite-plugin-electron-renderer'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const isElectron = process.env.VITE_ELECTRON === 'true' || mode === 'electron';
+  const isElectron = process.env.VITE_ELECTRON === 'true' || mode === 'electron' || process.env.VITE_WEB_PREVIEW !== 'true';
 
   return {
     base: './',

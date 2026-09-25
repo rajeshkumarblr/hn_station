@@ -147,7 +147,26 @@ func FetchArticle(urlStr string) (*FetchResult, error) {
 	}
 
 	if isBotProtected {
-		log.Printf("Fetcher: Detected Anti-Bot protection (Status %d) for %s", resp.StatusCode, urlStr)
+		log.Printf("Fetcher: Detected Anti-Bot protection (Status %d) for %s. Trying Jina Reader fallback...", resp.StatusCode, urlStr)
+		jinaReq, jErr := http.NewRequest("GET", "https://r.jina.ai/"+urlStr, nil)
+		if jErr == nil {
+			jinaReq.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
+			if jResp, jErr := client.Do(jinaReq); jErr == nil {
+				defer jResp.Body.Close()
+				if jResp.StatusCode == http.StatusOK {
+					if jBytes, rErr := io.ReadAll(io.LimitReader(jResp.Body, 512*1024)); rErr == nil && len(jBytes) > 300 {
+						log.Printf("Fetcher: Jina Reader fallback succeeded for %s (%d bytes)", urlStr, len(jBytes))
+						return &FetchResult{
+							Content:     string(jBytes),
+							Title:       urlStr,
+							CanIframe:   true,
+							ContentType: "markdown",
+						}, nil
+					}
+				}
+			}
+		}
+
 		return &FetchResult{
 			Content:     fmt.Sprintf("<div style=\"padding: 3rem; text-align: center; color: #64748b; font-family: ui-sans-serif, system-ui, sans-serif;\"><h3 style=\"font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem;\">Protected Content</h3><p>This site blocked the Reader Mode extraction (HTTP %d). It likely uses Cloudflare or an anti-bot challenge.<br/><br/>Please switch to the <b>Web</b> tab to view it natively, or open the link directly.</p></div>", resp.StatusCode),
 			Title:       "Protection Challenge",

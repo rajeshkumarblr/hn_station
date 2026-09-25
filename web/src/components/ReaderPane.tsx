@@ -326,12 +326,19 @@ export function ReaderPane({
         };
     }, [story.id, baseUrl]);
 
-    // NEW: Poll for comments (every 3s if backend is actively ingesting, otherwise every 60s)
+    // Poll for comments only when tab is active AND backend is actively ingesting
     useEffect(() => {
-        if (!story.id) return;
+        if (!story.id || !isActive || !isIngesting) return;
 
-        const intervalMs = isIngesting ? 3000 : 60000;
+        let attempts = 0;
         const interval = setInterval(() => {
+            if (document.hidden) return;
+            attempts++;
+            if (attempts > 10) {
+                setIsIngesting(false);
+                clearInterval(interval);
+                return;
+            }
             const baseUrl = getApiBase();
             if (!baseUrl) return;
             fetchWithAuth(`${baseUrl}/api/stories/${story.id}`)
@@ -345,10 +352,10 @@ export function ReaderPane({
                 .catch(() => {
                     if (isIngesting) setIsIngesting(false);
                 });
-        }, intervalMs);
+        }, 5000);
 
         return () => clearInterval(interval);
-    }, [isIngesting, story.id, baseUrl]);
+    }, [isIngesting, isActive, story.id, baseUrl]);
 
 
     // Handle iframe blocked transition
@@ -651,7 +658,9 @@ export function ReaderPane({
                         className="flex-1 bg-white relative overflow-hidden h-full"
                         style={isMobileView && mobileTab !== 'article' ? { display: 'none' } : undefined}
                     >
-                        {!isWebMode ? (
+                        {!isActive ? (
+                            <div className="w-full h-full bg-slate-50 dark:bg-[#0f172a]" />
+                        ) : !isWebMode ? (
                             <webview
                                 ref={articleWebviewRef}
                                 src={storyUrl}

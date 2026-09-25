@@ -300,6 +300,15 @@ function createWindow() {
         if (url) shell.openExternal(url);
     });
 
+    win.webContents.setFrameRate(30);
+    win.webContents.setBackgroundThrottling(true);
+    win.on('blur', () => {
+        win?.webContents.setFrameRate(4);
+    });
+    win.on('focus', () => {
+        win?.webContents.setFrameRate(30);
+    });
+
     win.once('ready-to-show', () => {
         if (win) {
             win.show();
@@ -315,12 +324,16 @@ function createWindow() {
 
     win.setMenu(null);
 
-    const iconPath = path.join(process.env.VITE_PUBLIC!, 'hn.ico');
+    const pngIconPath = path.join(process.env.VITE_PUBLIC!, 'hn_256.png');
+    const iconPath = fs.existsSync(pngIconPath) ? pngIconPath : path.join(process.env.VITE_PUBLIC!, 'hn.ico');
     logToFile(`[main] Loading icon from: ${iconPath}`);
     if (fs.existsSync(iconPath)) {
         const appIcon = nativeImage.createFromPath(iconPath);
         if (!appIcon.isEmpty()) {
             win.setIcon(appIcon);
+            if (process.platform === 'darwin' && app.dock) {
+                app.dock.setIcon(appIcon);
+            }
         }
     }
 
@@ -381,6 +394,8 @@ function createWindow() {
 
     // Context Menu for all web contents (including webviews)
     app.on('web-contents-created', (_event, contents) => {
+        contents.setFrameRate(30);
+        contents.setBackgroundThrottling(true);
         // --- Shortcut Forwarding ---
         // This ensures that shortcuts like Ctrl+W or Ctrl+Tab work even when focus is inside a webview
         contents.on('before-input-event', (event, input) => {

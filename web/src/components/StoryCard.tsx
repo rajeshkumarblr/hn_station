@@ -153,10 +153,10 @@ export function StoryCard({
         : 'bg-slate-50/40 dark:bg-[#0a0f1d] border-slate-100 dark:border-slate-900/50';
 
     const activeBg = isHighlighted
-        ? `backdrop-blur-md bg-lime-500/5 dark:bg-[#182845] border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle`
+        ? `bg-lime-500/5 dark:bg-[#182845] border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle`
         : isSelected
-            ? `backdrop-blur-md bg-orange-500/5 dark:bg-[#1b2b4a] border-l-[3px] border-l-orange-500 shadow-md`
-            : `backdrop-blur-md ${cardBg} border hover:border-orange-500/30 dark:hover:border-orange-500/30 hover:bg-white dark:hover:bg-[#162744] hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
+            ? `bg-orange-500/5 dark:bg-[#1b2b4a] border-l-[3px] border-l-orange-500 shadow-md`
+            : `${cardBg} border hover:border-orange-500/30 dark:hover:border-orange-500/30 hover:bg-white dark:hover:bg-[#162744] hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
 
     // Compute time-ago for the story
     const timeAgo = (() => {
@@ -172,7 +172,7 @@ export function StoryCard({
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all duration-300 flex flex-col justify-center relative ${isWebPreview() ? 'rounded-xl px-4 py-2' : 'rounded-2xl px-5 py-4'} animate-slide-in ${activeBg}`}
+            className={`group transition-all duration-300 flex flex-col justify-center relative ${isWebPreview() ? 'rounded-xl px-4 py-2' : 'rounded-2xl px-5 py-4'} ${activeBg}`}
             style={{ animationDelay: `${(index !== undefined ? index % 10 : 0) * 0.05}s` }}
             onClick={() => onSelect && onSelect(story.id)}
             onContextMenu={handleContextMenu}

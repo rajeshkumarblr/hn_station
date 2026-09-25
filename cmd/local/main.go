@@ -13,8 +13,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -30,20 +32,143 @@ import (
 )
 
 const (
-	Version      = "v1.0.0-RC40"
-	workerCount  = 1
-	totalStories = 100 // Keep top 100 front-page stories
+	Version                  = "v1.0.0-RC40"
+	workerCount              = 1
+	totalStories             = 40 // Keep top 40 front-page stories to minimize background network/CPU
+	maxAutoSummariesPerCycle = 6  // Only auto-summarize top 6 stories per cycle to prevent sustained heat
+	autoSummaryCooldown      = 35 * time.Second
 )
+
+// throttleLiteRTProcesses pins any running litert-lm processes to macOS Apple Silicon Efficiency (E) cores
+// via `taskpolicy -b` and lowers their CPU scheduling priority via `renice +15` so they can never overheat the Mac.
+func throttleLiteRTProcesses(ctx context.Context) {
+	if runtime.GOOS != "darwin" {
+		return
+	}
+	out, err := exec.CommandContext(ctx, "pgrep", "-f", "litert-lm").Output()
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		pid := strings.TrimSpace(line)
+		if pid == "" {
+			continue
+		}
+		_ = exec.CommandContext(ctx, "/usr/sbin/taskpolicy", "-b", "-p", pid).Run()
+		_ = exec.CommandContext(ctx, "renice", "+15", "-p", pid).Run()
+	}
+}
+
+// isMacThermalSafe checks `pmset -g therm` on macOS to ensure the system has no thermal pressure before running background AI.
+func isMacThermalSafe(ctx context.Context) bool {
+	if runtime.GOOS != "darwin" {
+		return true
+	}
+	checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(checkCtx, "pmset", "-g", "therm").Output()
+	if err != nil {
+		return true
+	}
+	s := string(out)
+	if strings.Contains(s, "Thermal warning level") && !strings.Contains(s, "No thermal warning level") {
+		return false
+	}
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "CPU_Speed_Limit") && !strings.HasSuffix(line, "100") {
+			return false
+		}
+	}
+	return true
+}
+
+func ensureLiteRTServer(ctx context.Context) {
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:9379", 500*time.Millisecond)
+	if err == nil {
+		conn.Close()
+		throttleLiteRTProcesses(ctx)
+		log.Printf("[local] LiteRT-LM server already running on 127.0.0.1:9379 (pinned to Efficiency cores)")
+		return
+	}
+
+	home, _ := os.UserHomeDir()
+	candidates := []string{
+		filepath.Join(home, "litert-env", "bin", "litert-lm"),
+		filepath.Join(home, ".virtualenvs", "litert-env", "bin", "litert-lm"),
+		filepath.Join(home, "proj", "litert-env", "bin", "litert-lm"),
+		filepath.Join(home, "proj", "hn_station", "litert-env", "bin", "litert-lm"),
+		filepath.Join(home, "miniconda3", "envs", "litert-env", "bin", "litert-lm"),
+		filepath.Join(home, "anaconda3", "envs", "litert-env", "bin", "litert-lm"),
+		filepath.Join(home, "miniforge3", "envs", "litert-env", "bin", "litert-lm"),
+		"/opt/homebrew/Caskroom/miniconda/base/envs/litert-env/bin/litert-lm",
+		filepath.Join(home, ".local", "bin", "litert-lm"),
+		"/opt/homebrew/bin/litert-lm",
+	}
+
+	var binPath string
+	for _, c := range candidates {
+		if info, err := os.Stat(c); err == nil && !info.IsDir() {
+			binPath = c
+			break
+		}
+	}
+
+	if binPath == "" && home != "" {
+		findCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+		out, err := exec.CommandContext(findCtx, "find", home, "-maxdepth", "4", "-name", "litert-lm", "-type", "f").Output()
+		cancel()
+		if err == nil {
+			for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+				line = strings.TrimSpace(line)
+				if line != "" {
+					binPath = line
+					break
+				}
+			}
+		}
+	}
+
+	if binPath == "" {
+		log.Printf("[local] Could not locate litert-lm binary to auto-start server on port 9379")
+		return
+	}
+
+	log.Printf("[local] Auto-starting LiteRT-LM server on Efficiency cores: %s serve --port 9379", binPath)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "darwin" {
+		cmd = exec.CommandContext(ctx, "/usr/sbin/taskpolicy", "-b", "nice", "-n", "15", binPath, "serve", "--port", "9379")
+	} else {
+		cmd = exec.CommandContext(ctx, binPath, "serve", "--port", "9379")
+	}
+	if err := cmd.Start(); err != nil {
+		log.Printf("[local] Failed to start litert-lm serve: %v", err)
+		return
+	}
+
+	for i := 0; i < 15; i++ {
+		time.Sleep(300 * time.Millisecond)
+		if c, err := net.DialTimeout("tcp", "127.0.0.1:9379", 300*time.Millisecond); err == nil {
+			c.Close()
+			throttleLiteRTProcesses(ctx)
+			log.Printf("[local] LiteRT-LM server is now listening on 127.0.0.1:9379 (PID %d, Efficiency cores)", cmd.Process.Pid)
+			return
+		}
+	}
+}
 
 func clearPoisonedSummaries(ctx context.Context, store storage.DB) error {
 	return store.ClearPoisonedSummaries(ctx)
 }
 
 func main() {
+	// Cap Go backend to 1 CPU thread so background work stays ultra-cool
+	runtime.GOMAXPROCS(1)
+
 	dbPath := flag.String("db", defaultDBPath(), "Path to SQLite database file")
 	port := flag.String("port", "58090", "HTTP port (0 = OS picks a free port in interactive mode)")
-	ollamaURL := flag.String("ollama", "http://localhost:11434", "Ollama base URL")
-	interval := flag.Duration("interval", 5*time.Minute, "Ingestion interval")
+	ollamaURL := flag.String("ollama", "http://localhost:9379", "LiteRT-LM / Local AI base URL")
+	interval := flag.Duration("interval", 10*time.Minute, "Ingestion interval")
 	flag.Parse()
 
 	if err := os.MkdirAll(filepath.Dir(*dbPath), 0755); err != nil {
@@ -103,6 +228,7 @@ func runInteractive(dbPath, port, ollamaURL string, interval time.Duration) {
 
 func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, listener net.Listener) error {
 	_ = godotenv.Load()
+	ensureLiteRTServer(ctx)
 
 	store, err := storage.NewSQLite(dbPath)
 	if err != nil {
@@ -120,6 +246,13 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 	if err := clearPoisonedSummaries(ctx, store); err != nil {
 		log.Printf("[ingest] Failed to clear poisoned summaries: %v", err)
 	}
+
+	// Ensure auto-summarization on ingestion is enabled by default for local AI
+	_ = store.SetSetting(ctx, "ai_summaries_enabled", "true")
+	_ = store.SetSetting(ctx, "auto_summarize_enabled", "true")
+
+	// Immediately enqueue any existing top stories in SQLite that lack summaries
+	enqueueExistingUnsummarized(ctx, store, summaryManager)
     
 	// Pruning is disabled to allow the database to grow indefinitely.
 	/*
@@ -154,10 +287,8 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 		}
 	}()
 
-	limiter := time.NewTicker(6 * time.Second)
-	defer limiter.Stop()
 	for i := 0; i < workerCount; i++ {
-		go runSummaryWorker(i, ctx, store, ollamaClient, ollamaURL, summaryManager, limiter)
+		go runSummaryWorker(i, ctx, store, ollamaClient, ollamaURL, summaryManager)
 	}
 
 	httpSrv := &http.Server{
@@ -271,11 +402,8 @@ func (sm *SummaryManager) Pop() (summaryJob, bool) {
 	for sm.heap.Len() == 0 {
 		sm.cond.Wait()
 	}
-	// Local provider (Ollama) doesn't need backoff.
-	
 	if sm.heap.Len() == 0 { return summaryJob{}, false }
 	job := heap.Pop(&sm.heap).(summaryJob)
-	// Note: We KEEP it in pendingIDs while processing!
 	sm.status.AutoSummarizeQueue = sm.heap.Len()
 	return job, true
 }
@@ -319,23 +447,63 @@ func (sm *SummaryManager) CancelOngoing() {
 	}
 }
 
-func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, manager *SummaryManager, limiter *time.Ticker) {
-	log.Printf("[worker %d] Started successfully", id)
+func enqueueExistingUnsummarized(ctx context.Context, store storage.DB, summaryManager *SummaryManager) {
+	stories, _, err := store.GetStories(ctx, maxAutoSummariesPerCycle, 0, "default", nil, "any", "", "", false)
+	if err != nil {
+		log.Printf("[ingest] Failed to query existing stories for startup auto-summary: %v", err)
+		return
+	}
+	enqueued := 0
+	for i, s := range stories {
+		if enqueued >= maxAutoSummariesPerCycle {
+			break
+		}
+		needsSummary := s.Summary == nil || strings.TrimSpace(*s.Summary) == "" || len(s.Topics) == 0
+		if needsSummary {
+			rank := i + 1
+			if s.HNRank != nil && *s.HNRank > 0 {
+				rank = *s.HNRank
+			}
+			summaryManager.Push(summaryJob{
+				ID:    int(s.ID),
+				URL:   s.URL,
+				Title: s.Title,
+				Rank:  rank,
+			})
+			enqueued++
+		}
+	}
+	if enqueued > 0 {
+		log.Printf("[ingest] Enqueued top %d unsummarized stories on startup (throttled)", enqueued)
+	}
+}
+
+func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, manager *SummaryManager) {
+	log.Printf("[worker %d] Started successfully (thermal-throttled mode: %v cooldown)", id, autoSummaryCooldown)
 	for {
 		job, ok := manager.Pop()
 		if !ok { return }
 
-		// Wrap in func to ensure cleanup happens every iteration
 		func() {
 			defer manager.MarkDone(job.ID)
 
-			enabled, _ := store.GetSetting(ctx, "auto_summarize_enabled")
-			if enabled == "false" { return }
+			aiEnabled, _ := store.GetSetting(ctx, "ai_summaries_enabled")
+			autoEnabled, _ := store.GetSetting(ctx, "auto_summarize_enabled")
+			if aiEnabled == "false" || autoEnabled == "false" {
+				return
+			}
 
-			// Always check limiter for consistent processing
-			select {
-			case <-ctx.Done(): return
-			case <-limiter.C:
+			// Re-verify litert-lm is pinned to Efficiency cores and macOS has zero thermal pressure
+			throttleLiteRTProcesses(ctx)
+			for !isMacThermalSafe(ctx) {
+				manager.status.AIStatus = "Thermal Cooldown"
+				manager.status.CurrentTask = "Waiting for Mac to cool..."
+				log.Printf("[worker %d] macOS thermal pressure detected; pausing background AI for 2m", id)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(2 * time.Minute):
+				}
 			}
 
 			manager.status.AIStatus = "Busy"
@@ -352,6 +520,13 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 			}
 			manager.status.AIStatus = "Ready"
 			manager.status.CurrentTask = ""
+
+			// Mandatory 35-second post-inference cooldown so duty cycle stays < 8% and Mac never heats up
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(autoSummaryCooldown):
+			}
 		}()
 	}
 }
@@ -369,12 +544,30 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 	workCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	fetchRes, err := content.FetchArticle(job.URL)
-	if err != nil || len(fetchRes.Content) < 100 {
+	var text string
+	if job.URL != "" {
+		if fetchRes, err := content.FetchArticle(job.URL); err == nil && len(fetchRes.Content) >= 100 {
+			text = fetchRes.Content
+		}
+	}
+	if text == "" {
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("Title: %s\nURL: %s\n\n", job.Title, job.URL))
+		if comments, err := store.GetComments(workCtx, job.ID); err == nil && len(comments) > 0 {
+			sb.WriteString("Key Hacker News Community Discussion:\n")
+			for i, c := range comments {
+				if i >= 20 {
+					break
+				}
+				sb.WriteString(fmt.Sprintf("- %s: %s\n", c.By, c.Text))
+			}
+			text = sb.String()
+		}
+	}
+	if len(text) < 50 {
 		return nil
 	}
 
-	text := fetchRes.Content
 	if len(text) > 12000 {
 		text = text[:12000] + "..."
 	}
@@ -382,7 +575,13 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 	var responseStr string
 	if aiClient.CheckAvailability(workCtx, ollamaURL) {
 		model, _ := store.GetSetting(workCtx, "ollama_model")
-		responseStr, _ = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
+		var sumErr error
+		responseStr, sumErr = aiClient.GenerateSummary(workCtx, ollamaURL, model, job.Title, text)
+		if sumErr != nil {
+			log.Printf("[ingest] LiteRT-LM GenerateSummary error for story %d: %v", job.ID, sumErr)
+		}
+	} else {
+		log.Printf("[ingest] Local AI server not reachable at %s (is 'litert-lm serve' running?)", ollamaURL)
 	}
 
 	if responseStr == "" { return nil }
@@ -437,6 +636,25 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, summ
 	// _ = store.PruneStories(ctx, 7)
 }
 
+func maybeEnqueueStorySummary(ctx context.Context, store storage.DB, id int, url, title string, rank int, summaryManager *SummaryManager) {
+	if rank > maxAutoSummariesPerCycle {
+		return
+	}
+	aiEnabled, _ := store.GetSetting(ctx, "ai_summaries_enabled")
+	autoEnabled, _ := store.GetSetting(ctx, "auto_summarize_enabled")
+	if aiEnabled == "false" || autoEnabled == "false" {
+		return
+	}
+	existing, err := store.GetStory(ctx, id)
+	needsSummary := err != nil || existing.Summary == nil || strings.TrimSpace(*existing.Summary) == ""
+	if !needsSummary && len(existing.Topics) == 0 && time.Since(existing.CreatedAt) < 24*time.Hour {
+		needsSummary = true
+	}
+	if needsSummary {
+		summaryManager.Push(summaryJob{ID: id, URL: url, Title: title, Rank: rank})
+	}
+}
+
 func processStory(ctx context.Context, client *hn.Client, store storage.DB, id int, rank *int, summaryManager *SummaryManager) error {
 	item, err := client.GetItem(ctx, id)
 	if err != nil { return err }
@@ -449,32 +667,29 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 	}
 	_ = store.UpsertStory(ctx, story)
 
-	// NEW: Fetch comments during ingestion
-	if len(item.Kids) > 0 {
-		processComments(ctx, client, store, item.Kids, int64(item.ID), nil)
+	// Immediately enqueue external articles for background summarization BEFORE fetching comments,
+	// so the AI worker starts summarizing right away as stories are ingested!
+	if item.URL != "" {
+		maybeEnqueueStorySummary(ctx, store, id, item.URL, item.Title, *rank, summaryManager)
 	}
 
-	if item.URL != "" && item.Score > 10 {
-		aiEnabled, _ := store.GetSetting(ctx, "ai_summaries_enabled")
-		autoEnabled, _ := store.GetSetting(ctx, "auto_summarize_enabled")
-		if aiEnabled != "false" && autoEnabled != "false" {
-			existing, err := store.GetStory(ctx, id)
-			needsSummary := err != nil || existing.Summary == nil || *existing.Summary == ""
-			// If we have a summary but NO topics, we might want to re-run to get topics (one-time migration for new parser)
-			// But to avoid infinite loops, we only do this if the story is very new (last 24h)
-			if !needsSummary && len(existing.Topics) == 0 && time.Since(existing.CreatedAt) < 24*time.Hour {
-				needsSummary = true
-			}
-
-			if needsSummary {
-				summaryManager.Push(summaryJob{ID: id, URL: item.URL, Title: item.Title, Rank: *rank})
-			}
+	// Fetch top-level + shallow comments during ingestion (bounded so ingestion never stalls)
+	if len(item.Kids) > 0 {
+		rootKids := item.Kids
+		if len(rootKids) > 15 {
+			rootKids = rootKids[:15]
 		}
+		processComments(ctx, client, store, rootKids, int64(item.ID), nil, 0)
+	}
+
+	// For Ask HN / text stories without an external URL, enqueue after top comments are stored
+	if item.URL == "" {
+		maybeEnqueueStorySummary(ctx, store, id, item.URL, item.Title, *rank, summaryManager)
 	}
 	return nil
 }
 
-func processComments(ctx context.Context, client *hn.Client, store storage.DB, kids []int, storyID int64, parentID *int64) {
+func processComments(ctx context.Context, client *hn.Client, store storage.DB, kids []int, storyID int64, parentID *int64, depth int) {
 	for _, kidID := range kids {
 		item, err := client.GetItem(ctx, kidID)
 		if err != nil {
@@ -499,9 +714,13 @@ func processComments(ctx context.Context, client *hn.Client, store storage.DB, k
 			log.Printf("[ingest] Failed to upsert comment %d: %v", item.ID, err)
 		}
 
-		if len(item.Kids) > 0 {
+		if depth < 1 && len(item.Kids) > 0 {
+			subKids := item.Kids
+			if len(subKids) > 3 {
+				subKids = subKids[:3]
+			}
 			pID := int64(item.ID)
-			processComments(ctx, client, store, item.Kids, storyID, &pID)
+			processComments(ctx, client, store, subKids, storyID, &pID, depth+1)
 		}
 	}
 }

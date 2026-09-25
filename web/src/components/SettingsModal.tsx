@@ -28,7 +28,7 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
     const [clientProvider, setClientProvider] = useState<'disabled' | 'gemini' | 'openai' | 'ollama' | 'server-granite'>('disabled');
     const [clientApiKey, setClientApiKey] = useState('');
     const [clientModel, setClientModel] = useState('');
-    const [clientOllamaUrl, setClientOllamaUrl] = useState('http://localhost:11434');
+    const [clientOllamaUrl, setClientOllamaUrl] = useState('http://localhost:9379');
 
     // Hacker News Account Credentials
     const [hnUsername, setHnUsername] = useState('');
@@ -235,10 +235,10 @@ export function SettingsModal({ isOpen, onClose, user }: SettingsModalProps) {
                                             <div className="flex items-center justify-between">
                                                 <div className="space-y-1">
                                                     <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                                        Ollama Status
+                                                        LiteRT-LM Status
                                                         <div className={`w-1.5 h-1.5 rounded-full ${user?.ollama_available ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
                                                     </h4>
-                                                    <p className="text-[11px] text-slate-500">{user?.ollama_available ? 'Connected and ready' : 'Not detected on localhost:11434'}</p>
+                                                    <p className="text-[11px] text-slate-500">{user?.ollama_available ? 'Connected and ready (localhost:9379)' : 'Not detected on localhost:9379 (run: litert-lm serve)'}</p>
                                                 </div>
                                             </div>
 

@@ -1,47 +1,47 @@
-import { app as m, ipcMain as g, shell as S, globalShortcut as I, BrowserWindow as v, session as _, nativeImage as A, Menu as x } from "electron";
-import d from "node:path";
-import { fileURLToPath as j } from "node:url";
-import { spawn as O } from "node:child_process";
+import { app as d, ipcMain as g, shell as R, globalShortcut as I, BrowserWindow as C, session as _, nativeImage as A, Menu as x } from "electron";
+import l from "node:path";
+import { fileURLToPath as F } from "node:url";
+import { spawn as j } from "node:child_process";
 import u from "node:fs";
 import "node:http";
-import F from "node:os";
-const w = d.dirname(j(import.meta.url));
-process.env.APP_ROOT = d.join(w, "..");
-const R = process.env.VITE_DEV_SERVER_URL, J = d.join(process.env.APP_ROOT, "dist-electron"), E = d.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = R ? d.join(process.env.APP_ROOT, "public") : E;
-const k = d.join(m.getPath("userData"), "app.log");
-function l(a) {
+import O from "node:os";
+const w = l.dirname(F(import.meta.url));
+process.env.APP_ROOT = l.join(w, "..");
+const P = process.env.VITE_DEV_SERVER_URL, J = l.join(process.env.APP_ROOT, "dist-electron"), v = l.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = P ? l.join(process.env.APP_ROOT, "public") : v;
+const k = l.join(d.getPath("userData"), "app.log");
+function r(i) {
   try {
-    const c = `[${(/* @__PURE__ */ new Date()).toISOString()}] ${a}
+    const c = `[${(/* @__PURE__ */ new Date()).toISOString()}] ${i}
 `;
-    u.appendFileSync(k, c), console.log(a);
-  } catch (i) {
-    console.error("Failed to write to log file:", i);
+    u.appendFileSync(k, c), console.log(i);
+  } catch (s) {
+    console.error("Failed to write to log file:", s);
   }
 }
 try {
   u.existsSync(k) && u.truncateSync(k);
-} catch (a) {
-  console.error("Failed to truncate log file:", a);
+} catch (i) {
+  console.error("Failed to truncate log file:", i);
 }
-l(`[main] Log initialized: ${k}`);
-l(`[main] Version: ${m.getVersion()}`);
-l(`[main] App Root: ${process.env.APP_ROOT}`);
+r(`[main] Log initialized: ${k}`);
+r(`[main] Version: ${d.getVersion()}`);
+r(`[main] App Root: ${process.env.APP_ROOT}`);
 const B = "C:\\Users\\rajes\\hn-station-debug.log";
-function b(a) {
+function b(i) {
   try {
-    u.appendFileSync(B, `[DEBUG ${(/* @__PURE__ */ new Date()).toISOString()}] ${a}
+    u.appendFileSync(B, `[DEBUG ${(/* @__PURE__ */ new Date()).toISOString()}] ${i}
 `);
   } catch {
   }
 }
 b(`Main process starting v0.9.1. __dirname=${w}`);
-b(`APP_PATH=${m.getAppPath()}`);
-process.platform === "win32" && m.setAppUserModelId("com.hnstation.app");
+b(`APP_PATH=${d.getAppPath()}`);
+process.platform === "win32" && d.setAppUserModelId("com.hnstation.app");
 let e = null, h = null, y = null;
-m.setName("HN Station");
+d.setName("HN Station");
 const U = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-m.userAgentFallback = U;
+d.userAgentFallback = U;
 const D = [
   "*://*.doubleclick.net/*",
   "*://*.google-analytics.com/*",
@@ -66,90 +66,90 @@ const D = [
   "*://*.openx.net/*"
 ];
 function M() {
-  const a = _.defaultSession;
-  a.webRequest.onBeforeRequest(
+  const i = _.defaultSession;
+  i.webRequest.onBeforeRequest(
     { urls: D },
-    (i, c) => {
-      l(`[adblock] Blocked: ${i.url}`), c({ cancel: !0 });
+    (s, c) => {
+      r(`[adblock] Blocked: ${s.url}`), c({ cancel: !0 });
     }
-  ), a.webRequest.onBeforeSendHeaders((i, c) => {
-    const { requestHeaders: n } = i, s = new URL(i.url);
-    s.hostname === "127.0.0.1" || s.hostname === "localhost" || (delete n.Cookie, delete n.cookie), c({ cancel: !1, requestHeaders: n });
-  }), a.webRequest.onHeadersReceived((i, c) => {
-    const n = i.responseHeaders || {}, s = new URL(i.url);
-    s.hostname === "127.0.0.1" || s.hostname === "localhost" || (delete n["Set-Cookie"], delete n["set-cookie"]), c({ cancel: !1, responseHeaders: n });
+  ), i.webRequest.onBeforeSendHeaders((s, c) => {
+    const { requestHeaders: m } = s, n = new URL(s.url);
+    n.hostname === "127.0.0.1" || n.hostname === "localhost" || (delete m.Cookie, delete m.cookie), c({ cancel: !1, requestHeaders: m });
+  }), i.webRequest.onHeadersReceived((s, c) => {
+    const m = s.responseHeaders || {}, n = new URL(s.url);
+    n.hostname === "127.0.0.1" || n.hostname === "localhost" || (delete m["Set-Cookie"], delete m["set-cookie"]), c({ cancel: !1, responseHeaders: m });
   });
 }
 function z() {
-  const a = process.platform === "win32" ? "hn-local.exe" : "hn-local", i = d.join(process.resourcesPath ?? "", a);
-  if (l(`[backend] Checking packaged path: ${i}`), u.existsSync(i)) return i;
-  const c = d.join(process.env.APP_ROOT ?? d.join(w, ".."), "resources", a);
-  return l(`[backend] Checking dev path: ${c}`), u.existsSync(c) ? c : null;
+  const i = process.platform === "win32" ? "hn-local.exe" : "hn-local", s = l.join(process.resourcesPath ?? "", i);
+  if (r(`[backend] Checking packaged path: ${s}`), u.existsSync(s)) return s;
+  const c = l.join(process.env.APP_ROOT ?? l.join(w, ".."), "resources", i);
+  return r(`[backend] Checking dev path: ${c}`), u.existsSync(c) ? c : null;
 }
 function H() {
-  return new Promise((a, i) => {
-    var t, o;
+  return new Promise((i, s) => {
+    var p, t;
     const c = z();
     if (!c) {
-      const p = new Error("hn-local binary not found");
-      l(`[backend] ERROR: ${p.message}`), i(p);
+      const o = new Error("hn-local binary not found");
+      r(`[backend] ERROR: ${o.message}`), s(o);
       return;
     }
-    const n = process.platform === "win32" ? d.join(m.getPath("userData"), "hn.db") : d.join(F.homedir(), ".hn-station", "hn.db");
-    l(`[backend] Starting ${c} --db ${n}`), h = O(c, ["--port", "0", "--db", n], {
+    const m = process.platform === "win32" ? l.join(d.getPath("userData"), "hn.db") : l.join(O.homedir(), ".hn-station", "hn.db");
+    r(`[backend] Starting ${c} --db ${m}`), h = j(c, ["--port", "0", "--db", m], {
       stdio: ["ignore", "pipe", "pipe"],
-      cwd: d.dirname(c)
+      cwd: l.dirname(c)
     });
-    let s = !1, r = "";
-    (t = h.stdout) == null || t.on("data", (p) => {
-      r += p.toString();
-      const f = r.split(`
+    let n = !1, a = "";
+    (p = h.stdout) == null || p.on("data", (o) => {
+      a += o.toString();
+      const f = a.split(`
 `);
-      r = f.pop() ?? "";
-      for (const P of f) {
-        const $ = P.trim();
-        $ && l(`[backend][stdout] ${$}`);
-        const T = P.match(/^LISTENING:(\d+)/);
-        T && !s && (s = !0, y = parseInt(T[1], 10), l(`[backend] API on port ${y}`), a(y));
+      a = f.pop() ?? "";
+      for (const S of f) {
+        const $ = S.trim();
+        $ && r(`[backend][stdout] ${$}`);
+        const T = S.match(/^LISTENING:(\d+)/);
+        T && !n && (n = !0, y = parseInt(T[1], 10), r(`[backend] API on port ${y}`), i(y));
       }
-    }), (o = h.stderr) == null || o.on("data", (p) => {
-      const f = p.toString().trim();
-      f && l(`[backend][stderr] ${f}`);
-    }), h.on("error", (p) => {
-      l(`[backend] Spawn error: ${p.message}`), s || i(p);
-    }), h.on("exit", (p, f) => {
-      l(`[backend] exited code=${p} signal=${f}`), h = null, y = null;
+    }), (t = h.stderr) == null || t.on("data", (o) => {
+      const f = o.toString().trim();
+      f && r(`[backend][stderr] ${f}`);
+    }), h.on("error", (o) => {
+      r(`[backend] Spawn error: ${o.message}`), n || s(o);
+    }), h.on("exit", (o, f) => {
+      r(`[backend] exited code=${o} signal=${f}`), h = null, y = null;
     }), setTimeout(() => {
-      if (!s) {
-        const p = new Error("Timed out waiting for hn-local to start");
-        l(`[backend] ERROR: ${p.message}`), i(p);
+      if (!n) {
+        const o = new Error("Timed out waiting for hn-local to start");
+        r(`[backend] ERROR: ${o.message}`), s(o);
       }
     }, 6e4);
   });
 }
-function L() {
-  h && (l("[backend] Stopping..."), h.kill("SIGTERM"), h = null);
+function E() {
+  h && (r("[backend] Stopping..."), h.kill("SIGTERM"), h = null);
 }
 g.handle(
   "get-local-api-url",
   () => y ? `http://127.0.0.1:${y}` : null
 );
-g.on("open-external", (a, i) => {
-  S.openExternal(i);
+g.on("open-external", (i, s) => {
+  R.openExternal(s);
 });
-function C() {
-  e = new v({
+function L() {
+  e = new C({
     width: 1440,
     height: 900,
     show: !1,
     frame: !1,
     backgroundColor: "#0f172a",
-    icon: d.join(process.env.VITE_PUBLIC, "hn.ico"),
+    icon: l.join(process.env.VITE_PUBLIC, "hn.ico"),
     webPreferences: {
       webviewTag: !0,
       preload: (() => {
-        const n = d.join(w, "preload.js"), s = d.join(w, "preload.mjs"), r = u.existsSync(n) ? n : s;
-        return b(`[preload] checking: js=${n} exists=${u.existsSync(n)}`), b(`[preload] checking: mjs=${s} exists=${u.existsSync(s)}`), b(`[preload] final choice: ${r} packaged=${m.isPackaged}`), r;
+        const n = l.join(w, "preload.js"), a = l.join(w, "preload.mjs"), p = u.existsSync(n) ? n : a;
+        return b(`[preload] checking: js=${n} exists=${u.existsSync(n)}`), b(`[preload] checking: mjs=${a} exists=${u.existsSync(a)}`), b(`[preload] final choice: ${p} packaged=${d.isPackaged}`), p;
       })(),
       contextIsolation: !0,
       nodeIntegration: !1,
@@ -159,34 +159,38 @@ function C() {
     }
   }), b("BrowserWindow created. Preload applied."), g.on("window-minimize", () => e == null ? void 0 : e.minimize()), g.on("window-close", () => e == null ? void 0 : e.close()), g.on("window-maximize", () => {
     e != null && e.isMaximized() ? e.unmaximize() : e == null || e.maximize();
-  }), g.handle("window-is-maximized", () => (e == null ? void 0 : e.isMaximized()) ?? !1), g.on("open-external", (n, s) => {
-    s && S.openExternal(s);
+  }), g.handle("window-is-maximized", () => (e == null ? void 0 : e.isMaximized()) ?? !1), g.on("open-external", (n, a) => {
+    a && R.openExternal(a);
+  }), e.webContents.setFrameRate(30), e.webContents.setBackgroundThrottling(!0), e.on("blur", () => {
+    e == null || e.webContents.setFrameRate(4);
+  }), e.on("focus", () => {
+    e == null || e.webContents.setFrameRate(30);
   }), e.once("ready-to-show", () => {
     e && (e.show(), e.focus(), e.setFullScreen(!1), setTimeout(() => {
       e && !e.isMaximized() && e.maximize();
     }, 300));
   }), e.setMenu(null);
-  const a = d.join(process.env.VITE_PUBLIC, "hn.ico");
-  if (l(`[main] Loading icon from: ${a}`), u.existsSync(a)) {
-    const n = A.createFromPath(a);
-    n.isEmpty() || e.setIcon(n);
+  const i = l.join(process.env.VITE_PUBLIC, "hn_256.png"), s = u.existsSync(i) ? i : l.join(process.env.VITE_PUBLIC, "hn.ico");
+  if (r(`[main] Loading icon from: ${s}`), u.existsSync(s)) {
+    const n = A.createFromPath(s);
+    n.isEmpty() || (e.setIcon(n), process.platform === "darwin" && d.dock && d.dock.setIcon(n));
   }
   e.setTitle("HN Station"), e.webContents.on("page-title-updated", (n) => {
     n.preventDefault(), e == null || e.setTitle("HN Station");
-  }), _.defaultSession.webRequest.onHeadersReceived((n, s) => {
-    const r = { ...n.responseHeaders };
-    delete r["x-frame-options"], delete r["X-Frame-Options"], delete r["content-security-policy"], delete r["Content-Security-Policy"], s({ cancel: !1, responseHeaders: r });
-  }), R ? e.loadURL(R) : e.loadFile(d.join(E, "index.html")), e.webContents.on("console-message", (n, s, r, t, o) => {
-    l(`[Renderer][${s}] ${r} (${o}:${t})`);
+  }), _.defaultSession.webRequest.onHeadersReceived((n, a) => {
+    const p = { ...n.responseHeaders };
+    delete p["x-frame-options"], delete p["X-Frame-Options"], delete p["content-security-policy"], delete p["Content-Security-Policy"], a({ cancel: !1, responseHeaders: p });
+  }), P ? e.loadURL(P) : e.loadFile(l.join(v, "index.html")), e.webContents.on("console-message", (n, a, p, t, o) => {
+    r(`[Renderer][${a}] ${p} (${o}:${t})`);
   });
   try {
     I.register("CommandOrControl+Shift+L", () => {
-      l("[main] Shortcut Ctrl+Shift+L triggered"), u.existsSync(k) && S.openPath(d.dirname(k));
+      r("[main] Shortcut Ctrl+Shift+L triggered"), u.existsSync(k) && R.openPath(l.dirname(k));
     });
   } catch (n) {
-    l(`[main] Failed to register shortcut: ${n}`);
+    r(`[main] Failed to register shortcut: ${n}`);
   }
-  const i = [
+  const c = [
     {
       label: "Edit",
       submenu: [
@@ -199,9 +203,9 @@ function C() {
         { role: "selectall" }
       ]
     }
-  ], c = x.buildFromTemplate(i);
-  x.setApplicationMenu(c), m.on("web-contents-created", (n, s) => {
-    s.on("before-input-event", (r, t) => {
+  ], m = x.buildFromTemplate(c);
+  x.setApplicationMenu(m), d.on("web-contents-created", (n, a) => {
+    a.setFrameRate(30), a.setBackgroundThrottling(!0), a.on("before-input-event", (p, t) => {
       if (t.type === "keyDown") {
         const o = t.key.toLowerCase();
         (t.control && (o === "w" || o === "tab" || o === "r" || o === " " || o === "0" || o === "d") || t.alt && o === "d" || o === "f5") && (e && !e.isDestroyed() && e.webContents.send("global-shortcut", {
@@ -211,54 +215,54 @@ function C() {
           shiftKey: t.shift,
           altKey: t.alt,
           metaKey: t.meta
-        }), t.control && (o === "w" || o === "r") && r.preventDefault());
+        }), t.control && (o === "w" || o === "r") && p.preventDefault());
       }
-    }), s.on("context-menu", (r, t) => {
+    }), a.on("context-menu", (p, t) => {
       const o = [];
       t.linkURL && (o.push({
         label: "Open link in external browser",
-        click: () => S.openExternal(t.linkURL)
+        click: () => R.openExternal(t.linkURL)
       }), o.push({
         label: "Copy link address",
-        click: () => s.copy()
+        click: () => a.copy()
         // This actually copies selection, but we want link
       }), o[o.length - 1].click = () => {
-        import("electron").then(({ clipboard: f }) => {
-          f.writeText(t.linkURL);
+        import("electron").then(({ clipboard: S }) => {
+          S.writeText(t.linkURL);
         });
       }, o.push({ type: "separator" })), t.hasImageContents && (o.push({
         label: "Copy image",
-        click: () => s.copyImageAt(t.x, t.y)
+        click: () => a.copyImageAt(t.x, t.y)
       }), o.push({ type: "separator" })), t.editFlags.canCopy && o.push({ role: "copy" }), t.editFlags.canPaste && o.push({ role: "paste" }), t.editFlags.canCut && o.push({ role: "cut" }), t.editFlags.canSelectAll && o.push({ role: "selectall" }), o.length > 0 && o.push({ type: "separator" }), o.push({
         label: "Inspect Element",
-        click: () => s.inspectElement(t.x, t.y)
+        click: () => a.inspectElement(t.x, t.y)
       }), x.buildFromTemplate(o).popup();
     });
   });
 }
-m.whenReady().then(async () => {
+d.whenReady().then(async () => {
   M();
   try {
-    await H(), l("[main] Local backend ready");
-  } catch (a) {
-    l(`[main] CRITICAL: Failed to start backend: ${a.message}`);
+    await H(), r("[main] Local backend ready");
+  } catch (i) {
+    r(`[main] CRITICAL: Failed to start backend: ${i.message}`);
   }
-  C();
-});
-m.on("will-quit", () => {
-  I.unregisterAll();
-});
-m.on("before-quit", () => {
   L();
 });
-m.on("window-all-closed", () => {
-  process.platform !== "darwin" && (L(), m.quit(), e = null);
+d.on("will-quit", () => {
+  I.unregisterAll();
 });
-m.on("activate", () => {
-  v.getAllWindows().length === 0 && C();
+d.on("before-quit", () => {
+  E();
+});
+d.on("window-all-closed", () => {
+  process.platform !== "darwin" && (E(), d.quit(), e = null);
+});
+d.on("activate", () => {
+  C.getAllWindows().length === 0 && L();
 });
 export {
   J as MAIN_DIST,
-  E as RENDERER_DIST,
-  R as VITE_DEV_SERVER_URL
+  v as RENDERER_DIST,
+  P as VITE_DEV_SERVER_URL
 };

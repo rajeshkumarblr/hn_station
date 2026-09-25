@@ -38,6 +38,11 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     const [isFeaturesModalOpen, setIsFeaturesModalOpen] = useState(false);
     const [summarizing, setSummarizing] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        setErrorMsg(null);
+    }, [highlightedStory?.id]);
 
     const handleCopy = async () => {
         if (!highlightedStory?.summary) return;
@@ -53,8 +58,14 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     const handleRegen = async () => {
         if (!highlightedStory?.id || summarizing) return;
         setSummarizing(true);
+        setErrorMsg(null);
         try {
-            await onSummarize?.(highlightedStory.id);
+            const res = await onSummarize?.(highlightedStory.id);
+            if (res && res.error) {
+                setErrorMsg(res.error);
+            }
+        } catch (e: any) {
+            setErrorMsg(e?.message || 'Summarization failed');
         } finally {
             setSummarizing(false);
         }
@@ -242,9 +253,9 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                 )}
                             </>
                         ) : aiEnabled ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-8 opacity-60">
-                                <Sparkles size={24} className="text-slate-300 dark:text-slate-700 animate-pulse" />
-                                <div>
+                            <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-8 opacity-80">
+                                <Sparkles size={24} className="text-slate-300 dark:text-slate-700" />
+                                <div className="flex flex-col items-center">
                                     <p className="text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">
                                         {highlightedStory ? 'Ready to analyze' : 'Hover a story'}
                                     </p>
@@ -257,6 +268,11 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                             {summarizing ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
                                             {summarizing ? 'Summarizing...' : 'Summarize Article'}
                                         </button>
+                                    )}
+                                    {errorMsg && (
+                                        <p className="mt-3 px-3 py-2 text-[11px] text-rose-500 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg max-w-[240px] leading-snug break-words select-text">
+                                            {errorMsg}
+                                        </p>
                                     )}
                                 </div>
                             </div>

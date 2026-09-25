@@ -102,7 +102,7 @@ body {
 }
 
 .animate-pulse-subtle {
-  animation: pulse-subtle 2s infinite ease-in-out;
+  animation: none;
 }
 
 /* Firefox scrollbar */
