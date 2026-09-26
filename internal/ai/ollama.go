@@ -153,7 +153,7 @@ func (c *OllamaClient) GenerateSummary(ctx context.Context, apiURL string, model
 	if len(cleanText) < 80 {
 		cleanText = text
 	}
-	limit := 4500
+	limit := 2500
 	if len(cleanText) > limit {
 		cleanText = cleanText[:limit] + "... [truncated for context]"
 	}

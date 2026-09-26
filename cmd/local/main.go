@@ -35,8 +35,8 @@ const (
 	Version                  = "v1.0.0-RC40"
 	workerCount              = 1
 	totalStories             = 40 // Keep top 40 front-page stories to minimize background network/CPU
-	maxAutoSummariesPerCycle = 6  // Only auto-summarize top 6 stories per cycle to prevent sustained heat
-	autoSummaryCooldown      = 35 * time.Second
+	maxAutoSummariesPerCycle = 3  // At most 3 background summaries per cycle with 60s cooldown
+	autoSummaryCooldown      = 60 * time.Second
 )
 
 // throttleLiteRTProcesses pins any running litert-lm processes to macOS Apple Silicon Efficiency (E) cores
@@ -247,13 +247,17 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 		log.Printf("[ingest] Failed to clear poisoned summaries: %v", err)
 	}
 
-	// Ensure auto-summarization on ingestion is enabled by default for local AI
-	_ = store.SetSetting(ctx, "ai_summaries_enabled", "true")
-	_ = store.SetSetting(ctx, "auto_summarize_enabled", "true")
+	// Initialize AI settings if not yet configured by the user in Settings
+	if val, _ := store.GetSetting(ctx, "ai_summaries_enabled"); val == "" {
+		_ = store.SetSetting(ctx, "ai_summaries_enabled", "true")
+	}
+	if val, _ := store.GetSetting(ctx, "auto_summarize_enabled"); val == "" {
+		_ = store.SetSetting(ctx, "auto_summarize_enabled", "true")
+	}
 
-	// Immediately enqueue any existing top stories in SQLite that lack summaries
+	// Immediately enqueue up to 3 top stories in SQLite that lack summaries
 	enqueueExistingUnsummarized(ctx, store, summaryManager)
-    
+
 	// Pruning is disabled to allow the database to grow indefinitely.
 	/*
 	log.Println("Pruning stories older than 7 days...")
@@ -266,9 +270,9 @@ func run(ctx context.Context, dbPath, ollamaURL string, interval time.Duration, 
 		log.Printf("[ingest] Starting worker loop...")
 		for {
 			intervalStr, _ := store.GetSetting(ctx, "refresh_interval")
-			currentInterval := 5 * time.Minute
+			currentInterval := interval
 			if intervalStr != "" {
-				if d, err := time.ParseDuration(intervalStr); err == nil {
+				if d, err := time.ParseDuration(intervalStr); err == nil && d >= 5*time.Minute {
 					currentInterval = d
 				}
 			}
@@ -458,7 +462,7 @@ func enqueueExistingUnsummarized(ctx context.Context, store storage.DB, summaryM
 		if enqueued >= maxAutoSummariesPerCycle {
 			break
 		}
-		needsSummary := s.Summary == nil || strings.TrimSpace(*s.Summary) == "" || len(s.Topics) == 0
+		needsSummary := s.Summary == nil || strings.TrimSpace(*s.Summary) == ""
 		if needsSummary {
 			rank := i + 1
 			if s.HNRank != nil && *s.HNRank > 0 {
@@ -521,7 +525,7 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 			manager.status.AIStatus = "Ready"
 			manager.status.CurrentTask = ""
 
-			// Mandatory 35-second post-inference cooldown so duty cycle stays < 8% and Mac never heats up
+			// Mandatory post-inference cooldown so duty cycle stays < 5% and Mac never heats up
 			select {
 			case <-ctx.Done():
 				return
@@ -532,9 +536,9 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 }
 
 func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, job summaryJob) error {
-	// FINAL DEDUPLICATION: Check if already summarized in DB
+	// FINAL DEDUPLICATION: Check if already summarized in DB (do NOT re-summarize when topics is empty!)
 	existing, err := store.GetStory(ctx, job.ID)
-	if err == nil && existing.Summary != nil && *existing.Summary != "" && len(existing.Topics) > 0 {
+	if err == nil && existing.Summary != nil && strings.TrimSpace(*existing.Summary) != "" {
 		log.Printf("[ingest] Story %d already summarized, skipping.", job.ID)
 		return nil
 	}
@@ -632,8 +636,6 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, summ
 	for _, id := range topIDs { jobs <- id }
 	close(jobs)
 	wg.Wait()
-	// We no longer prune stories in the desktop app to allow the local DB to grow indefinitely.
-	// _ = store.PruneStories(ctx, 7)
 }
 
 func maybeEnqueueStorySummary(ctx context.Context, store storage.DB, id int, url, title string, rank int, summaryManager *SummaryManager) {
@@ -647,9 +649,6 @@ func maybeEnqueueStorySummary(ctx context.Context, store storage.DB, id int, url
 	}
 	existing, err := store.GetStory(ctx, id)
 	needsSummary := err != nil || existing.Summary == nil || strings.TrimSpace(*existing.Summary) == ""
-	if !needsSummary && len(existing.Topics) == 0 && time.Since(existing.CreatedAt) < 24*time.Hour {
-		needsSummary = true
-	}
 	if needsSummary {
 		summaryManager.Push(summaryJob{ID: id, URL: url, Title: title, Rank: rank})
 	}
@@ -667,60 +666,9 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 	}
 	_ = store.UpsertStory(ctx, story)
 
-	// Immediately enqueue external articles for background summarization BEFORE fetching comments,
-	// so the AI worker starts summarizing right away as stories are ingested!
+	// Enqueue top external articles for background summarization (comments are fetched lazily when a story is opened)
 	if item.URL != "" {
 		maybeEnqueueStorySummary(ctx, store, id, item.URL, item.Title, *rank, summaryManager)
 	}
-
-	// Fetch top-level + shallow comments during ingestion (bounded so ingestion never stalls)
-	if len(item.Kids) > 0 {
-		rootKids := item.Kids
-		if len(rootKids) > 15 {
-			rootKids = rootKids[:15]
-		}
-		processComments(ctx, client, store, rootKids, int64(item.ID), nil, 0)
-	}
-
-	// For Ask HN / text stories without an external URL, enqueue after top comments are stored
-	if item.URL == "" {
-		maybeEnqueueStorySummary(ctx, store, id, item.URL, item.Title, *rank, summaryManager)
-	}
 	return nil
-}
-
-func processComments(ctx context.Context, client *hn.Client, store storage.DB, kids []int, storyID int64, parentID *int64, depth int) {
-	for _, kidID := range kids {
-		item, err := client.GetItem(ctx, kidID)
-		if err != nil {
-			log.Printf("[ingest] Failed to fetch comment %d: %v", kidID, err)
-			continue
-		}
-
-		if item.Type != "comment" || item.Deleted || item.Dead {
-			continue
-		}
-
-		comment := storage.Comment{
-			ID:       int64(item.ID),
-			StoryID:  storyID,
-			ParentID: parentID,
-			Text:     item.Text,
-			By:       item.By,
-			PostedAt: time.Unix(item.Time, 0),
-		}
-
-		if err := store.UpsertComment(ctx, comment); err != nil {
-			log.Printf("[ingest] Failed to upsert comment %d: %v", item.ID, err)
-		}
-
-		if depth < 1 && len(item.Kids) > 0 {
-			subKids := item.Kids
-			if len(subKids) > 3 {
-				subKids = subKids[:3]
-			}
-			pID := int64(item.ID)
-			processComments(ctx, client, store, subKids, storyID, &pID, depth+1)
-		}
-	}
 }

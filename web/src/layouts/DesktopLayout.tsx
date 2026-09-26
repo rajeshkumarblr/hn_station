@@ -794,38 +794,37 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 </main>
 
                 {/* Reader View */}
-                <div 
-                    className="flex-1 w-full bg-[#111d2e] relative"
-                    style={{ display: currentView === 'reader' ? 'block' : 'none' }}
-                >
-                    {tabs.map(tab => (
-                        <div key={tab.id} style={{ display: activeTabId === tab.id ? 'block' : 'none' }} className="h-full">
-                            <ReaderPane
-                                story={tab.story}
-                                isActive={currentView === 'reader' && activeTabId === tab.id}
-                                activeTab={(tab.mode || 'split') as any}
-                                onTabChange={(m) => app.handleStorySelect?.(tab.storyId, m)}
-                                onHome={app.handleHome}
-                                onClose={() => closeTab(tab.id)}
-                                onToggleAISidebar={(open) => app.toggleAISidebar(tab.id, open)}
-                                onToggleSave={handleToggleSave}
-                                user={user}
-                                onHide={(id) => { handleHideStory(id); app.handleHome(); }}
-                                onSetGlobalWarning={app.setGlobalWarning}
-                                onSetIframeBlocked={app.setStoryIframeBlocked}
-                                onSummarizeStory={app.handleSummarizeStory}
-                                onOpenSettings={() => setIsSettingsOpen(true)}
-                                isAISidebarOpen={tab.isAISidebarOpen || false}
-                                activeTopics={activeTopics}
-                                disabledTopics={disabledTopics}
-                                setActiveTopics={setActiveTopics}
-                                setDisabledTopics={setDisabledTopics}
-                                topicMatch={app.topicMatch}
-                            />
-                        </div>
-                    ))}
-                    {!tabs.length && <div className="h-full flex items-center justify-center text-slate-500">Select a story</div>}
-                </div>
+                {currentView === 'reader' && (
+                    <div className="flex-1 w-full bg-[#111d2e] relative">
+                        {tabs.filter(tab => activeTabId === tab.id).map(tab => (
+                            <div key={tab.id} className="h-full">
+                                <ReaderPane
+                                    story={tab.story}
+                                    isActive={true}
+                                    activeTab={(tab.mode || 'split') as any}
+                                    onTabChange={(m) => app.handleStorySelect?.(tab.storyId, m)}
+                                    onHome={app.handleHome}
+                                    onClose={() => closeTab(tab.id)}
+                                    onToggleAISidebar={(open) => app.toggleAISidebar(tab.id, open)}
+                                    onToggleSave={handleToggleSave}
+                                    user={user}
+                                    onHide={(id) => { handleHideStory(id); app.handleHome(); }}
+                                    onSetGlobalWarning={app.setGlobalWarning}
+                                    onSetIframeBlocked={app.setStoryIframeBlocked}
+                                    onSummarizeStory={app.handleSummarizeStory}
+                                    onOpenSettings={() => setIsSettingsOpen(true)}
+                                    isAISidebarOpen={tab.isAISidebarOpen || false}
+                                    activeTopics={activeTopics}
+                                    disabledTopics={disabledTopics}
+                                    setActiveTopics={setActiveTopics}
+                                    setDisabledTopics={setDisabledTopics}
+                                    topicMatch={app.topicMatch}
+                                />
+                            </div>
+                        ))}
+                        {!tabs.length && <div className="h-full flex items-center justify-center text-slate-500">Select a story</div>}
+                    </div>
+                )}
 
                 {/* Right Side Workspace Pane (Comments & AI Takeaways in Web, FilterSidebar in Desktop) */}
                 {isWebPreview() ? (

@@ -694,20 +694,19 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[api] story=%d found %d comments", id, len(comments))
 
 	isIngesting := false
+	forceRefresh := r.URL.Query().Get("refresh") == "true"
 	if _, ok := s.ingestingComments.Load(id); ok {
 		isIngesting = true
-	} else if len(comments) < story.Descendants || len(comments) == 0 {
-		// If we have fewer comments than descendants, or none at all, trigger a background sync
+	} else if (len(comments) == 0 && story.Descendants > 0) || forceRefresh {
+		// Only auto-sync comments if we have zero comments stored (or explicit refresh)
 		isIngesting = true
 		go func() {
 			s.ingestingComments.Store(id, true)
 			defer s.ingestingComments.Delete(id)
-			
-			log.Printf("[api] story=%d local_comments=%d descendants=%d -> triggering background sync", id, len(comments), story.Descendants)
-			log.Printf("[api] Async checking HN for comments on story %d...", id)
+
+			log.Printf("[api] story=%d local_comments=%d descendants=%d -> triggering bounded comment sync", id, len(comments), story.Descendants)
 			item, err := s.hnClient.GetItem(context.Background(), id)
 			if err == nil {
-				// Update story metadata (descendants count) while we are at it
 				updatedStory := storage.Story{
 					ID:          int64(item.ID),
 					Title:       item.Title,
@@ -720,8 +719,11 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 				_ = s.store.UpsertStory(context.Background(), updatedStory)
 
 				if len(item.Kids) > 0 {
-					log.Printf("[api] Found %d kids for story %d, starting recursive fetch...", len(item.Kids), id)
-					s.fetchCommentsRecursive(context.Background(), id, item.Kids, nil)
+					rootKids := item.Kids
+					if len(rootKids) > 25 {
+						rootKids = rootKids[:25]
+					}
+					s.fetchCommentsBounded(context.Background(), id, rootKids, nil, 0)
 				}
 			}
 		}()
@@ -746,47 +748,37 @@ func (s *Server) handleGetStoryDetails(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (s *Server) fetchCommentsRecursive(ctx context.Context, storyID int, kids []int, parentID *int64) {
-	if len(kids) == 0 {
+func (s *Server) fetchCommentsBounded(ctx context.Context, storyID int, kids []int, parentID *int64, depth int) {
+	if len(kids) == 0 || depth > 2 {
 		return
 	}
 
-	// Use a semaphore to limit concurrency across all recursive calls
-	// We'll use a 20-worker limit for comments
-	sem := make(chan struct{}, 20)
-	var wg sync.WaitGroup
-
 	for _, kidID := range kids {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-			
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			item, err := s.hnClient.GetItem(ctx, id)
-			if err != nil {
-				return
+		item, err := s.hnClient.GetItem(ctx, kidID)
+		if err != nil {
+			continue
+		}
+		if item.Type != "comment" || item.Deleted || item.Dead {
+			continue
+		}
+		comment := storage.Comment{
+			ID:       int64(item.ID),
+			StoryID:  int64(storyID),
+			ParentID: parentID,
+			Text:     item.Text,
+			By:       item.By,
+			PostedAt: time.Unix(item.Time, 0),
+		}
+		_ = s.store.UpsertComment(ctx, comment)
+		if depth < 2 && len(item.Kids) > 0 {
+			subKids := item.Kids
+			if len(subKids) > 5 {
+				subKids = subKids[:5]
 			}
-			if item.Type != "comment" || item.Deleted || item.Dead {
-				return
-			}
-			comment := storage.Comment{
-				ID:       int64(item.ID),
-				StoryID:  int64(storyID),
-				ParentID: parentID,
-				Text:     item.Text,
-				By:       item.By,
-				PostedAt: time.Unix(item.Time, 0),
-			}
-			_ = s.store.UpsertComment(ctx, comment)
-			if len(item.Kids) > 0 {
-				pID := int64(item.ID)
-				s.fetchCommentsRecursive(ctx, storyID, item.Kids, &pID)
-			}
-		}(kidID)
+			pID := int64(item.ID)
+			s.fetchCommentsBounded(ctx, storyID, subKids, &pID, depth+1)
+		}
 	}
-	wg.Wait()
 }
 
 // ─── Interaction Handlers ───
