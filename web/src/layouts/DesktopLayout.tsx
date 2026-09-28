@@ -134,13 +134,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         const isDesktop = os === 'Windows' || os === 'macOS' || os === 'Linux';
         
         if (os === 'Windows') {
-            url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/HN%20Station%20Setup%200.10.0.exe';
+            url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/HN.Station.Setup.0.10.0.exe';
             label = 'Get for Windows';
         } else if (os === 'macOS') {
-            url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/HN-Station-0.10.0.dmg';
+            url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/HN.Station-0.10.0-arm64.dmg';
             label = 'Get for macOS';
         } else if (os === 'Linux') {
-            url = 'https://github.com/rajeshkumarblr/hn_station/releases/latest';
+            url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/hn-station_0.10.0_amd64.deb';
             label = 'Get for Linux';
         }
         
