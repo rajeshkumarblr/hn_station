@@ -36,7 +36,8 @@
         "to": ".",
         "filter": [
           "hn-local",
-          "hn-local.exe"
+          "hn-local.exe",
+          "tag_mappings.json"
         ]
       }
     ],
