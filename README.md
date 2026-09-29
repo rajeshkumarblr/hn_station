@@ -39,9 +39,9 @@ A local-first Hacker News desktop client. Read articles and comments side by sid
 | **Linux** | [**hn-station_0.10.0_amd64.deb**](https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/hn-station_0.10.0_amd64.deb) / [All Releases](https://github.com/rajeshkumarblr/hn_station/releases/latest) | Debian/Ubuntu `.deb` (`x64`) |
 | **Web** | [hnstation.dev](https://hnstation.dev) | Lite browser preview |
 
-> **macOS First-Launch Note (Gatekeeper)**: Because the `.dmg` is ad-hoc signed without a paid Apple Developer certificate, after dragging **HN Station.app** into `/Applications`, run this once in Terminal before opening:
+> **macOS First-Launch Note (Gatekeeper)**: Because the `.dmg` is built without a paid Apple Developer ID certificate, after dragging **HN Station.app** into `/Applications`, run this once in Terminal before opening:
 > ```bash
-> xattr -cr "/Applications/HN Station.app"
+> xattr -cr "/Applications/HN Station.app" && codesign --force --deep --sign - "/Applications/HN Station.app"
 > ```
 
 ---

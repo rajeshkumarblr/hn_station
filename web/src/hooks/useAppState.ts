@@ -446,17 +446,25 @@ export function useAppState() {
             if (existingTab) {
                 // If we forced a mode change, update it, otherwise just switch
                 const targetMode = isWebPreview() ? 'discussion' : (overrideMode || existingTab.mode);
-                if (existingTab.mode !== targetMode) {
-                    return prev.map(t => t.id === existingTab.id ? { ...t, mode: targetMode } : t);
-                }
+                const shouldOpenSidebar = targetMode !== 'article';
                 setTimeout(() => setActiveTabId(existingTab.id), 0);
                 setTimeout(() => setCurrentView('reader'), 0);
+                if (existingTab.mode !== targetMode || existingTab.isAISidebarOpen !== shouldOpenSidebar) {
+                    return prev.map(t => t.id === existingTab.id ? { ...t, mode: targetMode, isAISidebarOpen: shouldOpenSidebar } : t);
+                }
                 return prev;
             }
 
-            // Create new tab
+            // Create new tab with Discussion sidebar open by default for 'split' and 'discussion' modes
             const newTabId = crypto.randomUUID();
-            const newTab: ReaderTab = { id: newTabId, storyId: id, story, mode: actualMode, parentTabId: activeTabId || undefined };
+            const newTab: ReaderTab = {
+                id: newTabId,
+                storyId: id,
+                story,
+                mode: actualMode,
+                isAISidebarOpen: actualMode !== 'article',
+                parentTabId: activeTabId || undefined,
+            };
 
             setTimeout(() => setActiveTabId(newTabId), 0);
             setTimeout(() => setCurrentView('reader'), 0);

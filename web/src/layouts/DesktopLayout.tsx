@@ -813,7 +813,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     onSetIframeBlocked={app.setStoryIframeBlocked}
                                     onSummarizeStory={app.handleSummarizeStory}
                                     onOpenSettings={() => setIsSettingsOpen(true)}
-                                    isAISidebarOpen={tab.isAISidebarOpen || false}
+                                    isAISidebarOpen={tab.isAISidebarOpen ?? (tab.mode !== 'article')}
                                     activeTopics={activeTopics}
                                     disabledTopics={disabledTopics}
                                     setActiveTopics={setActiveTopics}

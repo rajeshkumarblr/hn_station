@@ -71,6 +71,7 @@ export function ReaderPane({
 
     useEffect(() => {
         setMobileTab('comments');
+        setSidebarTab('discussion');
     }, [story.id]);
 
     useEffect(() => {
