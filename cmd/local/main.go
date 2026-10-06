@@ -208,7 +208,7 @@ func runInteractive(dbPath, port, ollamaURL string, interval time.Duration) {
 	var listener net.Listener
 	var err error
 	if port == "0" {
-		listener, err = net.Listen("tcp", ":0")
+		listener, err = net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			log.Fatalf("listen: %v", err)
 		}
@@ -216,7 +216,7 @@ func runInteractive(dbPath, port, ollamaURL string, interval time.Duration) {
 		fmt.Fprintf(os.Stdout, "LISTENING:%d\n", actualPort)
 		os.Stdout.Sync()
 	} else {
-		listener, err = net.Listen("tcp", ":"+port)
+		listener, err = net.Listen("tcp", "127.0.0.1:"+port)
 		if err != nil {
 			log.Fatalf("listen: %v", err)
 		}
