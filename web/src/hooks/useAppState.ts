@@ -58,7 +58,15 @@ function saveTopicChips(chips: string[]) {
 function loadPersistedTabs(): ReaderTab[] {
     try {
         const saved = localStorage.getItem('hn_desktop_tabs');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+            const parsed: ReaderTab[] = JSON.parse(saved);
+            if (Array.isArray(parsed)) {
+                const pinned = parsed.filter(t => t.isPinned);
+                const unpinned = parsed.filter(t => !t.isPinned);
+                const latestPreview = unpinned.length > 0 ? [unpinned[unpinned.length - 1]] : [];
+                return [...pinned, ...latestPreview];
+            }
+        }
     } catch { }
     return [];
 }
@@ -222,6 +230,13 @@ export function useAppState() {
             return newTabs;
         });
     }, [activeTabId]);
+
+    const pinTab = useCallback((tabId: string, forcePin?: boolean) => {
+        setTabs(prev => prev.map(t => {
+            if (t.id !== tabId) return t;
+            return { ...t, isPinned: forcePin !== undefined ? forcePin : !t.isPinned };
+        }));
+    }, []);
 
     const activeTab = useMemo(() => tabs.find(t => t.id === activeTabId) || null, [tabs, activeTabId]);
 
@@ -404,7 +419,7 @@ export function useAppState() {
         }
     }, [mode]);
 
-    const handleStorySelect = useCallback((id: number, overrideMode?: 'article' | 'discussion' | 'split') => {
+    const handleStorySelect = useCallback((id: number, overrideMode?: 'article' | 'discussion' | 'split', keepOpen?: boolean) => {
         let story = storyBuffer.find(s => s.id === id);
 
         // If story is not in the current buffer (e.g. user moved to another page),
@@ -447,10 +462,11 @@ export function useAppState() {
                 // If we forced a mode change, update it, otherwise just switch
                 const targetMode = isWebPreview() ? 'discussion' : (overrideMode || existingTab.mode);
                 const shouldOpenSidebar = targetMode !== 'article';
+                const shouldPin = keepOpen ? true : existingTab.isPinned;
                 setTimeout(() => setActiveTabId(existingTab.id), 0);
                 setTimeout(() => setCurrentView('reader'), 0);
-                if (existingTab.mode !== targetMode || existingTab.isAISidebarOpen !== shouldOpenSidebar) {
-                    return prev.map(t => t.id === existingTab.id ? { ...t, mode: targetMode, isAISidebarOpen: shouldOpenSidebar } : t);
+                if (existingTab.mode !== targetMode || existingTab.isAISidebarOpen !== shouldOpenSidebar || existingTab.isPinned !== shouldPin) {
+                    return prev.map(t => t.id === existingTab.id ? { ...t, mode: targetMode, isAISidebarOpen: shouldOpenSidebar, isPinned: shouldPin } : t);
                 }
                 return prev;
             }
@@ -464,6 +480,7 @@ export function useAppState() {
                 mode: actualMode,
                 isAISidebarOpen: actualMode !== 'article',
                 parentTabId: activeTabId || undefined,
+                isPinned: Boolean(keepOpen),
             };
 
             setTimeout(() => setActiveTabId(newTabId), 0);
@@ -474,8 +491,15 @@ export function useAppState() {
                 return [newTab];
             }
 
-            // On desktop, append
-            return [...prev, newTab];
+            // VS Code-style preview tab behavior:
+            // If opening as a regular preview tab (!keepOpen), overwrite the existing unpinned preview tab
+            // so unpinned tabs never pile up. Pinned tabs (t.isPinned) are always preserved.
+            const pinnedTabs = prev.filter(t => t.isPinned);
+            if (keepOpen) {
+                const existingPreview = prev.filter(t => !t.isPinned).slice(-1);
+                return [...pinnedTabs, ...existingPreview, newTab];
+            }
+            return [...pinnedTabs, newTab];
         });
 
         if (user) {
@@ -778,11 +802,7 @@ export function useAppState() {
                     if (exists) targetId = id;
                 }
                 
-                if (isWebPreview()) {
-                    setHighlightedStoryId(targetId);
-                } else {
-                    handleStorySelect(targetId);
-                }
+                setHighlightedStoryId(targetId);
                 setCurrentView('feed');
             }
         } catch (err: any) {
@@ -968,7 +988,7 @@ export function useAppState() {
         setDisabledTopics, setGlobalWarning, setPrimaryTab, setIsFilterActive,
         setSearchQuery, setTopicMatch, fetchNextPage, setLastFeedMode,
         // Handlers
-        handleRefresh, handleRefreshTab, toggleTheme, closeTab, setReaderTab, updateTabMode, setStoryIframeBlocked, setStoryDiscussionSummary, handleHideStory,
+        handleRefresh, handleRefreshTab, toggleTheme, closeTab, pinTab, setReaderTab, updateTabMode, setStoryIframeBlocked, setStoryDiscussionSummary, handleHideStory,
         toggleAISidebar,
         handleStorySelect, handleToggleSave, handleBack, handleHome,
         handleSummarizeStory: async (id: number) => {

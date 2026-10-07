@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import pkg from '../../package.json';
-import { RefreshCw, Home, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon, Github } from 'lucide-react';
+import { RefreshCw, Home, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon, Github, Pin } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getTagStyle } from '../utils/colors';
@@ -717,28 +717,46 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             <Home size={14} className={currentView === 'feed' ? 'text-orange-500' : 'text-slate-400'} /> 
                             <span className="text-[12px] truncate">Feed</span>
                         </button>
-                        {tabs.map(t => (
-                            <div
-                                key={t.id}
-                                title={t.story.title}
-                                className={`flex min-w-[80px] max-w-[260px] flex-1 shrink items-center justify-between px-3 h-[38px] border-r border-slate-200 dark:border-slate-800 transition-all ${currentView === 'reader' && activeTabId === t.id
-                                    ? 'bg-white dark:bg-[#1a2234] text-amber-500 dark:text-amber-400 font-bold border-b-2 border-b-amber-500'
-                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-[#1a2234]/60'}`}
-                            >
-                                <button
-                                    onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
-                                    className="truncate text-[12px] flex-1 text-left"
+                        {tabs.map(t => {
+                            const isPinned = Boolean(t.isPinned);
+                            return (
+                                <div
+                                    key={t.id}
+                                    title={isPinned
+                                        ? `${t.story.title} (Pinned — stays open)`
+                                        : `${t.story.title} (Preview tab — double-click tab to keep open)`}
+                                    onDoubleClick={() => app.pinTab(t.id, true)}
+                                    className={`group flex min-w-[90px] max-w-[280px] flex-1 shrink items-center justify-between px-3 h-[38px] border-r border-slate-200 dark:border-slate-800 transition-all select-none ${currentView === 'reader' && activeTabId === t.id
+                                        ? 'bg-white dark:bg-[#1a2234] text-amber-500 dark:text-amber-400 font-bold border-b-2 border-b-amber-500'
+                                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-[#1a2234]/60'}`}
                                 >
-                                    {t.story.title}
-                                </button>
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); closeTab(t.id); }}
-                                    className="ml-1.5 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-colors shrink-0"
-                                >
-                                    <X size={11} />
-                                </button>
-                            </div>
-                        ))}
+                                    <button
+                                        onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
+                                        className={`truncate text-[12px] flex-1 text-left cursor-pointer ${!isPinned ? 'italic opacity-90' : 'not-italic'}`}
+                                    >
+                                        {t.story.title}
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); app.pinTab(t.id); }}
+                                        title={isPinned ? "Unpin tab (allow auto-replace)" : "Keep tab open (or double-click tab)"}
+                                        className={`ml-1 p-1 rounded-md transition-all shrink-0 cursor-pointer ${
+                                            isPinned
+                                                ? 'text-amber-500 dark:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                : 'opacity-0 group-hover:opacity-70 hover:!opacity-100 text-slate-400 hover:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                    >
+                                        <Pin size={10} className={isPinned ? 'fill-current' : ''} />
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); closeTab(t.id); }}
+                                        title="Close tab"
+                                        className="ml-0.5 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-colors shrink-0 cursor-pointer"
+                                    >
+                                        <X size={11} />
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

@@ -45,6 +45,7 @@ export interface ReaderTab {
     mode: 'article' | 'discussion' | 'split';
     parentTabId?: string;
     isAISidebarOpen?: boolean;
+    isPinned?: boolean;
 }
 
 export const MODES = [
