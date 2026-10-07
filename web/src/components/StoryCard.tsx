@@ -47,9 +47,29 @@ interface StoryCardProps {
 
 export function StoryCard({
     story, index, onSelect, onToggleSave, onHide, onOpenInTab,
-    isSelected, isHighlighted, isRead, isEven, activeTopics = [], selectedTopics = [],
-    topicMatch = 'any'
+    isSelected, isHighlighted, isRead, activeTopics = [], selectedTopics = [],
 }: StoryCardProps) {
+    const displayTopics = (() => {
+        const seen = new Set<string>();
+        const result: string[] = [];
+        const titleLower = (story.title || '').toLowerCase();
+        for (const t of activeTopics) {
+            if (t && titleLower.includes(t.toLowerCase()) && !seen.has(t.toLowerCase())) {
+                seen.add(t.toLowerCase());
+                result.push(t);
+            }
+        }
+        if (story.topics) {
+            for (const t of story.topics) {
+                if (t && !seen.has(t.toLowerCase())) {
+                    seen.add(t.toLowerCase());
+                    result.push(t);
+                }
+            }
+        }
+        return result.slice(0, 4);
+    })();
+
     let domain = '';
     try {
         if (story.url) {
@@ -147,16 +167,14 @@ export function StoryCard({
     // Fallback: If no topic match, check if title contains the active topic keyword
 
 
-    // Unified card styling with hover lifting effect and alternating colors
-    const cardBg = isEven
-        ? 'bg-white dark:bg-[#11192e] border-slate-200 dark:border-slate-800/60 shadow-sm'
-        : 'bg-slate-50/40 dark:bg-[#0a0f1d] border-slate-100 dark:border-slate-900/50';
+    // Uniform elevated card surface (no pitch-black zebra striping)
+    const cardBg = 'bg-white dark:bg-[#1a2234] border-slate-200/90 dark:border-slate-700/60 shadow-sm';
 
     const activeBg = isHighlighted
-        ? `bg-lime-500/5 dark:bg-[#182845] border-l-[3px] border-l-lime-500 border-y border-r border-y-lime-500/20 border-r-lime-500/10 shadow-xl shadow-lime-500/10 z-10 ring-1 ring-lime-500/20 animate-pulse-subtle`
+        ? `bg-amber-50/50 dark:bg-[#232e47] border-l-[3.5px] border-l-amber-400 border-y border-r border-y-amber-500/30 border-r-amber-500/20 shadow-lg shadow-black/20 z-10 ring-1 ring-amber-400/25`
         : isSelected
-            ? `bg-orange-500/5 dark:bg-[#1b2b4a] border-l-[3px] border-l-orange-500 shadow-md`
-            : `${cardBg} border hover:border-orange-500/30 dark:hover:border-orange-500/30 hover:bg-white dark:hover:bg-[#162744] hover:shadow-xl hover:shadow-orange-500/5 hover:-translate-y-0.5`;
+            ? `bg-orange-500/5 dark:bg-[#202b42] border-l-[3.5px] border-l-orange-500 border-y border-r border-slate-200 dark:border-slate-700/70 shadow-md`
+            : `${cardBg} border hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/70 dark:hover:bg-[#202a40] hover:shadow-md`;
 
     // Compute time-ago for the story
     const timeAgo = (() => {
@@ -172,7 +190,7 @@ export function StoryCard({
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all duration-300 flex flex-col justify-center relative ${isWebPreview() ? 'rounded-xl px-4 py-2' : 'rounded-2xl px-5 py-4'} ${activeBg}`}
+            className={`group transition-all duration-200 flex flex-col justify-center relative ${isWebPreview() ? 'rounded-xl px-4 py-2.5' : 'rounded-xl px-5 py-3.5'} ${activeBg}`}
             style={{ animationDelay: `${(index !== undefined ? index % 10 : 0) * 0.05}s` }}
             onClick={() => onSelect && onSelect(story.id)}
             onContextMenu={handleContextMenu}
@@ -181,44 +199,44 @@ export function StoryCard({
             <div className="relative z-10">
                 <div className="flex items-start gap-3">
                     <div className="flex-1">
-                        <h3 className="text-[15px] leading-snug mb-1 font-bold whitespace-normal transition-all duration-200">
+                        <h3 className="text-[15px] leading-snug mb-1.5 font-semibold whitespace-normal transition-all duration-200">
                             <span
-                                className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer ${isHighlighted ? 'text-amber-600 dark:text-amber-400' : ''} ${!isHighlighted ? (dimmed && !isSelected ? 'text-slate-400 dark:text-slate-500 font-normal' : 'text-slate-800 dark:text-slate-100') : ''}`}
+                                className={`hover:text-indigo-600 dark:hover:text-sky-300 transition-colors cursor-pointer ${isHighlighted ? 'text-amber-600 dark:text-amber-300 font-bold' : ''} ${!isHighlighted ? (dimmed && !isSelected ? 'text-slate-500 dark:text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100') : ''}`}
                             >
                                 {story.title}
                             </span>
                         </h3>
 
                         {/* Compact Metadata Row */}
-                        <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium pr-28">
+                        <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11.5px] text-slate-500 dark:text-slate-400 font-medium pr-28">
                             {story.by && (
-                                <span className="font-bold text-orange-600/70 dark:text-[#ff6600]/70">{story.by}</span>
+                                <span className="font-semibold text-orange-600/90 dark:text-orange-400/90">{story.by}</span>
                             )}
                             {timeAgo && (
-                                <span className="text-slate-400/80 dark:text-slate-500/80">{timeAgo}</span>
+                                <span className="text-slate-400 dark:text-slate-400">{timeAgo}</span>
                             )}
                             {(story.by || timeAgo) && (domain || (!domain && story.title.startsWith('Ask HN'))) && (
-                                <span className="text-slate-300 dark:text-slate-700">·</span>
+                                <span className="text-slate-300 dark:text-slate-600">·</span>
                             )}
                             {domain && (
                                 <div className="flex items-center gap-1.5">
                                     <img
                                         src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
                                         alt=""
-                                        className="w-3.5 h-3.5 rounded-sm grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all"
+                                        className="w-3.5 h-3.5 rounded-sm opacity-80 group-hover:opacity-100 transition-all"
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                     />
-                                    <span className="truncate max-w-[120px] text-slate-400 dark:text-slate-400 font-bold">{domain}</span>
+                                    <span className="truncate max-w-[140px] text-slate-500 dark:text-slate-300 font-semibold">{domain}</span>
                                 </div>
                             )}
                             {!domain && story.title.startsWith('Ask HN') && (
-                                <div className="flex items-center gap-1 text-indigo-500/70">
+                                <div className="flex items-center gap-1 text-indigo-500 dark:text-indigo-400">
                                     <Terminal size={10} />
                                     <span>Ask HN</span>
                                 </div>
                             )}
                             <div className="relative flex items-center shrink-0">
-                                <div className="flex items-center gap-0.5 bg-slate-100/50 dark:bg-slate-800/30 rounded px-1.5 py-0.5 border border-slate-200/20 dark:border-slate-800/40">
+                                <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-md px-1.5 py-0.5 border border-slate-200/70 dark:border-slate-700/70">
                                     <button
                                         onClick={(e) => handleVote(e, 'up')}
                                         disabled={voting}
@@ -227,7 +245,7 @@ export function StoryCard({
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
                                     </button>
-                                    <span className={`text-[11px] font-black select-none px-0.5 ${voted === 'up' ? 'text-orange-500' : voted === 'down' ? 'text-blue-500' : 'text-amber-500 dark:text-amber-400'}`}>
+                                    <span className={`text-[11px] font-bold select-none px-0.5 ${voted === 'up' ? 'text-orange-500' : voted === 'down' ? 'text-blue-500' : 'text-amber-600 dark:text-amber-400'}`}>
                                         {localScore}
                                     </span>
                                     <button
@@ -247,57 +265,35 @@ export function StoryCard({
                             </div>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
-                                className={`flex items-center gap-0.5 transition-colors font-bold ${story.descendants > 0 ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400'}`}
+                                className={`flex items-center gap-1 transition-colors font-semibold ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-400'}`}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 {story.descendants > 0 ? story.descendants : ''}
                             </button>
 
-                            {/* Promoted Topic Tags (Filter Matches Only) */}
-                            {story.topics && story.topics.length > 0 && (
+                            {/* Story Topic Badges */}
+                            {displayTopics.length > 0 && (
                                 <div className="flex items-center gap-1.5 ml-1">
-                                    {(() => {
-                                        // Exclusive mode: only show the ones that match selection
-                                        // Other modes: show all active toolbar topics that apply
-                                        const filterBase = (topicMatch === 'exclusive' && selectedTopics.length > 0) ? selectedTopics : activeTopics;
-                                        
-                                        // Unique set of matched filter labels to display
-                                        const matchedLabels = new Set<string>();
-                                        
-                                        story.topics.forEach(t => {
-                                            const tLow = t.toLowerCase();
-                                            filterBase.forEach(f => {
-                                                const fLow = f.toLowerCase();
-                                                // Check direct, plural, or common synonyms (LLM/Language Model)
-                                                const isMatch = tLow === fLow || 
-                                                               tLow === fLow + 's' || 
-                                                               fLow === tLow + 's' ||
-                                                               (fLow === 'llm' && tLow === 'language models') ||
-                                                               (fLow === 'llm' && tLow === 'language model');
-                                                if (isMatch) matchedLabels.add(f);
-                                            });
-                                        });
-
-                                        return Array.from(matchedLabels).slice(0, 3).map(label => {
-                                            const style = getTagStyle(label);
-                                            return (
-                                                <span 
-                                                    key={label}
-                                                    className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight border shadow-sm"
-                                                    style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
-                                                >
-                                                    #{label}
-                                                </span>
-                                            );
-                                        });
-                                    })()}
+                                    {displayTopics.map(label => {
+                                        const style = getTagStyle(label);
+                                        const isFiltered = selectedTopics.some(st => st.toLowerCase() === label.toLowerCase());
+                                        return (
+                                            <span
+                                                key={label}
+                                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-tight border shadow-sm ${isFiltered ? 'ring-1 ring-current' : ''}`}
+                                                style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
+                                            >
+                                                #{label}
+                                            </span>
+                                        );
+                                    })}
                                 </div>
                             )}
 
                             {/* 1-line AI Summary Preview */}
                             {story.summary && story.summary.trim().length > 0 && !isWebPreview() && (
-                                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 line-clamp-1 italic leading-relaxed">
-                                    <Sparkles size={10} className="inline mr-1 text-indigo-400/60" />
+                                <p className="w-full text-[12.5px] text-slate-600 dark:text-slate-300 mt-1.5 line-clamp-1 font-normal leading-snug">
+                                    <Sparkles size={11} className="inline mr-1.5 text-amber-500 dark:text-amber-400 -mt-0.5" />
                                     {story.summary
                                         .replace(/^([#\s\-*•]|\d+\.)+/, '')
                                         .replace(/^\*\*|\*\*$/g, '')
@@ -305,7 +301,7 @@ export function StoryCard({
                                         .replace(/^([#\s\-*•]|\d+\.)+/, '')
                                         .replace(/^\*\*|\*\*$/g, '')
                                         .trim()
-                                        .slice(0, 120)}
+                                        .slice(0, 140)}
                                 </p>
                             )}
                         </div>

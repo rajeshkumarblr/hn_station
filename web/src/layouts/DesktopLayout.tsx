@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import pkg from '../../package.json';
-import { RefreshCw, Home, Bookmark, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon, Github } from 'lucide-react';
+import { RefreshCw, Home, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon, Github } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getTagStyle } from '../utils/colors';
@@ -209,11 +209,20 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         return () => clearTimeout(timer);
     }, [highlightedStoryId, readIds, user, highlightedStory, app.apiBase]);
 
+    const getTopicMatchCount = (topic: string) => {
+        const lower = topic.toLowerCase();
+        return app.storyBuffer.filter(s => {
+            if (s.title?.toLowerCase().includes(lower)) return true;
+            if (s.topics?.some(st => st?.toLowerCase() === lower)) return true;
+            return false;
+        }).length;
+    };
+
     return (
-        <div className="h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 font-sans overflow-hidden flex flex-col transition-colors duration-200">
+        <div className="h-screen bg-slate-50 dark:bg-[#131824] text-slate-900 dark:text-slate-100 font-sans overflow-hidden flex flex-col transition-colors duration-200">
             {/* ─── Zen Header ─── */}
             <header 
-                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 h-[52px] flex items-center justify-between px-4 shrink-0 z-[100] relative select-none"
+                className="bg-white/90 dark:bg-[#161d2e]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/90 h-[52px] flex items-center justify-between px-4 shrink-0 z-[100] relative select-none"
                 style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
             >
                 {/* Left Section: Modes & Global Filters */}
@@ -239,7 +248,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     }}
                                     className={`text-[11px] font-bold tracking-tight transition-all outline-none px-3 py-1.5 rounded-full relative group ${isSelected
                                         ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                        : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'
+                                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
                                         }`}
                                 >
                                     {m.label}
@@ -258,7 +267,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
                                         isArticlesMenuOpen 
                                         ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' 
-                                        : 'text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white border-transparent'
+                                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white border-transparent'
                                     }`}
                                 >
                                     <span>Articles</span>
@@ -269,7 +278,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </button>
 
                                 {isArticlesMenuOpen && (
-                                    <div className="absolute left-0 top-[48px] w-[320px] max-h-[400px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-[200] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
+                                    <div className="absolute left-0 top-[48px] w-[320px] max-h-[400px] bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-slate-700/80 rounded-xl shadow-2xl z-[200] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
                                         <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
                                             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Open Articles</span>
                                             <span className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full">{tabs.length}</span>
@@ -286,10 +295,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     className={`w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors group ${
                                                         activeTabId === t.id && currentView === 'reader'
                                                         ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
-                                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
                                                     }`}
                                                 >
-                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeTabId === t.id && currentView === 'reader' ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700 group-hover:bg-slate-400'}`} />
+                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeTabId === t.id && currentView === 'reader' ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600 group-hover:bg-slate-400'}`} />
                                                     <span className="text-[12px] font-medium truncate flex-1">{t.story.title}</span>
                                                 </button>
                                             ))}
@@ -310,14 +319,14 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         <>
                             <button 
                                 onClick={app.handleRefresh} 
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-800 bg-white dark:bg-black/20 shadow-sm"
+                                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1e273d] shadow-sm"
                                 title="Refresh stories from Hacker News"
                             >
                                 <RefreshCw size={12} className={loading ? 'animate-spin text-indigo-500' : ''} />
                             </button>
 
-                            <div className="flex items-center bg-slate-100 dark:bg-black/40 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700/50 group focus-within:ring-2 focus-within:ring-indigo-500/45 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0" title="Quickly filter stories in the current list">
-                                <Search size={12} className="text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                            <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700/80 group focus-within:ring-2 focus-within:ring-indigo-500/45 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0" title="Quickly filter stories in the current list">
+                                <Search size={12} className="text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-400 transition-colors" />
                                 <input
                                     type="text"
                                     placeholder="Quick filter..."
@@ -339,7 +348,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             (e.target as HTMLInputElement).blur();
                                         }
                                     }}
-                                    className="bg-transparent border-none outline-none text-[11px] font-bold ml-1.5 w-24 focus:w-36 transition-all placeholder:text-slate-500 dark:placeholder:text-slate-600 text-slate-800 dark:text-slate-200"
+                                    className="bg-transparent border-none outline-none text-[11px] font-bold ml-1.5 w-24 focus:w-36 transition-all placeholder:text-slate-500 dark:placeholder:text-slate-400 text-slate-800 dark:text-slate-100"
                                 />
                                 {app.searchQuery && (
                                     <button
@@ -360,17 +369,18 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     }}
                                     className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
                                         activeTopics.filter(t => !disabledTopics.includes(t)).length === 0
-                                            ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/20' 
-                                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
+                                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-sm ring-1 ring-emerald-500/20' 
+                                            : 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
                                     }`}
                                 >
-                                    <Zap size={9} className={activeTopics.filter(t => !disabledTopics.includes(t)).length === 0 ? "text-emerald-500" : "text-slate-600"} />
+                                    <Zap size={9} className={activeTopics.filter(t => !disabledTopics.includes(t)).length === 0 ? "text-emerald-400" : "text-slate-500 dark:text-slate-400"} />
                                     <span>#ALL</span>
                                 </div>
 
                                 {activeTopics.map(t => {
                                     const isActive = !disabledTopics.includes(t);
                                     const style = getTagStyle(t);
+                                    const matchCount = getTopicMatchCount(t);
                                     return (
                                         <div
                                             key={`feed-tag-${t}`}
@@ -394,39 +404,45 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     }
                                                 }
                                             }}
-                                            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${!isActive && 'opacity-50 hover:opacity-100 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'}`}
+                                            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${!isActive ? 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700/90 text-slate-700 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500' : 'shadow-sm'}`}
                                             style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
                                         >
+                                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: style.color }} />
                                             <span>#{t}</span>
+                                            {matchCount > 0 && (
+                                                <span className="text-[9px] px-1 rounded-full bg-black/10 dark:bg-white/10 font-extrabold opacity-85">
+                                                    {matchCount}
+                                                </span>
+                                            )}
                                             <X size={9} onClick={(e) => { 
                                                 e.stopPropagation(); 
                                                 setActiveTopics(prev => prev.filter(x => x !== t));
                                                 setDisabledTopics(prev => prev.filter(x => x !== t));
-                                            }} className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer shrink-0" />
+                                            }} className="opacity-40 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer shrink-0" />
                                         </div>
                                     );
                                 })}
                             </div>
 
-                                <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/60 rounded-xl p-0.5 text-[9px] font-black uppercase tracking-widest shadow-inner shrink-0 ml-1.5" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
+                                <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] border border-slate-200 dark:border-slate-700/80 rounded-xl p-0.5 text-[9px] font-black uppercase tracking-widest shadow-inner shrink-0 ml-1.5" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
                                     <button 
                                         onClick={() => app.setTopicMatch('any')}
                                         title="Show stories that contain ANY of the selected topics"
-                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                                     >
                                         Any
                                     </button>
                                     <button 
                                         onClick={() => app.setTopicMatch('all')}
                                         title="Show stories that contain ALL selected topics (AND logic)"
-                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                                     >
                                         All
                                     </button>
                                     <button 
                                         onClick={() => app.setTopicMatch('exclusive')}
                                         title="Exclusive mode: Selecting a topic clears others"
-                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                                     >
                                         Excl
                                     </button>
@@ -455,7 +471,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 {/* Right Section: Controls */}
                 <div className="flex items-center gap-1.5 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                     {isElectron && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/5 border border-emerald-500/20 rounded-full mr-2 hidden md:flex">
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/25 rounded-full mr-2 hidden md:flex">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live Ingest</span>
                         </div>
@@ -486,14 +502,14 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     )}
                     <button 
                         onClick={toggleTheme} 
-                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer mr-0.5" 
+                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer mr-0.5" 
                         title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
                     >
                         {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                     </button>
                     <button 
                         onClick={() => setIsSettingsOpen(true)} 
-                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors" 
+                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" 
                         title="Application Settings"
                     >
                         <Settings size={18} />
@@ -510,22 +526,22 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
             {/* Global Filters Toolbar (swapped with Web Preview Banner) - Desktop Only */}
             {currentView === 'feed' && !isWebPreview() && (
-                <div className="h-[56px] flex items-center justify-between px-6 gap-4 z-[99] bg-white dark:bg-[#0c1222] border-b border-slate-200 dark:border-slate-800/80 shrink-0 select-none">
+                <div className="h-[52px] flex items-center justify-between px-6 gap-4 z-[99] bg-white dark:bg-[#161d2e] border-b border-slate-200 dark:border-slate-800/90 shrink-0 select-none">
                     {/* Left Fixed Controls */}
                     <div className="flex items-center gap-3 shrink-0">
                         <button 
                             onClick={app.handleRefresh} 
-                            className="p-2 rounded-xl text-slate-500 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-800 bg-white dark:bg-black/20 shadow-sm"
+                            className="p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-[#1e273d] shadow-sm"
                             title="Refresh stories from Hacker News"
                         >
                             <RefreshCw size={14} className={loading ? 'animate-spin text-indigo-500' : ''} />
                         </button>
 
-                        <div className="flex items-center bg-slate-100 dark:bg-black/40 px-4 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/50 group focus-within:ring-2 focus-within:ring-indigo-500/45 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0" title="Quickly filter stories in the current list">
-                            <Search size={13} className="text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+                        <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 group focus-within:ring-2 focus-within:ring-indigo-500/45 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0" title="Quickly filter stories in the current list, or press Enter to add a new #Topic chip">
+                            <Search size={13} className="text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-400 transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Quick filter..."
+                                placeholder="Filter or +add #topic..."
                                 value={app.searchQuery}
                                 onChange={(e) => app.setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => {
@@ -549,7 +565,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         (e.target as HTMLInputElement).blur();
                                     }
                                 }}
-                                className="bg-transparent border-none outline-none text-[11px] font-bold ml-2 w-32 focus:w-48 transition-all placeholder:text-slate-500 dark:placeholder:text-slate-600 text-slate-800 dark:text-slate-200"
+                                className="bg-transparent border-none outline-none text-[11.5px] font-semibold ml-2 w-36 focus:w-52 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-400 text-slate-800 dark:text-slate-100"
                             />
                         </div>
                     </div>
@@ -563,19 +579,20 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     setDisabledTopics([...activeTopics]);
                                     app.setSearchQuery('');
                                 }}
-                                className={`flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-black border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
+                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
                                     activeTopics.filter(t => !disabledTopics.includes(t)).length === 0
-                                        ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40 shadow-sm ring-1 ring-emerald-500/20' 
-                                        : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
+                                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 shadow-sm ring-1 ring-emerald-500/25' 
+                                        : 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700/90 text-slate-600 dark:text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
                                 }`}
                             >
-                                <Zap size={10} className={activeTopics.filter(t => !disabledTopics.includes(t)).length === 0 ? "text-emerald-500" : "text-slate-600"} />
+                                <Zap size={10} className={activeTopics.filter(t => !disabledTopics.includes(t)).length === 0 ? "text-emerald-500 dark:text-emerald-400" : "text-slate-400"} />
                                 <span>#ALL</span>
                             </div>
 
                             {activeTopics.map(t => {
                                     const isActive = !disabledTopics.includes(t);
                                     const style = getTagStyle(t);
+                                    const matchCount = getTopicMatchCount(t);
                                     
                                     return (
                                         <div
@@ -606,15 +623,34 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     }
                                                 }
                                             }}
-                                            className={`flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${!isActive && 'opacity-50 hover:opacity-100 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'}`}
+                                            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
+                                                !isActive
+                                                    ? 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700/90 text-slate-700 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500'
+                                                    : 'shadow-sm ring-1 ring-white/10'
+                                            }`}
                                             style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
                                         >
+                                            <span
+                                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                                style={{ backgroundColor: style.color }}
+                                            />
                                             <span>#{t}</span>
+                                            {matchCount > 0 && (
+                                                <span
+                                                    className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                                                        isActive
+                                                            ? 'bg-black/15 dark:bg-white/15'
+                                                            : 'bg-slate-200/80 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300'
+                                                    }`}
+                                                >
+                                                    {matchCount}
+                                                </span>
+                                            )}
                                             <X size={10} onClick={(e) => { 
                                                 e.stopPropagation(); 
                                                 setActiveTopics(prev => prev.filter(x => x !== t));
                                                 setDisabledTopics(prev => prev.filter(x => x !== t));
-                                            }} className="opacity-50 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer shrink-0" />
+                                            }} className="opacity-40 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer shrink-0" />
                                         </div>
                                     );
                                 })}
@@ -624,32 +660,32 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     {/* Right Toolbar Actions */}
                     <div className="flex items-center gap-3 shrink-0">
                         <div className="flex items-center gap-2 mr-1">
-                            <div className="flex items-center bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
+                            <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] border border-slate-200 dark:border-slate-700/80 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
                                 <button 
                                     onClick={() => app.setTopicMatch('any')}
                                     title="Show stories that contain ANY of the selected topics"
-                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                 >
                                     Any
                                 </button>
                                 <button 
                                     onClick={() => app.setTopicMatch('all')}
                                     title="Show stories that contain ALL selected topics (AND logic)"
-                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                 >
                                     All
                                 </button>
                                 <button 
                                     onClick={() => app.setTopicMatch('exclusive')}
                                     title="Exclusive mode: Selecting a topic clears others"
-                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                 >
                                     Excl
                                 </button>
                             </div>
                         </div>
 
-                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/80" />
 
                         <button 
                             onClick={() => {
@@ -657,10 +693,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 setIsSidebarCollapsed(newState);
                                 localStorage.setItem('hn_feed_sidebar_collapsed', newState.toString());
                             }}
-                            className={`p-2 rounded-lg transition-all border ${isSidebarCollapsed ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500' : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400'}`}
+                            className={`p-2 rounded-lg transition-all border ${isSidebarCollapsed ? 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-600 dark:text-indigo-400'}`}
                             title={isSidebarCollapsed ? "Expand Sidebar (Ctrl+Q)" : "Collapse Sidebar (Ctrl+Q)"}
                         >
-                            <Layout size={16} className={isSidebarCollapsed ? 'opacity-40' : 'opacity-100'} />
+                            <Layout size={16} className={isSidebarCollapsed ? 'opacity-50' : 'opacity-100'} />
                         </button>
                     </div>
                 </div>
@@ -669,35 +705,25 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
             {/* Global Tab Bar Container */}
             {tabs.length > 0 && !isWebPreview() && (
-                <div className="flex items-center bg-slate-50 dark:bg-[#020617] border-b border-slate-200 dark:border-slate-800 shrink-0 relative">
+                <div className="flex items-center bg-slate-100 dark:bg-[#131824] border-b border-slate-200 dark:border-slate-800/90 shrink-0 relative">
                     <div className="flex flex-1 min-w-0 overflow-hidden gap-px">
                         <button
                             onClick={() => { setPrimaryTab('feed'); setCurrentView('feed'); }}
-                            title="Go to main news feed"
-                            className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[40px] min-w-[120px] max-w-[160px] flex-1 shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed' && primaryTab === 'feed'
-                                ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
-                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
+                            title="Back to News Feed"
+                            className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[38px] min-w-[110px] max-w-[140px] shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed'
+                                ? 'bg-white dark:bg-[#1a2234] text-orange-500 font-bold'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-[#1a2234]/60'}`}
                         >
-                            <Home size={14} className={currentView === 'feed' && primaryTab === 'feed' ? 'text-indigo-500' : 'text-slate-400'} /> 
+                            <Home size={14} className={currentView === 'feed' ? 'text-orange-500' : 'text-slate-400'} /> 
                             <span className="text-[12px] truncate">Feed</span>
-                        </button>
-                        <button
-                            onClick={() => { setPrimaryTab('bookmarks'); setCurrentView('feed'); }}
-                            title="View your saved stories"
-                            className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[40px] min-w-[120px] max-w-[160px] flex-1 shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed' && primaryTab === 'bookmarks'
-                                ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
-                                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
-                        >
-                            <Bookmark size={14} className={currentView === 'feed' && primaryTab === 'bookmarks' ? 'text-indigo-500' : 'text-slate-400'} /> 
-                            <span className="text-[12px] truncate">Bookmarks</span>
                         </button>
                         {tabs.map(t => (
                             <div
                                 key={t.id}
                                 title={t.story.title}
-                                className={`flex min-w-[60px] max-w-[240px] flex-1 shrink items-center justify-between px-3 h-[40px] border-r border-slate-200 dark:border-slate-800 transition-all ${currentView === 'reader' && activeTabId === t.id
-                                    ? 'bg-white dark:bg-slate-900 text-indigo-600 font-bold'
-                                    : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900/50'}`}
+                                className={`flex min-w-[80px] max-w-[260px] flex-1 shrink items-center justify-between px-3 h-[38px] border-r border-slate-200 dark:border-slate-800 transition-all ${currentView === 'reader' && activeTabId === t.id
+                                    ? 'bg-white dark:bg-[#1a2234] text-amber-500 dark:text-amber-400 font-bold border-b-2 border-b-amber-500'
+                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-[#1a2234]/60'}`}
                             >
                                 <button
                                     onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
@@ -707,9 +733,9 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </button>
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); closeTab(t.id); }}
-                                    className="ml-1 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                                    className="ml-1.5 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-colors shrink-0"
                                 >
-                                    <X size={10} />
+                                    <X size={11} />
                                 </button>
                             </div>
                         ))}
@@ -720,13 +746,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden relative">
                 <main 
-                    className="flex-1 overflow-hidden bg-slate-50 dark:bg-[#0c1222] flex flex-col" 
+                    className="flex-1 overflow-hidden bg-slate-50 dark:bg-[#131824] flex flex-col" 
                     style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
                 >
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
                         <div 
                             ref={parentRef}
-                            className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#f8fafc] dark:bg-[#080c14]"
+                            className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#f8fafc] dark:bg-[#131824]"
                         >
                             {loading && stories.length === 0 ? (
                                 <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-indigo-500 mx-auto" /></div>

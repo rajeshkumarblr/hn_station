@@ -79,16 +79,16 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     const aiEnabled = user?.ai_summaries_enabled;
 
     return (
-        <div className="flex-1 shrink-0 h-full border-l border-slate-100 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-950/40 backdrop-blur-xl hidden md:flex flex-col gap-0 overflow-hidden">
+        <div className="flex-1 shrink-0 h-full border-l border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#161d2e] backdrop-blur-xl hidden md:flex flex-col gap-0 overflow-hidden">
 
             {/* ── AI Summary & Suggested Tags (Top 70%) ─────────────────────────────────── */}
             {(aiEnabled || hasSummary) ? (
                 <div className="flex-1 overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-4 duration-500">
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-slate-800/50">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#1a2234]/60">
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2 mb-0.5">
-                                <Sparkles size={12} className="text-lime-500" />
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Article Insight</h3>
+                                <Sparkles size={12} className="text-amber-500" />
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">Article Insight</h3>
                             </div>
                         </div>
                         
@@ -97,7 +97,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                 <button 
                                     onClick={handleCopy}
                                     title="Copy Summary"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
                                 >
                                     {copied ? <Check size={12} /> : <Copy size={12} />}
                                 </button>
@@ -105,7 +105,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                     onClick={handleRegen}
                                     disabled={summarizing}
                                     title="Regenerate Summary"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 disabled:opacity-50"
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 disabled:opacity-50"
                                 >
                                     <RefreshCw size={12} className={summarizing ? "animate-spin" : ""} />
                                 </button>
@@ -113,31 +113,31 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         )}
                     </div>
 
-                    {/* Story Title Context — matches the lime/olive left-accent on the highlighted card */}
+                    {/* Story Title Context */}
                     {highlightedStory && (
-                        <div className="relative px-4 py-3 border-b border-lime-100 dark:border-lime-900/40 bg-gradient-to-r from-lime-50 via-lime-50/30 to-white dark:from-lime-950/30 dark:via-lime-950/15 dark:to-[#111827] border-l-[3px] border-l-lime-500">
-                            <p className="text-[15px] font-bold text-amber-600 dark:text-amber-400 leading-snug line-clamp-2">
+                        <div className="relative px-4 py-3.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-amber-50/40 dark:bg-[#1d263b] border-l-[3px] border-l-amber-500">
+                            <p className="text-[14.5px] font-bold text-slate-900 dark:text-slate-100 leading-snug line-clamp-2">
                                 {highlightedStory.title}
                             </p>
-                            <div className="flex items-center gap-3 mt-2 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                            <div className="flex items-center gap-3 mt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                                 {highlightedStory.by && (
-                                    <span className="text-lime-600/70 dark:text-lime-400/70 font-semibold">by {highlightedStory.by}</span>
+                                    <span className="text-slate-600 dark:text-slate-300 font-semibold">by {highlightedStory.by}</span>
                                 )}
                                 {highlightedStory.score != null && (
-                                    <span className="flex items-center gap-0.5 text-amber-600/80 dark:text-amber-400/70 font-bold">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
+                                    <span className="flex items-center gap-0.5 text-orange-600 dark:text-amber-400 font-bold">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
                                         {highlightedStory.score}
                                     </span>
                                 )}
                                 {highlightedStory.descendants != null && highlightedStory.descendants > 0 && (
-                                    <span className="flex items-center gap-0.5">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    <span className="flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                         {highlightedStory.descendants}
                                     </span>
                                 )}
                                 {highlightedStory.time && (
-                                    <span className="flex items-center gap-0.5">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                    <span className="flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                         {(() => {
                                             const d = new Date(highlightedStory.time);
                                             const s = Math.floor((Date.now() - d.getTime()) / 1000);
@@ -152,29 +152,27 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                         </div>
                     )}
 
-                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar border-l-2 border-lime-500/20 bg-gradient-to-b from-lime-50/30 to-transparent dark:from-lime-950/15 dark:to-transparent">
+                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
                         {hasSummary ? (
                             <>
                                 {/* Markdown Summary with Index-Based Colors */}
-                                <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-semibold select-text mb-8">
-                                    <ul className="pl-0 list-none m-0 space-y-3">
+                                <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-medium select-text mb-6">
+                                    <ul className="pl-0 list-none m-0 space-y-2.5">
                                         {summary.split('\n').filter(line => line.trim().length > 0).map((line, idx) => {
                                             const colorClass = AI_COLORS[idx % AI_COLORS.length];
                                             
                                             // Extract potential bullet or number (e.g., "1.", "-", "*")
-                                            // Handle leading whitespace and multi-digit numbers
                                             const bulletMatch = line.match(/^\s*([-*•]|\d+\.)\s+(.*)/);
                                             const bullet = bulletMatch ? bulletMatch[1] : null;
                                             const content = bulletMatch ? bulletMatch[2] : line.trim();
                                             
                                             return (
-                                                <li key={idx} className={`${colorClass} flex gap-0 items-start group p-3.5 rounded-xl bg-gradient-to-r from-lime-50/50 to-transparent dark:from-lime-950/20 dark:to-transparent border border-lime-100/30 dark:border-lime-800/10 shadow-sm transition-all hover:translate-x-0.5`}>
-                                                    {/* Decorative icon or actual number - aligned to text top */}
-                                                    <div className="flex items-center justify-center w-8 shrink-0 pt-0.5">
+                                                <li key={idx} className={`${colorClass} flex gap-0 items-start group p-3 rounded-xl bg-slate-50 dark:bg-[#1c2539] border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-all`}>
+                                                    <div className="flex items-center justify-center w-6 shrink-0 pt-0.5">
                                                         {bullet && /^\d+\./.test(bullet) ? (
-                                                            <span className="text-[11px] font-black opacity-30 group-hover:opacity-100 transition-opacity leading-none">{bullet}</span>
+                                                            <span className="text-[11px] font-black opacity-70 group-hover:opacity-100 transition-opacity leading-none">{bullet}</span>
                                                         ) : (
-                                                            <ChevronRight size={14} className="opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                                                            <ChevronRight size={14} className="opacity-70 group-hover:opacity-100 transition-all" />
                                                         )}
                                                     </div>
 
@@ -182,7 +180,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                                         <ReactMarkdown
                                                             components={{
                                                                 p: ({ node, ...props }) => <span className="block m-0 p-0" {...props} />,
-                                                                strong: ({ node, ...props }) => <strong className="text-indigo-600 dark:text-indigo-400 font-black" {...props} />
+                                                                strong: ({ node, ...props }) => <strong className="text-indigo-600 dark:text-amber-300 font-bold" {...props} />
                                                             }}
                                                         >
                                                             {content}
@@ -195,12 +193,12 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                 </div>
 
                                 
-                                {/* Article Specific Topics (Suggested) - Moved from Header */}
+                                {/* Article Specific Topics (Suggested) */}
                                 {highlightedStory?.topics && highlightedStory.topics.length > 0 && (
-                                    <div className="mt-6 border-t border-slate-100 dark:border-slate-800/50 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                        <div className="flex items-center gap-1.5 mb-3">
+                                    <div className="mt-4 border-t border-slate-200/80 dark:border-slate-800/80 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        <div className="flex items-center gap-1.5 mb-2.5">
                                             <Zap size={11} className="text-amber-500" />
-                                            <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Article Topics</h4>
+                                            <h4 className="text-[9.5px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Article Topics (Click to Filter)</h4>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {highlightedStory.topics.map(topic => {
@@ -212,22 +210,17 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                                         key={`article-topic-${topic}`}
                                                         onClick={() => {
                                                             if (!isPresent) {
-                                                                // Add new chip
                                                                 setActiveTopics(prev => [...new Set([...prev, topic])]);
                                                                 if (topicMatch === 'exclusive') {
-                                                                    // In exclusive mode, disable all existing topics
                                                                     setDisabledTopics([...activeTopics]);
                                                                 } else {
-                                                                    // In other modes, ensure the new chip is enabled
                                                                     setDisabledTopics(prev => prev.filter(x => x !== topic));
                                                                 }
                                                             } else {
-                                                                // Chip is already present, toggle enabled state
                                                                 if (isEnabled) {
                                                                     setDisabledTopics(prev => [...new Set([...prev, topic])]);
                                                                 } else {
                                                                     if (topicMatch === 'exclusive') {
-                                                                        // Enable ONLY this one
                                                                         setDisabledTopics(activeTopics.filter(x => x !== topic));
                                                                     } else {
                                                                         setDisabledTopics(prev => prev.filter(x => x !== topic));
@@ -235,9 +228,9 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                                                 }
                                                             }
                                                         }}
-                                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border shadow-sm ${isEnabled 
-                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950 shadow-md opacity-100' 
-                                                            : 'opacity-50 hover:opacity-100 hover:scale-105 bg-white/5 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50'}`}
+                                                        className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all border shadow-sm cursor-pointer ${isEnabled 
+                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-[#161d2e] shadow-md' 
+                                                            : 'hover:scale-105'}`}
                                                         style={{ 
                                                             backgroundColor: style.bg, 
                                                             color: style.color, 

@@ -5,15 +5,15 @@
 body {
     margin: 0;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #0f172a;
-    /* Force dark base to avoid white flashes */
-    color: #f8fafc;
+    background-color: #131824;
+    /* Soft slate-dim base to avoid pitch-black contrast strain */
+    color: #f1f5f9;
 }
 
 /* Dark Mode Override */
 .dark body {
-    background-color: #0f172a;
-    color: #f8fafc;
+    background-color: #131824;
+    color: #f1f5f9;
 }
 
 /* ─── Scrollbars (Default Light) ─── */
@@ -28,8 +28,7 @@ body {
 }
 
 .dark ::-webkit-scrollbar-track {
-    background: #0f172a;
-    /* slate-900 */
+    background: #131824;
 }
 
 ::-webkit-scrollbar-thumb {
