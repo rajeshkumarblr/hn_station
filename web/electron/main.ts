@@ -68,7 +68,9 @@ let localApiPort: number | null = null;
 app.setName('HN Station');
 
 // Fake standard Chrome user agent - explicitly exclude "Electron" to avoid bot/security detection by Google
-const originalUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+const originalUA = process.platform === 'darwin'
+    ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 app.userAgentFallback = originalUA;
  
 // ── Ad Blocker ──────────────────────────────────────────────────────────────
@@ -262,12 +264,17 @@ ipcMain.on('open-external', (_, url: string) => {
 
 // ── Window ────────────────────────────────────────────────────────────────────
 function createWindow() {
+    const isMac = process.platform === 'darwin';
     win = new BrowserWindow({
         width: 1440,
         height: 900,
         show: false,
-        frame: false,
-        backgroundColor: '#0f172a',
+        frame: isMac ? true : false,
+        ...(isMac ? {
+            titleBarStyle: 'hiddenInset' as const,
+            trafficLightPosition: { x: 16, y: 18 },
+        } : {}),
+        backgroundColor: '#131824',
         icon: path.join(process.env.VITE_PUBLIC!, 'hn.ico'),
         webPreferences: {
             webviewTag: true,
@@ -322,7 +329,9 @@ function createWindow() {
         }
     });
 
-    win.setMenu(null);
+    if (!isMac) {
+        win.setMenu(null);
+    }
 
     const pngIconPath = path.join(process.env.VITE_PUBLIC!, 'hn_256.png');
     const iconPath = fs.existsSync(pngIconPath) ? pngIconPath : path.join(process.env.VITE_PUBLIC!, 'hn.ico');
@@ -374,8 +383,9 @@ function createWindow() {
         logToFile(`[main] Failed to register shortcut: ${e}`);
     }
 
-    // Standard Edit Menu for native shortcuts (Ctrl+C, Ctrl+V, etc)
+    // Standard Menu for native shortcuts (Cmd/Ctrl+C, Cmd/Ctrl+V, Cmd+Q, Cmd+M, etc)
     const template: any[] = [
+        ...(isMac ? [{ role: 'appMenu' }] : []),
         {
             label: 'Edit',
             submenu: [
@@ -387,7 +397,8 @@ function createWindow() {
                 { role: 'paste' },
                 { role: 'selectall' }
             ]
-        }
+        },
+        ...(isMac ? [{ role: 'windowMenu' }] : []),
     ];
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
