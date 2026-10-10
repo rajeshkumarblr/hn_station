@@ -10,6 +10,7 @@ import { AdminDashboard } from '../components/AdminDashboard';
 import { SettingsModal } from '../components/SettingsModal';
 import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
+import { BriefingDeck, type BriefingStage } from '../components/BriefingDeck';
 import { StatusBar } from '../components/StatusBar';
 import { MODES } from '../types';
 import { isElectron as getIsElectron, isWebPreview } from '../utils/env';
@@ -36,6 +37,43 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
     const articlesMenuRef = useRef<HTMLDivElement>(null);
+
+    // Flash Briefing Slideshow State (PG -> LLM/AI)
+    const [isBriefingOpen, setIsBriefingOpen] = useState(false);
+    const [briefingStage, setBriefingStage] = useState<BriefingStage>('postgres');
+    const [resumeBriefingStage, setResumeBriefingStage] = useState<BriefingStage | null>(null);
+    const [autoShowBriefingOnFocus, setAutoShowBriefingOnFocus] = useState<boolean>(() => {
+        return localStorage.getItem('hn_briefing_auto_focus') !== 'false';
+    });
+    const lastBlurAtRef = useRef<number>(0);
+
+    const handleToggleAutoShowBriefing = useCallback((enabled: boolean) => {
+        setAutoShowBriefingOnFocus(enabled);
+        localStorage.setItem('hn_briefing_auto_focus', enabled ? 'true' : 'false');
+    }, []);
+
+    // Automatically open Flash Briefing (Postgres Top 5) when switching back to the app after >2 minutes away
+    useEffect(() => {
+        if (isWebPreview()) return;
+        const onBlur = () => {
+            lastBlurAtRef.current = Date.now();
+        };
+        const onFocus = () => {
+            if (!autoShowBriefingOnFocus) return;
+            const awayMs = lastBlurAtRef.current > 0 ? Date.now() - lastBlurAtRef.current : 0;
+            // Trigger if away for at least 2 minutes and not actively reading an open article
+            if (awayMs >= 2 * 60 * 1000 && currentView === 'feed' && !isSettingsOpen && !isAdminModalOpen) {
+                setBriefingStage('postgres');
+                setIsBriefingOpen(true);
+            }
+        };
+        window.addEventListener('blur', onBlur);
+        window.addEventListener('focus', onFocus);
+        return () => {
+            window.removeEventListener('blur', onBlur);
+            window.removeEventListener('focus', onFocus);
+        };
+    }, [autoShowBriefingOnFocus, currentView, isSettingsOpen, isAdminModalOpen]);
     
     // Close menu when clicking outside
     useEffect(() => {
@@ -314,6 +352,23 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 )}
                             </div>
                         )}
+
+                        {/* Flash Briefing Slideshow Button (PG -> LLM/AI) */}
+                        <button
+                            onClick={() => {
+                                setBriefingStage('postgres');
+                                setIsBriefingOpen(true);
+                            }}
+                            title="Open Flash Briefing Slideshow: Top 5 Latest Postgres → Top 5 Latest LLM & AI"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all border ml-1 cursor-pointer ${
+                                isBriefingOpen
+                                    ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white border-sky-400 shadow-lg'
+                                    : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-300 border-sky-500/30 shadow-sm'
+                            }`}
+                        >
+                            <Zap size={11} className="fill-current" />
+                            <span>Briefing</span>
+                        </button>
                     </nav>
 
                     <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 shrink-0" />
@@ -762,6 +817,34 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             );
                         })}
                     </div>
+
+                    {/* Quick Return to Briefing Deck / Next Stage when reading an article from Briefing */}
+                    {resumeBriefingStage && (
+                        <div className="flex items-center gap-1.5 px-3 shrink-0 border-l border-slate-200 dark:border-slate-800 h-[38px]">
+                            <button
+                                onClick={() => {
+                                    setBriefingStage(resumeBriefingStage);
+                                    setIsBriefingOpen(true);
+                                }}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/15 hover:bg-sky-500/25 text-sky-600 dark:text-sky-300 border border-sky-500/30 text-[11px] font-bold transition-all cursor-pointer"
+                            >
+                                <Zap size={11} className="fill-current" />
+                                <span>Resume {resumeBriefingStage === 'postgres' ? 'PG' : 'AI'} Slides</span>
+                            </button>
+                            {resumeBriefingStage === 'postgres' && (
+                                <button
+                                    onClick={() => {
+                                        setBriefingStage('ai');
+                                        setResumeBriefingStage('ai');
+                                        setIsBriefingOpen(true);
+                                    }}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-bold transition-all cursor-pointer"
+                                >
+                                    <span>Done → LLM & AI Slides</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -963,6 +1046,32 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             </div>
 
             {/* Modals */}
+            <BriefingDeck
+                apiBase={app.apiBase}
+                isOpen={isBriefingOpen}
+                initialStage={briefingStage}
+                onClose={() => setIsBriefingOpen(false)}
+                onGoDeep={(storyId, stage) => {
+                    setResumeBriefingStage(stage);
+                    setIsBriefingOpen(false);
+                    handleStorySelect(storyId, 'split');
+                }}
+                onSummarizeStory={app.handleSummarizeStory}
+                onJumpToTopicFeed={(topics) => {
+                    setActiveTopics(prev => {
+                        const next = [...prev];
+                        for (const t of topics) {
+                            if (!next.includes(t)) next.push(t);
+                        }
+                        setDisabledTopics(next.filter(x => !topics.includes(x)));
+                        return next;
+                    });
+                    setPrimaryTab('feed');
+                    setCurrentView('feed');
+                }}
+                autoShowOnFocus={autoShowBriefingOnFocus}
+                onToggleAutoShowOnFocus={handleToggleAutoShowBriefing}
+            />
             {isAdminModalOpen && <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />}
             {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} user={user} />}
             <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />

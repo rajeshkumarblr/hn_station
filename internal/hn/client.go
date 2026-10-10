@@ -10,12 +10,14 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	BaseURL = "https://hacker-news.firebaseio.com/v0"
+	BaseURL    = "https://hacker-news.firebaseio.com/v0"
+	AlgoliaURL = "https://hn.algolia.com/api/v1"
 )
 
 type Client struct {
@@ -52,6 +54,68 @@ func NewClient() *Client {
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+type algoliaSearchResponse struct {
+	Hits []struct {
+		ObjectID    string `json:"objectID"`
+		Title       string `json:"title"`
+		URL         string `json:"url"`
+		Points      int    `json:"points"`
+		Author      string `json:"author"`
+		NumComments int    `json:"num_comments"`
+		CreatedAtI  int64  `json:"created_at_i"`
+	} `json:"hits"`
+}
+
+// SearchStories queries the HN Algolia API for stories matching query (either sorted by date or by relevance/points).
+func (c *Client) SearchStories(ctx context.Context, query string, limit int, byDate bool) ([]Item, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+	endpoint := "search"
+	if byDate {
+		endpoint = "search_by_date"
+	}
+	reqURL := fmt.Sprintf("%s/%s?tags=story&query=%s&hitsPerPage=%d", AlgoliaURL, endpoint, url.QueryEscape(query), limit)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("algolia unexpected status code: %d", resp.StatusCode)
+	}
+
+	var parsed algoliaSearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return nil, err
+	}
+
+	items := make([]Item, 0, len(parsed.Hits))
+	for _, h := range parsed.Hits {
+		id, err := strconv.Atoi(h.ObjectID)
+		if err != nil || id <= 0 || strings.TrimSpace(h.Title) == "" {
+			continue
+		}
+		items = append(items, Item{
+			ID:          id,
+			Title:       h.Title,
+			URL:         h.URL,
+			Score:       h.Points,
+			By:          h.Author,
+			Descendants: h.NumComments,
+			Time:        h.CreatedAtI,
+			Type:        "story",
+		})
+	}
+	return items, nil
 }
 
 func (c *Client) GetTopStories(ctx context.Context) ([]int, error) {

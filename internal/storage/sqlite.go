@@ -248,8 +248,12 @@ func (s *SQLiteStore) UpsertStory(ctx context.Context, story Story) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
 		ON CONFLICT(id) DO UPDATE SET
 			title = excluded.title, url = excluded.url, score = excluded.score,
-			descendants = excluded.descendants, hn_rank = excluded.hn_rank,
-			topics = CASE WHEN excluded.topics = '[]' OR excluded.topics IS NULL THEN topics ELSE excluded.topics END
+			descendants = excluded.descendants,
+			hn_rank = COALESCE(excluded.hn_rank, stories.hn_rank),
+			topics = CASE
+				WHEN stories.topics = '[]' OR stories.topics IS NULL THEN excluded.topics
+				ELSE stories.topics
+			END
 			-- DO NOT update is_read, is_saved, is_hidden on conflict
 	`,
 		story.ID, story.Title, story.URL, story.Score,
@@ -328,10 +332,14 @@ func (s *SQLiteStore) GetStories(ctx context.Context, limit, offset int, sortStr
 	}
 
 	// Build ORDER BY
-	orderBy := "hn_rank ASC NULLS LAST"
+	orderBy := "hn_rank ASC NULLS LAST, posted_at DESC"
+	if len(topics) > 0 && (sortStrategy == "" || sortStrategy == "default") {
+		// When filtering by specific topics (e.g. #Postgres, #LLM, #AI), surface the latest stories first
+		orderBy = "posted_at DESC, score DESC"
+	}
 	switch sortStrategy {
 	case "votes":
-		orderBy = "score DESC"
+		orderBy = "score DESC, posted_at DESC"
 	case "latest", "new":
 		orderBy = "posted_at DESC"
 	case "show":
@@ -408,7 +416,26 @@ func (s *SQLiteStore) UpdateStoryDiscussionSummary(ctx context.Context, id int, 
 }
 
 func (s *SQLiteStore) UpdateStorySummaryAndTopics(ctx context.Context, id int, summary string, topics []string) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE stories SET summary = ?, topics = ? WHERE id = ?", summary, topicsToJSON(topics), id)
+	existing, err := s.GetStory(ctx, id)
+	merged := make([]string, 0, len(topics)+4)
+	seen := make(map[string]bool)
+	if err == nil && existing != nil {
+		for _, t := range existing.Topics {
+			low := strings.ToLower(strings.TrimSpace(t))
+			if low != "" && !seen[low] {
+				seen[low] = true
+				merged = append(merged, t)
+			}
+		}
+	}
+	for _, t := range topics {
+		low := strings.ToLower(strings.TrimSpace(t))
+		if low != "" && !seen[low] {
+			seen[low] = true
+			merged = append(merged, t)
+		}
+	}
+	_, err = s.db.ExecContext(ctx, "UPDATE stories SET summary = ?, topics = ? WHERE id = ?", summary, topicsToJSON(merged), id)
 	return err
 }
 

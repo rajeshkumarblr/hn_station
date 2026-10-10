@@ -39,18 +39,17 @@
     "AGI",
     "Artificial General Intelligence"
   ],
-  "PostgreSQL": [
-    "Postgres",
-    "PG",
+  "Postgres": [
+    "PostgreSQL",
     "psql",
-    "SQL",
-    "WAL",
-    "Write-Ahead Logging",
-    "Logical Decoding",
     "pgvector",
     "PostGIS",
     "Citus",
-    "Timescale"
+    "Timescale",
+    "TimescaleDB",
+    "Supabase",
+    "pganalyze",
+    "pg_stat"
   ],
   "Database": [
     "Databases",

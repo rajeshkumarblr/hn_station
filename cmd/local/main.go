@@ -32,10 +32,10 @@ import (
 )
 
 const (
-	Version                  = "v1.0.0-RC40"
+	Version                  = "v1.0.0-RC41"
 	workerCount              = 1
-	totalStories             = 40 // Keep top 40 front-page stories to minimize background network/CPU
-	maxAutoSummariesPerCycle = 3  // At most 3 background summaries per cycle with 60s cooldown
+	totalStories             = 100 // Keep top 100 front-page stories
+	maxAutoSummariesPerCycle = 25  // Allow top 25 stories per cycle (throttled by 60s cooldown on Efficiency cores)
 	autoSummaryCooldown      = 60 * time.Second
 )
 
@@ -452,18 +452,62 @@ func (sm *SummaryManager) CancelOngoing() {
 }
 
 func enqueueExistingUnsummarized(ctx context.Context, store storage.DB, summaryManager *SummaryManager) {
+	enqueued := 0
+
+	// Priority 1: Top 6 newest Postgres stories lacking summaries
+	if pgStories, _, err := store.GetStories(ctx, 8, 0, "default", []string{"Postgres"}, "any", "", "", false); err == nil {
+		pgCount := 0
+		for i, s := range pgStories {
+			if pgCount >= 6 {
+				break
+			}
+			needsSummary := s.Summary == nil || strings.TrimSpace(*s.Summary) == ""
+			if needsSummary && s.URL != "" {
+				summaryManager.Push(summaryJob{
+					ID:    int(s.ID),
+					URL:   s.URL,
+					Title: s.Title,
+					Rank:  -200 + i,
+				})
+				pgCount++
+				enqueued++
+			}
+		}
+	}
+
+	// Priority 2: Top 6 newest LLM/AI stories lacking summaries
+	if aiStories, _, err := store.GetStories(ctx, 8, 0, "default", []string{"LLM", "AI"}, "any", "", "", false); err == nil {
+		aiCount := 0
+		for i, s := range aiStories {
+			if aiCount >= 6 {
+				break
+			}
+			needsSummary := s.Summary == nil || strings.TrimSpace(*s.Summary) == ""
+			if needsSummary && s.URL != "" {
+				summaryManager.Push(summaryJob{
+					ID:    int(s.ID),
+					URL:   s.URL,
+					Title: s.Title,
+					Rank:  -100 + i,
+				})
+				aiCount++
+				enqueued++
+			}
+		}
+	}
+
+	// Priority 3: Top front-page stories lacking summaries
 	stories, _, err := store.GetStories(ctx, maxAutoSummariesPerCycle, 0, "default", nil, "any", "", "", false)
 	if err != nil {
 		log.Printf("[ingest] Failed to query existing stories for startup auto-summary: %v", err)
 		return
 	}
-	enqueued := 0
 	for i, s := range stories {
 		if enqueued >= maxAutoSummariesPerCycle {
 			break
 		}
 		needsSummary := s.Summary == nil || strings.TrimSpace(*s.Summary) == ""
-		if needsSummary {
+		if needsSummary && s.URL != "" {
 			rank := i + 1
 			if s.HNRank != nil && *s.HNRank > 0 {
 				rank = *s.HNRank
@@ -478,7 +522,7 @@ func enqueueExistingUnsummarized(ctx context.Context, store storage.DB, summaryM
 		}
 	}
 	if enqueued > 0 {
-		log.Printf("[ingest] Enqueued top %d unsummarized stories on startup (throttled)", enqueued)
+		log.Printf("[ingest] Enqueued %d priority unsummarized stories on startup (PG -> LLM/AI -> Top)", enqueued)
 	}
 }
 
@@ -511,7 +555,13 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 			}
 
 			manager.status.AIStatus = "Busy"
-			manager.status.CurrentTask = fmt.Sprintf("Article #%d: %s", job.Rank, job.Title)
+			label := fmt.Sprintf("Article #%d", job.Rank)
+			if job.Rank <= -150 {
+				label = "Postgres Priority"
+			} else if job.Rank <= -50 {
+				label = "LLM/AI Priority"
+			}
+			manager.status.CurrentTask = fmt.Sprintf("%s: %s", label, job.Title)
 			jobCtx, jobCancel := context.WithCancel(ctx)
 			manager.RegisterCancel(jobCancel)
 
@@ -592,7 +642,7 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 
 	result := ai.ParseGreedyJSON(responseStr, int64(job.ID))
 	finalSummary := strings.Join(result.Summary, "\n")
-	finalTopics := result.Topics
+	finalTopics := inferTitleTopics(job.Title, result.Topics)
 
 	if len(finalTopics) == 0 {
 		log.Printf("[ingest] WARNING: No topics found for story %d. Raw AI Response: \n---\n%s\n---", job.ID, responseStr)
@@ -605,10 +655,149 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 	return nil
 }
 
+func inferTitleTopics(title string, seedTopics []string) []string {
+	seen := make(map[string]bool)
+	var out []string
+	add := func(t string) {
+		t = strings.TrimSpace(t)
+		if t == "" {
+			return
+		}
+		key := strings.ToLower(t)
+		if !seen[key] {
+			seen[key] = true
+			out = append(out, t)
+		}
+	}
+	for _, t := range seedTopics {
+		add(t)
+	}
+
+	lower := strings.ToLower(title)
+	if strings.Contains(lower, "postgres") || strings.Contains(lower, "pgvector") || strings.Contains(lower, "pg_") || strings.Contains(lower, "psql") || strings.Contains(lower, "postgis") || strings.Contains(lower, "supabase") || strings.Contains(lower, "pglite") {
+		add("Postgres")
+		add("Database")
+	}
+	if strings.Contains(lower, "llm") || strings.Contains(lower, "gpt") || strings.Contains(lower, "claude") || strings.Contains(lower, "gemini") || strings.Contains(lower, "ollama") || strings.Contains(lower, "llama") || strings.Contains(lower, "qwen") || strings.Contains(lower, "deepseek") || strings.Contains(lower, "mistral") || strings.Contains(lower, "openai") || strings.Contains(lower, "anthropic") || strings.Contains(lower, "vllm") || strings.Contains(lower, "litert") || strings.Contains(lower, "gemma") {
+		add("LLM")
+		add("AI")
+	}
+	if strings.Contains(lower, " ai ") || strings.HasPrefix(lower, "ai ") || strings.HasSuffix(lower, " ai") || strings.Contains(lower, "ai-") || strings.Contains(lower, "agent") || strings.Contains(lower, "mcp") || strings.Contains(lower, "inference") || strings.Contains(lower, "transformer") {
+		add("AI")
+	}
+	if strings.Contains(lower, "sqlite") || strings.Contains(lower, "duckdb") || strings.Contains(lower, "database") {
+		add("Database")
+	}
+	return out
+}
+
+func ingestPriorityTopics(ctx context.Context, client *hn.Client, store storage.DB, summaryManager *SummaryManager, rankMap map[int]int) {
+	// 1. Primary Priority: Postgres (latest by date + top relevant stories)
+	var pgItems []hn.Item
+	if byDate, err := client.SearchStories(ctx, "postgres", 35, true); err == nil {
+		pgItems = append(pgItems, byDate...)
+	}
+	if byRel, err := client.SearchStories(ctx, "postgres", 20, false); err == nil {
+		pgItems = append(pgItems, byRel...)
+	}
+
+	seenPG := make(map[int]bool)
+	pgSummaryEnqueued := 0
+	for _, item := range pgItems {
+		if item.ID == 0 || seenPG[item.ID] {
+			continue
+		}
+		seenPG[item.ID] = true
+		var rankPtr *int
+		if r, ok := rankMap[item.ID]; ok {
+			rCopy := r
+			rankPtr = &rCopy
+		}
+		topics := inferTitleTopics(item.Title, []string{"Postgres", "Database"})
+		story := storage.Story{
+			ID:          int64(item.ID),
+			Title:       item.Title,
+			URL:         item.URL,
+			Score:       item.Score,
+			By:          item.By,
+			Descendants: item.Descendants,
+			PostedAt:    time.Unix(item.Time, 0),
+			HNRank:      rankPtr,
+			Topics:      topics,
+		}
+		_ = store.UpsertStory(ctx, story)
+
+		if item.URL != "" && pgSummaryEnqueued < 6 {
+			existing, err := store.GetStory(ctx, item.ID)
+			if err != nil || existing.Summary == nil || strings.TrimSpace(*existing.Summary) == "" {
+				maybeEnqueueStorySummary(ctx, store, item.ID, item.URL, item.Title, -200+pgSummaryEnqueued, summaryManager)
+				pgSummaryEnqueued++
+			}
+		}
+	}
+	if len(seenPG) > 0 {
+		log.Printf("[ingest] Synced %d Postgres stories from HN Algolia (enqueued %d for priority AI summary)", len(seenPG), pgSummaryEnqueued)
+	}
+
+	// 2. Secondary Priority: LLM & AI (latest by date)
+	var aiItems []hn.Item
+	for _, q := range []string{"llm", "claude", "openai", "gemini", "ollama"} {
+		if hits, err := client.SearchStories(ctx, q, 15, true); err == nil {
+			aiItems = append(aiItems, hits...)
+		}
+	}
+
+	seenAI := make(map[int]bool)
+	aiSummaryEnqueued := 0
+	for _, item := range aiItems {
+		if item.ID == 0 || seenAI[item.ID] || seenPG[item.ID] {
+			continue
+		}
+		// Keep quality high: require at least 3 points or 1 comment for broad AI search hits
+		if item.Score < 3 && item.Descendants < 1 {
+			continue
+		}
+		seenAI[item.ID] = true
+		var rankPtr *int
+		if r, ok := rankMap[item.ID]; ok {
+			rCopy := r
+			rankPtr = &rCopy
+		}
+		topics := inferTitleTopics(item.Title, []string{"LLM", "AI"})
+		story := storage.Story{
+			ID:          int64(item.ID),
+			Title:       item.Title,
+			URL:         item.URL,
+			Score:       item.Score,
+			By:          item.By,
+			Descendants: item.Descendants,
+			PostedAt:    time.Unix(item.Time, 0),
+			HNRank:      rankPtr,
+			Topics:      topics,
+		}
+		_ = store.UpsertStory(ctx, story)
+
+		if item.URL != "" && aiSummaryEnqueued < 6 {
+			existing, err := store.GetStory(ctx, item.ID)
+			if err != nil || existing.Summary == nil || strings.TrimSpace(*existing.Summary) == "" {
+				maybeEnqueueStorySummary(ctx, store, item.ID, item.URL, item.Title, -100+aiSummaryEnqueued, summaryManager)
+				aiSummaryEnqueued++
+			}
+		}
+	}
+	if len(seenAI) > 0 {
+		log.Printf("[ingest] Synced %d LLM/AI stories from HN Algolia (enqueued %d for priority AI summary)", len(seenAI), aiSummaryEnqueued)
+	}
+}
+
 func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, summaryManager *SummaryManager) {
-	log.Println("[ingest] Fetching top stories...")
+	log.Println("[ingest] Fetching top 100 front-page stories + priority Postgres & LLM/AI feeds...")
 	topIDs, err := client.GetTopStories(ctx)
-	if err != nil { return }
+	if err != nil {
+		// Still attempt topic ingestion even if Firebase topstories fails
+		ingestPriorityTopics(ctx, client, store, summaryManager, map[int]int{})
+		return
+	}
 	if len(topIDs) > totalStories { topIDs = topIDs[:totalStories] }
 
 	rankMap := make(map[int]int, len(topIDs))
@@ -616,6 +805,9 @@ func runIngestion(ctx context.Context, client *hn.Client, store storage.DB, summ
 
 	_ = store.ClearRanksNotIn(ctx, topIDs)
 	_ = store.UpdateRanks(ctx, rankMap)
+
+	// Ingest Postgres (#1 priority) and LLM/AI (#2 priority) stories regardless of front-page ranking
+	ingestPriorityTopics(ctx, client, store, summaryManager, rankMap)
 
 	jobs := make(chan int, len(topIDs))
 	var wg sync.WaitGroup
@@ -659,16 +851,28 @@ func processStory(ctx context.Context, client *hn.Client, store storage.DB, id i
 	if err != nil { return err }
 	if item.Type != "story" { return nil }
 
+	topics := inferTitleTopics(item.Title, nil)
 	story := storage.Story{
 		ID: int64(item.ID), Title: item.Title, URL: item.URL,
 		Score: item.Score, By: item.By, Descendants: item.Descendants,
 		PostedAt: time.Unix(item.Time, 0), HNRank: rank,
+		Topics: topics,
 	}
 	_ = store.UpsertStory(ctx, story)
 
-	// Enqueue top external articles for background summarization (comments are fetched lazily when a story is opened)
-	if item.URL != "" {
-		maybeEnqueueStorySummary(ctx, store, id, item.URL, item.Title, *rank, summaryManager)
+	// Enqueue external articles for background summarization (boost Postgres and LLM/AI stories to front of queue)
+	if item.URL != "" && rank != nil {
+		effectiveRank := *rank
+		for _, t := range topics {
+			if t == "Postgres" {
+				effectiveRank = -200 + *rank
+				break
+			}
+			if (t == "LLM" || t == "AI") && effectiveRank > 0 {
+				effectiveRank = -100 + *rank
+			}
+		}
+		maybeEnqueueStorySummary(ctx, store, id, item.URL, item.Title, effectiveRank, summaryManager)
 	}
 	return nil
 }

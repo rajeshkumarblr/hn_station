@@ -33,36 +33,29 @@ func GetManager() *TagManager {
 }
 
 func (m *TagManager) getPath() string {
-	// 1. Check User Config Dir (Production)
-	configDir, _ := os.UserConfigDir()
-	path1 := filepath.Join(configDir, "HN Station", "tag_mappings.json")
-	if _, err := os.Stat(path1); err == nil {
-		return path1
-	}
-
-	// 2. Check Executable Dir (Portable/Packaged)
+	// 1. Check Executable Dir (Packaged macOS/Windows/Linux app bundle) first so release updates apply immediately
 	execPath, _ := os.Executable()
-	path2 := filepath.Join(filepath.Dir(execPath), "tag_mappings.json")
-	if _, err := os.Stat(path2); err == nil {
-		return path2
+	pathExec := filepath.Join(filepath.Dir(execPath), "tag_mappings.json")
+	if _, err := os.Stat(pathExec); err == nil {
+		return pathExec
 	}
 
-	// 3. Check CWD (Dev)
-	path3 := "tag_mappings.json"
-	if _, err := os.Stat(path3); err == nil {
-		abs, _ := filepath.Abs(path3)
+	// 2. Check CWD (Dev)
+	pathCwd := "tag_mappings.json"
+	if _, err := os.Stat(pathCwd); err == nil {
+		abs, _ := filepath.Abs(pathCwd)
 		return abs
 	}
 
-	// 4. Check Project Root relative to binary (Dev via Electron)
-	// Binary is in web/resources/hn-local.exe
-	// tag_mappings is in ../../tag_mappings.json
-	path4 := filepath.Join(filepath.Dir(execPath), "..", "..", "tag_mappings.json")
-	if _, err := os.Stat(path4); err == nil {
-		return path4
+	// 3. Check Project Root relative to binary (Dev via Electron)
+	pathRel := filepath.Join(filepath.Dir(execPath), "..", "..", "tag_mappings.json")
+	if _, err := os.Stat(pathRel); err == nil {
+		return pathRel
 	}
 
-	return path1 // Default to config dir if none found
+	// 4. Fallback to User Config Dir
+	configDir, _ := os.UserConfigDir()
+	return filepath.Join(configDir, "HN Station", "tag_mappings.json")
 }
 
 func (m *TagManager) Load() error {
