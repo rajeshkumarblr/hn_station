@@ -391,6 +391,13 @@ func (sm *SummaryManager) Push(job summaryJob) {
 	defer sm.mu.Unlock()
 	
 	if sm.pendingIDs[job.ID] {
+		for i := range sm.heap {
+			if sm.heap[i].ID == job.ID && job.Rank < sm.heap[i].Rank {
+				sm.heap[i].Rank = job.Rank
+				heap.Init(&sm.heap)
+				break
+			}
+		}
 		return // Already in queue or being processed
 	}
 	
@@ -422,13 +429,15 @@ func (sm *SummaryManager) Prioritize(ids []int) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	if len(ids) == 0 { return }
-	idMap := make(map[int]bool)
-	for _, id := range ids { idMap[id] = true }
+	idRank := make(map[int]int, len(ids))
+	for idx, id := range ids { idRank[id] = -300 + idx }
 	changed := false
 	for i := range sm.heap {
-		if idMap[sm.heap[i].ID] {
-			sm.heap[i].Rank = -1
-			changed = true
+		if targetRank, ok := idRank[sm.heap[i].ID]; ok {
+			if targetRank < sm.heap[i].Rank {
+				sm.heap[i].Rank = targetRank
+				changed = true
+			}
 		}
 	}
 	if changed {
@@ -565,7 +574,7 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 			jobCtx, jobCancel := context.WithCancel(ctx)
 			manager.RegisterCancel(jobCancel)
 
-			err := processSummary(jobCtx, store, aiClient, ollamaURL, job)
+			didInfer, err := processSummary(jobCtx, store, aiClient, ollamaURL, job)
 			jobCancel()
 			manager.RegisterCancel(nil)
 
@@ -575,22 +584,30 @@ func runSummaryWorker(id int, ctx context.Context, store storage.DB, aiClient *a
 			manager.status.AIStatus = "Ready"
 			manager.status.CurrentTask = ""
 
-			// Mandatory post-inference cooldown so duty cycle stays < 5% and Mac never heats up
+			if !didInfer {
+				return
+			}
+
+			// Short 12s cooldown for priority Briefing Deck stories (Postgres & LLM/AI), 60s for general background feed
+			cooldown := autoSummaryCooldown
+			if job.Rank <= -50 {
+				cooldown = 12 * time.Second
+			}
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(autoSummaryCooldown):
+			case <-time.After(cooldown):
 			}
 		}()
 	}
 }
 
-func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, job summaryJob) error {
+func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaClient, ollamaURL string, job summaryJob) (bool, error) {
 	// FINAL DEDUPLICATION: Check if already summarized in DB (do NOT re-summarize when topics is empty!)
 	existing, err := store.GetStory(ctx, job.ID)
 	if err == nil && existing.Summary != nil && strings.TrimSpace(*existing.Summary) != "" {
 		log.Printf("[ingest] Story %d already summarized, skipping.", job.ID)
-		return nil
+		return false, nil
 	}
 
 	log.Printf("[ingest] processSummary starting for story %d. Provider: local-only", job.ID)
@@ -619,7 +636,7 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 		}
 	}
 	if len(text) < 50 {
-		return nil
+		return false, nil
 	}
 
 	if len(text) > 12000 {
@@ -636,9 +653,10 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 		}
 	} else {
 		log.Printf("[ingest] Local AI server not reachable at %s (is 'litert-lm serve' running?)", ollamaURL)
+		return false, nil
 	}
 
-	if responseStr == "" { return nil }
+	if responseStr == "" { return true, nil }
 
 	result := ai.ParseGreedyJSON(responseStr, int64(job.ID))
 	finalSummary := strings.Join(result.Summary, "\n")
@@ -649,10 +667,10 @@ func processSummary(ctx context.Context, store storage.DB, aiClient *ai.OllamaCl
 	}
 
 	if err := store.UpdateStorySummaryAndTopics(workCtx, job.ID, finalSummary, finalTopics); err != nil {
-		return err
+		return true, err
 	}
 	log.Printf("[ingest] Saved summary + %d topics for story %d", len(finalTopics), job.ID)
-	return nil
+	return true, nil
 }
 
 func inferTitleTopics(title string, seedTopics []string) []string {

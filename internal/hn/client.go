@@ -77,7 +77,7 @@ func (c *Client) SearchStories(ctx context.Context, query string, limit int, byD
 	if byDate {
 		endpoint = "search_by_date"
 	}
-	reqURL := fmt.Sprintf("%s/%s?tags=story&query=%s&hitsPerPage=%d", AlgoliaURL, endpoint, url.QueryEscape(query), limit)
+	reqURL := fmt.Sprintf("%s/%s?tags=story&restrictSearchableAttributes=title,url&query=%s&hitsPerPage=%d", AlgoliaURL, endpoint, url.QueryEscape(query), limit)
 	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 	if err != nil {
 		return nil, err

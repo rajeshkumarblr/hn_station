@@ -732,5 +732,20 @@ func (s *SQLiteStore) GetChatHistory(ctx context.Context, userID string, storyID
 }
 func (s *SQLiteStore) ClearPoisonedSummaries(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, "UPDATE stories SET summary = NULL WHERE summary LIKE 'AI Error: %'")
+	// Clean up any false-positive "Postgres" tags from Algolia full-text self-post matches where title/url/summary don't mention Postgres
+	_, _ = s.db.ExecContext(ctx, `
+		UPDATE stories
+		SET topics = REPLACE(REPLACE(REPLACE(topics, '"Postgres",', ''), ',"Postgres"', ''), '"Postgres"', '')
+		WHERE topics LIKE '%"Postgres"%'
+		  AND LOWER(title) NOT LIKE '%postgres%'
+		  AND LOWER(title) NOT LIKE '%pgvector%'
+		  AND LOWER(title) NOT LIKE '%pg_%'
+		  AND LOWER(title) NOT LIKE '%psql%'
+		  AND LOWER(title) NOT LIKE '%postgis%'
+		  AND LOWER(title) NOT LIKE '%supabase%'
+		  AND LOWER(title) NOT LIKE '%pglite%'
+		  AND LOWER(url) NOT LIKE '%postgres%'
+		  AND LOWER(COALESCE(summary, '')) NOT LIKE '%postgres%'
+	`)
 	return err
 }

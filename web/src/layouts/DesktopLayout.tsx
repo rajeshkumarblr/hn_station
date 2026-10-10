@@ -38,8 +38,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
     const articlesMenuRef = useRef<HTMLDivElement>(null);
 
-    // Flash Briefing Slideshow State (PG -> LLM/AI)
-    const [isBriefingOpen, setIsBriefingOpen] = useState(false);
+    // Flash Briefing Slideshow State (PG -> LLM/AI) — default view on Desktop launch!
+    const [isBriefingOpen, setIsBriefingOpen] = useState<boolean>(() => !isWebPreview());
     const [briefingStage, setBriefingStage] = useState<BriefingStage>('postgres');
     const [resumeBriefingStage, setResumeBriefingStage] = useState<BriefingStage | null>(null);
     const [autoShowBriefingOnFocus, setAutoShowBriefingOnFocus] = useState<boolean>(() => {
@@ -52,7 +52,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         localStorage.setItem('hn_briefing_auto_focus', enabled ? 'true' : 'false');
     }, []);
 
-    // Automatically open Flash Briefing (Postgres Top 5) when switching back to the app after >2 minutes away
+    // Automatically open Flash Briefing (Postgres Top 5) whenever switching back to the app
     useEffect(() => {
         if (isWebPreview()) return;
         const onBlur = () => {
@@ -61,8 +61,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         const onFocus = () => {
             if (!autoShowBriefingOnFocus) return;
             const awayMs = lastBlurAtRef.current > 0 ? Date.now() - lastBlurAtRef.current : 0;
-            // Trigger if away for at least 2 minutes and not actively reading an open article
-            if (awayMs >= 2 * 60 * 1000 && currentView === 'feed' && !isSettingsOpen && !isAdminModalOpen) {
+            // Trigger whenever switching back after >10s away if not actively reading an open article
+            if (awayMs >= 10 * 1000 && currentView === 'feed' && !isSettingsOpen && !isAdminModalOpen) {
                 setBriefingStage('postgres');
                 setIsBriefingOpen(true);
             }
@@ -270,25 +270,47 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 {/* Left Section: Modes & Global Filters */}
                 <div className="flex items-center h-full gap-3 flex-1 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                     <nav className="h-full flex items-center gap-1.5 shrink-0">
+                        {/* Primary Default Tab: Flash Briefing Slide Deck (PG -> LLM/AI) */}
+                        <button
+                            onClick={() => {
+                                setBriefingStage('postgres');
+                                setIsBriefingOpen(true);
+                                setCurrentView('feed');
+                            }}
+                            title="Flash Briefing Slideshow: Top 5 Latest Postgres → Top 5 Latest LLM & AI"
+                            className={`flex items-center gap-1.5 text-[11px] font-extrabold tracking-tight transition-all outline-none px-3.5 py-1.5 rounded-full relative cursor-pointer ${
+                                isBriefingOpen && currentView === 'feed'
+                                    ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-lg shadow-sky-500/25'
+                                    : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-300 border border-sky-500/30'
+                            }`}
+                        >
+                            <Zap size={11} className="fill-current" />
+                            <span>Briefing Deck</span>
+                            {isBriefingOpen && currentView === 'feed' && (
+                                <div className="absolute -bottom-[14px] left-1/2 -translate-x-1/2 w-5 h-1 bg-sky-500 rounded-full" />
+                            )}
+                        </button>
+
                         {MODES.map((m) => {
-                            const isActiveInPrimary = (primaryTab === 'feed' && m.key === mode) || (primaryTab === 'bookmarks' && m.key === 'saved');
+                            const isActiveInPrimary = !isBriefingOpen && ((primaryTab === 'feed' && m.key === mode) || (primaryTab === 'bookmarks' && m.key === 'saved'));
                             const isSelected = isActiveInPrimary;
                             return (
                                 <button
                                     key={m.key}
                                     onClick={() => {
+                                        setIsBriefingOpen(false);
                                         if (m.key === 'saved') setPrimaryTab('bookmarks');
                                         else {
                                             const modeKey = m.key as any;
                                             // Update lastFeedMode BEFORE primaryTab change to prevent stale restore
                                             app.setLastFeedMode(modeKey);
                                             setPrimaryTab('feed');
-                                            if (mode === modeKey && primaryTab === 'feed') handleRefresh();
+                                            if (mode === modeKey && primaryTab === 'feed' && !isBriefingOpen) handleRefresh();
                                             else { setMode(modeKey); }
                                         }
                                         setCurrentView('feed');
                                     }}
-                                    className={`text-[11px] font-bold tracking-tight transition-all outline-none px-3 py-1.5 rounded-full relative group ${isSelected
+                                    className={`text-[11px] font-bold tracking-tight transition-all outline-none px-3 py-1.5 rounded-full relative group cursor-pointer ${isSelected
                                         ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
                                         : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
                                         }`}
@@ -330,6 +352,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                 <button
                                                     key={`menu-${t.id}`}
                                                     onClick={() => {
+                                                        setIsBriefingOpen(false);
                                                         app.handleStorySelect?.(t.storyId);
                                                         setCurrentView('reader');
                                                         setIsArticlesMenuOpen(false);
@@ -352,23 +375,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 )}
                             </div>
                         )}
-
-                        {/* Flash Briefing Slideshow Button (PG -> LLM/AI) */}
-                        <button
-                            onClick={() => {
-                                setBriefingStage('postgres');
-                                setIsBriefingOpen(true);
-                            }}
-                            title="Open Flash Briefing Slideshow: Top 5 Latest Postgres → Top 5 Latest LLM & AI"
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all border ml-1 cursor-pointer ${
-                                isBriefingOpen
-                                    ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white border-sky-400 shadow-lg'
-                                    : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-300 border-sky-500/30 shadow-sm'
-                            }`}
-                        >
-                            <Zap size={11} className="fill-current" />
-                            <span>Briefing</span>
-                        </button>
                     </nav>
 
                     <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 shrink-0" />
@@ -584,7 +590,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             </header>
 
             {/* Global Filters Toolbar (swapped with Web Preview Banner) - Desktop Only */}
-            {currentView === 'feed' && !isWebPreview() && (
+            {currentView === 'feed' && !isBriefingOpen && !isWebPreview() && (
                 <div className="h-[52px] flex items-center justify-between px-6 gap-4 z-[99] bg-white dark:bg-[#161d2e] border-b border-slate-200 dark:border-slate-800/90 shrink-0 select-none">
                     {/* Left Fixed Controls */}
                     <div className="flex items-center gap-3 shrink-0">
@@ -767,13 +773,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 <div className="flex items-center bg-slate-100 dark:bg-[#131824] border-b border-slate-200 dark:border-slate-800/90 shrink-0 relative">
                     <div className="flex flex-1 min-w-0 overflow-hidden gap-px">
                         <button
-                            onClick={() => { setPrimaryTab('feed'); setCurrentView('feed'); }}
+                            onClick={() => { setIsBriefingOpen(false); setPrimaryTab('feed'); setCurrentView('feed'); }}
                             title="Back to News Feed"
-                            className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[38px] min-w-[110px] max-w-[140px] shrink-0 border-r border-slate-200 dark:border-slate-800 ${currentView === 'feed'
+                            className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[38px] min-w-[110px] max-w-[140px] shrink-0 border-r border-slate-200 dark:border-slate-800 cursor-pointer ${currentView === 'feed' && !isBriefingOpen
                                 ? 'bg-white dark:bg-[#1a2234] text-orange-500 font-bold'
                                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-[#1a2234]/60'}`}
                         >
-                            <Home size={14} className={currentView === 'feed' ? 'text-orange-500' : 'text-slate-400'} /> 
+                            <Home size={14} className={currentView === 'feed' && !isBriefingOpen ? 'text-orange-500' : 'text-slate-400'} /> 
                             <span className="text-[12px] truncate">Feed</span>
                         </button>
                         {tabs.map(t => {
@@ -790,7 +796,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-[#1a2234]/60'}`}
                                 >
                                     <button
-                                        onClick={() => { app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
+                                        onClick={() => { setIsBriefingOpen(false); app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
                                         className={`truncate text-[12px] flex-1 text-left cursor-pointer ${!isPinned ? 'italic opacity-90' : 'not-italic'}`}
                                     >
                                         {t.story.title}
@@ -825,6 +831,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 onClick={() => {
                                     setBriefingStage(resumeBriefingStage);
                                     setIsBriefingOpen(true);
+                                    setCurrentView('feed');
                                 }}
                                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/15 hover:bg-sky-500/25 text-sky-600 dark:text-sky-300 border border-sky-500/30 text-[11px] font-bold transition-all cursor-pointer"
                             >
@@ -837,6 +844,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         setBriefingStage('ai');
                                         setResumeBriefingStage('ai');
                                         setIsBriefingOpen(true);
+                                        setCurrentView('feed');
                                     }}
                                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-bold transition-all cursor-pointer"
                                 >
@@ -850,9 +858,39 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
             {/* Main Content Area */}
             <div className="flex-1 flex overflow-hidden relative">
+                {currentView === 'feed' && isBriefingOpen && (
+                    <BriefingDeck
+                        apiBase={app.apiBase}
+                        isOpen={true}
+                        initialStage={briefingStage}
+                        onClose={() => setIsBriefingOpen(false)}
+                        onGoDeep={(storyId, stage) => {
+                            setResumeBriefingStage(stage);
+                            setIsBriefingOpen(false);
+                            handleStorySelect(storyId, 'split');
+                        }}
+                        onSummarizeStory={app.handleSummarizeStory}
+                        onJumpToTopicFeed={(topics) => {
+                            setActiveTopics(prev => {
+                                const next = [...prev];
+                                for (const t of topics) {
+                                    if (!next.includes(t)) next.push(t);
+                                }
+                                setDisabledTopics(next.filter(x => !topics.includes(x)));
+                                return next;
+                            });
+                            setIsBriefingOpen(false);
+                            setPrimaryTab('feed');
+                            setCurrentView('feed');
+                        }}
+                        autoShowOnFocus={autoShowBriefingOnFocus}
+                        onToggleAutoShowOnFocus={handleToggleAutoShowBriefing}
+                    />
+                )}
+
                 <main 
                     className="flex-1 overflow-hidden bg-slate-50 dark:bg-[#131824] flex flex-col" 
-                    style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
+                    style={{ display: currentView === 'feed' && !isBriefingOpen ? 'flex' : 'none' }}
                 >
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
                         <div 
@@ -1014,7 +1052,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                         </div>
                     </>
                 ) : (
-                    currentView === 'feed' && (
+                    currentView === 'feed' && !isBriefingOpen && (
                         <>
                             {/* Resizer Handle */}
                             {!isSidebarCollapsed && (
@@ -1046,32 +1084,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             </div>
 
             {/* Modals */}
-            <BriefingDeck
-                apiBase={app.apiBase}
-                isOpen={isBriefingOpen}
-                initialStage={briefingStage}
-                onClose={() => setIsBriefingOpen(false)}
-                onGoDeep={(storyId, stage) => {
-                    setResumeBriefingStage(stage);
-                    setIsBriefingOpen(false);
-                    handleStorySelect(storyId, 'split');
-                }}
-                onSummarizeStory={app.handleSummarizeStory}
-                onJumpToTopicFeed={(topics) => {
-                    setActiveTopics(prev => {
-                        const next = [...prev];
-                        for (const t of topics) {
-                            if (!next.includes(t)) next.push(t);
-                        }
-                        setDisabledTopics(next.filter(x => !topics.includes(x)));
-                        return next;
-                    });
-                    setPrimaryTab('feed');
-                    setCurrentView('feed');
-                }}
-                autoShowOnFocus={autoShowBriefingOnFocus}
-                onToggleAutoShowOnFocus={handleToggleAutoShowBriefing}
-            />
             {isAdminModalOpen && <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />}
             {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} user={user} />}
             <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
