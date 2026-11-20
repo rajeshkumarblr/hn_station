@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     maximize: () => ipcRenderer.send('window-maximize'),
     close: () => ipcRenderer.send('window-close'),
     isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+    setTheme: (theme: 'dark' | 'light' | 'system') => ipcRenderer.send('set-theme', theme),
     // Local backend port — set once on startup, null if binary not found
     getLocalApiUrl: () => ipcRenderer.invoke('get-local-api-url'),
     openExternal: (url: string) => ipcRenderer.send('open-external', url),

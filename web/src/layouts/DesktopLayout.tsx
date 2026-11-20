@@ -86,10 +86,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
     const isElectron = getIsElectron();
-    const isMacElectron = isElectron && (
-        (window as any).electronAPI?.platform === 'darwin' ||
-        (typeof window !== 'undefined' && /Mac|Macintosh/i.test(window.navigator?.platform || ''))
-    );
 
     // --- Sidebar Resizing State ---
     const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -264,11 +260,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         <div className="h-screen bg-slate-50 dark:bg-[#131824] text-slate-900 dark:text-slate-100 font-sans overflow-hidden flex flex-col transition-colors duration-200">
             {/* ─── Zen Header ─── */}
             <header 
-                className={`bg-white/90 dark:bg-[#161d2e]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/90 h-[52px] flex items-center justify-between ${isMacElectron ? 'pl-[86px] pr-4' : 'px-4'} shrink-0 z-[100] relative select-none`}
-                style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+                className="bg-white/90 dark:bg-[#161d2e]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/90 h-[48px] flex items-center justify-between px-4 shrink-0 z-[100] relative select-none"
             >
                 {/* Left Section: Modes & Global Filters */}
-                <div className="flex items-center h-full gap-3 flex-1 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                <div className="flex items-center h-full gap-3 flex-1 min-w-0">
                     <nav className="h-full flex items-center gap-1.5 shrink-0">
                         {/* Primary Default Tab: Flash Briefing Slide Deck (PG -> LLM/AI) */}
                         <button
@@ -520,7 +515,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 {!isWebPreview() && (
                     <div 
                         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none hidden lg:flex"
-                        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
                     >
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-orange-500" />
@@ -534,7 +528,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 )}
 
                 {/* Right Section: Controls */}
-                <div className="flex items-center gap-1.5 h-full shrink-0" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                <div className="flex items-center gap-1.5 h-full shrink-0">
                     {isElectron && (
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/25 rounded-full mr-2 hidden md:flex">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -579,13 +573,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     >
                         <Settings size={18} />
                     </button>
-                    {isElectron && !isMacElectron && (
-                        <div className="flex items-center ml-3 border-l border-slate-200 dark:border-slate-800 pl-1 h-full">
-                            <button onClick={() => (window as any).electronAPI?.minimize()} className="w-10 h-full flex items-center justify-center text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><span className="text-sm">─</span></button>
-                            <button onClick={() => (window as any).electronAPI?.maximize()} className="w-10 h-full flex items-center justify-center text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"><span className="text-[10px] border border-current px-0.5">□</span></button>
-                            <button onClick={() => (window as any).electronAPI?.close()} className="w-10 h-full flex items-center justify-center text-slate-400 hover:bg-red-500 hover:text-white transition-colors"><X size={16} /></button>
-                        </div>
-                    )}
                 </div>
             </header>
 

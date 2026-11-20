@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session, ipcMain, nativeImage, globalShortcut, shell, Menu } from 'electron';
+import { app, BrowserWindow, session, ipcMain, nativeImage, nativeTheme, globalShortcut, shell, Menu } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, ChildProcess } from 'node:child_process';
@@ -258,8 +258,28 @@ ipcMain.handle('get-local-api-url', () =>
 );
 
 ipcMain.on('open-external', (_, url: string) => {
-    shell.openExternal(url);
+    if (url) shell.openExternal(url);
 });
+
+ipcMain.on('window-minimize', () => win?.minimize());
+ipcMain.on('window-close', () => win?.close());
+ipcMain.on('window-maximize', () => {
+    if (win?.isMaximized()) win.unmaximize();
+    else win?.maximize();
+});
+ipcMain.handle('window-is-maximized', () => win?.isMaximized() ?? false);
+
+ipcMain.on('set-theme', (_event, theme: string) => {
+    if (theme === 'dark' || theme === 'light' || theme === 'system') {
+        nativeTheme.themeSource = theme;
+        if (win && !win.isDestroyed()) {
+            win.setBackgroundColor(theme === 'light' ? '#f8fafc' : '#131824');
+        }
+    }
+});
+
+// Default native window frame appearance to dark on startup (synced immediately from renderer preference)
+nativeTheme.themeSource = 'dark';
 
 
 // ── Window ────────────────────────────────────────────────────────────────────
@@ -269,12 +289,9 @@ function createWindow() {
         width: 1440,
         height: 900,
         show: false,
-        frame: isMac ? true : false,
-        ...(isMac ? {
-            titleBarStyle: 'hiddenInset' as const,
-            trafficLightPosition: { x: 16, y: 18 },
-        } : {}),
-        backgroundColor: '#131824',
+        frame: true,
+        autoHideMenuBar: !isMac,
+        backgroundColor: nativeTheme.shouldUseDarkColors ? '#131824' : '#f8fafc',
         icon: path.join(process.env.VITE_PUBLIC!, 'hn.ico'),
         webPreferences: {
             webviewTag: true,
@@ -296,17 +313,6 @@ function createWindow() {
 
     debug(`BrowserWindow created. Preload applied.`);
 
-    ipcMain.on('window-minimize', () => win?.minimize());
-    ipcMain.on('window-close', () => win?.close());
-    ipcMain.on('window-maximize', () => {
-        if (win?.isMaximized()) win.unmaximize();
-        else win?.maximize();
-    });
-    ipcMain.handle('window-is-maximized', () => win?.isMaximized() ?? false);
-    ipcMain.on('open-external', (_, url: string) => {
-        if (url) shell.openExternal(url);
-    });
-
     win.webContents.setFrameRate(30);
     win.webContents.setBackgroundThrottling(true);
     win.on('blur', () => {
@@ -315,22 +321,25 @@ function createWindow() {
     win.on('focus', () => {
         win?.webContents.setFrameRate(30);
     });
+    win.on('closed', () => {
+        win = null;
+    });
 
     win.once('ready-to-show', () => {
         if (win) {
             win.show();
             win.focus();
-            win.setFullScreen(false);
-            setTimeout(() => {
-                if (win && !win.isMaximized()) {
-                    win.maximize();
-                }
-            }, 300);
+            if (win.isFullScreen()) {
+                win.setFullScreen(false);
+            }
+            if (!win.isMaximized()) {
+                win.maximize();
+            }
         }
     });
 
     if (!isMac) {
-        win.setMenu(null);
+        win.setMenuBarVisibility(false);
     }
 
     const pngIconPath = path.join(process.env.VITE_PUBLIC!, 'hn_256.png');
@@ -383,7 +392,7 @@ function createWindow() {
         logToFile(`[main] Failed to register shortcut: ${e}`);
     }
 
-    // Standard Menu for native shortcuts (Cmd/Ctrl+C, Cmd/Ctrl+V, Cmd+Q, Cmd+M, etc)
+    // Standard Menu for native shortcuts (Cmd/Ctrl+C, Cmd/Ctrl+V, Cmd+Q, Cmd+M, Window Zoom/Fill, etc)
     const template: any[] = [
         ...(isMac ? [{ role: 'appMenu' }] : []),
         {
@@ -398,7 +407,7 @@ function createWindow() {
                 { role: 'selectall' }
             ]
         },
-        ...(isMac ? [{ role: 'windowMenu' }] : []),
+        ...(isMac ? [{ role: 'viewMenu' }, { role: 'windowMenu' }] : []),
     ];
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);

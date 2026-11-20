@@ -350,6 +350,7 @@ export function useAppState() {
         root.classList.remove('light', 'dark');
         root.classList.add(theme);
         localStorage.setItem('theme', theme);
+        (window as any).electronAPI?.setTheme?.(theme);
     }, [theme]);
 
     useEffect(() => { 
