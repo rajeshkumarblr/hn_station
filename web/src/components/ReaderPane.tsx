@@ -3,7 +3,7 @@ import type { Story } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock, Sun, Moon, Columns, BookOpen, Globe } from 'lucide-react';
+import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock, Sun, Moon, Columns, BookOpen, Globe, Maximize2, Minimize2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
@@ -770,13 +770,27 @@ export function ReaderPane({
                             </button>
                         </div>
 
-                        {/* Optional Split View Toggle */}
+                        {/* Clear Maximize / Restore Split Toggle */}
                         <button
                             onClick={() => switchViewMode(viewMode === 'split' ? 'article' : 'split')}
-                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${viewMode === 'split' ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-600 dark:text-indigo-300' : 'bg-white dark:bg-[#111726] border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                            title={viewMode === 'split' ? 'Exit Side-by-Side Split (4)' : 'Side-by-Side Split View (4)'}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
+                                viewMode === 'split'
+                                    ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-600 dark:text-indigo-300'
+                                    : 'bg-white dark:bg-[#111726] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                            }`}
+                            title={viewMode === 'split' ? 'Maximize Article (4)' : 'Restore Side-by-Side Split View (4)'}
                         >
-                            <Columns size={14} />
+                            {viewMode === 'split' ? (
+                                <>
+                                    <Columns size={12} />
+                                    <span>Split</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Minimize2 size={12} />
+                                    <span>Split</span>
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -799,6 +813,17 @@ export function ReaderPane({
                         className="flex-1 bg-white dark:bg-[#131824] relative overflow-hidden h-full"
                         style={{ display: showArticlePane ? 'block' : 'none' }}
                     >
+                        {/* Floating Maximize Article button when in Split View */}
+                        {isSplit && (
+                            <button
+                                onClick={() => switchViewMode('article')}
+                                title="Maximize Article (1)"
+                                className="absolute top-2.5 right-3 z-30 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900/75 hover:bg-slate-900 text-white backdrop-blur-sm border border-white/15 shadow-md text-[11px] font-semibold transition-all cursor-pointer opacity-75 hover:opacity-100"
+                            >
+                                <Maximize2 size={12} />
+                                <span>Maximize</span>
+                            </button>
+                        )}
                         {/* Clean Reader Mode Overlay */}
                         {isReaderMode && story.url && (
                             <div className="absolute inset-0 z-20 overflow-y-auto custom-scrollbar bg-[#faf9f6] dark:bg-[#131824] px-6 py-8 sm:px-10">
@@ -907,6 +932,7 @@ export function ReaderPane({
                     story={story}
                     isOpen={showSidePane}
                     isFullWidth={isSideFullWidth}
+                    onToggleMaximize={() => switchViewMode(isSideFullWidth ? 'split' : (sidebarTab === 'ai' ? 'ai' : 'discussion'))}
                     onClose={() => switchViewMode('article')}
                     user={user}
                     onSetSummary={(summary, topics) => {

@@ -219,7 +219,7 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
 
                 {!isCollapsed && (
                     <div
-                        className="font-reading text-[14.5px] text-slate-800 dark:text-slate-200/95 overflow-hidden break-words prose prose-slate dark:prose-invert max-w-none leading-[1.65] [&>p]:mb-2.5 [&>p:last-child]:mb-0 [&>pre]:bg-slate-100 dark:[&>pre]:bg-slate-800/80 [&>pre]:p-3 [&>pre]:rounded-lg [&>pre]:overflow-x-auto [&>a]:text-sky-600 dark:[&>a]:text-sky-400 hover:[&>a]:underline ml-4"
+                        className="font-sans text-[14px] text-slate-800 dark:text-slate-200/95 overflow-hidden break-words prose prose-slate dark:prose-invert max-w-none leading-[1.65] [&>p]:mb-2.5 [&>p:last-child]:mb-0 [&>pre]:bg-slate-100 dark:[&>pre]:bg-slate-800/80 [&>pre]:p-3 [&>pre]:rounded-lg [&>pre]:overflow-x-auto [&>a]:text-sky-600 dark:[&>a]:text-sky-400 hover:[&>a]:underline ml-4"
                         dangerouslySetInnerHTML={{ __html: comment.text }}
                     />
                 )}

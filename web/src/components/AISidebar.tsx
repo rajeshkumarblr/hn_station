@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap, AlertCircle, Plus } from 'lucide-react';
+import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap, AlertCircle, Plus, Maximize2, Minimize2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
@@ -26,6 +26,7 @@ interface AISidebarProps {
     containerRef?: React.RefObject<HTMLDivElement>;
     width?: number;
     isFullWidth?: boolean;
+    onToggleMaximize?: () => void;
     isIngesting?: boolean;
     activeTopics?: string[];
     disabledTopics?: string[];
@@ -73,7 +74,7 @@ function CopyButton({ text }: { text: string }) {
 export function AISidebar({ 
     story, isOpen, onClose, onSetSummary, onSetDiscussionSummary,
     comments, commentsLoading, refreshComments, isIngesting, activeCommentId, onFocusComment,
-    activeTab, onTabChange, containerRef, width = 480, isFullWidth = false,
+    activeTab, onTabChange, containerRef, width = 480, isFullWidth = false, onToggleMaximize,
     activeTopics = [], disabledTopics = [], setActiveTopics, setDisabledTopics, topicMatch = 'any',
     onSummarizeStory
 }: AISidebarProps) {
@@ -470,13 +471,25 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                             </button>
                         )}
                         {!(typeof window !== 'undefined' && window.innerWidth < 768) && (
-                            <button 
-                                onClick={onClose}
-                                title="Close Split Pane"
-                                className="p-1 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                            >
-                                <X size={14} />
-                            </button>
+                            <>
+                                {onToggleMaximize && (
+                                    <button 
+                                        onClick={onToggleMaximize}
+                                        title="Maximize Discussion / AI pane"
+                                        className="flex items-center gap-1 px-2 py-1 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-md text-[11px] font-semibold text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                                    >
+                                        <Maximize2 size={12} />
+                                        <span>Maximize</span>
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={onClose}
+                                    title="Hide pane (Maximize Article)"
+                                    className="p-1 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -540,6 +553,17 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                         <Plus size={12} className={showCommentComposer ? 'rotate-45 transition-transform' : 'transition-transform'} />
                                         <span>{showCommentComposer ? 'Cancel' : 'Comment'}</span>
                                     </button>
+
+                                    {isFullWidth && onToggleMaximize && (
+                                        <button
+                                            onClick={onToggleMaximize}
+                                            title="Restore Side-by-Side Split View"
+                                            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1 border bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 cursor-pointer"
+                                        >
+                                            <Minimize2 size={12} />
+                                            <span>Split</span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
