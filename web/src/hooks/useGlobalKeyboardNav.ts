@@ -66,7 +66,7 @@ export function useGlobalKeyboardNav(
             // --- Enter to Open Story ---
             if (e.key === 'Enter' && app.currentView === 'feed' && app.highlightedStoryId) {
                 if (e.preventDefault) e.preventDefault();
-                app.handleStorySelect(app.highlightedStoryId, 'split');
+                app.handleStorySelect(app.highlightedStoryId);
                 return;
             }
 

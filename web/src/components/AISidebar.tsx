@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap, AlertCircle } from 'lucide-react';
+import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap, AlertCircle, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
@@ -25,6 +25,7 @@ interface AISidebarProps {
     onTabChange: (tab: 'discussion' | 'summary' | 'ai') => void;
     containerRef?: React.RefObject<HTMLDivElement>;
     width?: number;
+    isFullWidth?: boolean;
     isIngesting?: boolean;
     activeTopics?: string[];
     disabledTopics?: string[];
@@ -72,11 +73,12 @@ function CopyButton({ text }: { text: string }) {
 export function AISidebar({ 
     story, isOpen, onClose, onSetSummary, onSetDiscussionSummary,
     comments, commentsLoading, refreshComments, isIngesting, activeCommentId, onFocusComment,
-    activeTab, onTabChange, containerRef, width = 480,
+    activeTab, onTabChange, containerRef, width = 480, isFullWidth = false,
     activeTopics = [], disabledTopics = [], setActiveTopics, setDisabledTopics, topicMatch = 'any',
     onSummarizeStory
 }: AISidebarProps) {
     const [discussSummarizing, setDiscussSummarizing] = useState(false);
+    const [showCommentComposer, setShowCommentComposer] = useState(false);
     
     // Local Chat State
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -122,6 +124,7 @@ export function AISidebar({
             }
 
             setTopCommentText('');
+            setShowCommentComposer(false);
             if (refreshComments) {
                 refreshComments();
             }
@@ -415,10 +418,17 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
     };
 
 
+    // Collapse comment composer when switching stories
+    useEffect(() => {
+        setShowCommentComposer(false);
+        setTopCommentText('');
+        setTopCommentError(null);
+    }, [story.id]);
+
     return (
         <div 
-            className="h-full flex flex-col bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-2xl border-l border-slate-200/50 dark:border-white/5 shadow-2xl relative transition-all duration-300 ease-in-out"
-            style={(isWebPreview() || (typeof window !== 'undefined' && window.innerWidth < 768)) ? {
+            className={`h-full flex flex-col bg-white dark:bg-[#131824] relative transition-all duration-200 ${isFullWidth ? '' : 'border-l border-slate-200 dark:border-slate-800/90 shadow-xl'}`}
+            style={(isFullWidth || isWebPreview() || (typeof window !== 'undefined' && window.innerWidth < 768)) ? {
                 display: isOpen ? 'flex' : 'none',
                 width: '100%',
                 minWidth: '100%',
@@ -429,47 +439,43 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                 minWidth: `${width}px` 
             }}
         >
-            {/* Header / Tabs Unified */}
-            {(!isWebPreview() || (typeof window !== 'undefined' && window.innerWidth < 768)) && (
-                <div className="flex items-center justify-between px-2 bg-slate-50/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
-                    <div className="flex flex-1 overflow-x-auto no-scrollbar">
-                        <>
-                            <button 
-                                onClick={() => onTabChange('discussion')}
-                                title="View community comments and analysis"
-                                className={`flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-[0.1em] border-b-2 transition-all shrink-0 ${activeTab === 'discussion' ? 'border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-500/5' : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-500/5'}`}
-                            >
-                                <MessageSquare size={14} /> <span>Discussion</span>
-                            </button>
-                            <button 
-                                onClick={() => onTabChange('ai')}
-                                title="Chat with local AI assistant (Privacy First)"
-                                className={`flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-[0.1em] border-b-2 transition-all shrink-0 ${activeTab === 'ai' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5' : 'border-transparent text-slate-400 hover:text-slate-500 hover:bg-slate-500/5'}`}
-                            >
-                                <Sparkles size={14} /> <span>AI Assistant</span>
-                            </button>
-                        </>
+            {/* Slim Split-Only Header (hidden in full-width mode since the top toolbar already switches tabs) */}
+            {!isFullWidth && (!isWebPreview() || (typeof window !== 'undefined' && window.innerWidth < 768)) && (
+                <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 dark:bg-[#161d2e] border-b border-slate-200 dark:border-slate-800/90 shrink-0">
+                    <div className="flex items-center gap-1">
+                        <button 
+                            onClick={() => onTabChange('discussion')}
+                            title="View community comments"
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${activeTab === 'discussion' ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                        >
+                            <MessageSquare size={12} /> <span>Discussion</span>
+                        </button>
+                        <button 
+                            onClick={() => onTabChange('ai')}
+                            title="AI Summary & Chat"
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${activeTab === 'ai' ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                        >
+                            <Sparkles size={12} /> <span>AI</span>
+                        </button>
                     </div>
                     
-                    <div className="flex items-center gap-2 mr-2">
-                        <button 
-                            onClick={() => {
-                                if (activeTab === 'ai') {
-                                    setMessages([]);
-                                    setChatInput('');
-                                }
-                            }}
-                            title={activeTab === 'ai' ? "Clear Chat History" : "Refresh Tab"}
-                            className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
-                        >
-                            <RefreshCw size={14} />
-                        </button>
+                    <div className="flex items-center gap-1">
+                        {activeTab === 'ai' && (
+                            <button 
+                                onClick={() => { setMessages([]); setChatInput(''); }}
+                                title="Clear Chat History"
+                                className="p-1 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                            >
+                                <RefreshCw size={13} />
+                            </button>
+                        )}
                         {!(typeof window !== 'undefined' && window.innerWidth < 768) && (
                             <button 
                                 onClick={onClose}
-                                className="p-1.5 hover:bg-slate-200/50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
+                                title="Close Split Pane"
+                                className="p-1 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
                             >
-                                <X size={18} />
+                                <X size={14} />
                             </button>
                         )}
                     </div>
@@ -477,9 +483,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
             )}
 
             {/* Content Container */}
-            <div className="flex-1 overflow-hidden relative flex flex-col bg-white dark:bg-[#0f172a]">
-                
-
+            <div className="flex-1 overflow-hidden relative flex flex-col bg-white dark:bg-[#131824]">
 
                 {/* Discussion Tab Content */}
                 <div 
@@ -487,89 +491,133 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                     className={`flex-1 flex flex-col relative overflow-hidden focus:outline-none ${activeTab !== 'discussion' ? 'hidden' : ''}`}
                     tabIndex={-1}
                 >
-                    <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
-                        {((commentsLoading && comments.length === 0) || (isIngesting && comments.length === 0)) ? (
-                            <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
-                                <RefreshCw size={24} className="animate-spin text-orange-500" />
-                                <span className="animate-pulse font-medium text-[10px] uppercase tracking-widest">
-                                    {isIngesting ? "Syncing from HN..." : "Loading discussion..."}
-                                </span>
-                            </div>
-                        ) : (comments && comments.length > 0) || isIngesting ? (
-                            <div className="pb-20 space-y-6">
-
-                                {/* Discussion Summary Section */}
-                                {!isWebPreview() && (
-                                    story.discussion_summary ? (
-                                        <div className="p-5 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <Sparkles size={14} className="text-indigo-500" />
-                                                <h4 className="text-[11px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Community Analysis</h4>
-                                            </div>
-                                            <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
-                                                <ReactMarkdown
-                                                    components={{
-                                                        li: ({node, ...props}) => {
-                                                            // Check if this is a numbered list item by looking at the raw content string
-                                                            const rawText = node?.children?.map((c: any) => c.value || c.children?.[0]?.value || '').join('') || '';
-                                                            const isNumbered = /^\s*\d+\./.test(rawText);
-                                                            
-                                                            return (
-                                                                <li className="flex gap-3 items-start mb-3 group">
-                                                                    {!isNumbered && (
-                                                                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400/50 group-hover:bg-indigo-500 shrink-0 transition-colors" />
-                                                                    )}
-                                                                    <span className="flex-1 m-0 p-0" {...props} />
-                                                                </li>
-                                                            );
-                                                        },
-                                                        ul: ({node, ...props}) => <ul className="pl-0 list-none" {...props} />,
-                                                    }}
-                                                >
-                                                    {story.discussion_summary}
-                                                </ReactMarkdown>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex justify-center">
-                                            <button 
-                                                onClick={handleSummarizeDiscussion}
-                                                disabled={discussSummarizing}
-                                                className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold transition-all flex items-center gap-2 group border border-indigo-200/50 dark:border-indigo-500/20"
+                    <div className="flex-1 overflow-y-auto px-5 py-5 custom-scrollbar">
+                        <div className={isFullWidth ? 'max-w-3xl mx-auto' : ''}>
+                            {/* Compact Discussion Action Bar (replaces permanent Post a Comment box & giant button) */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 mb-4 border-b border-slate-200/80 dark:border-slate-800/80">
+                                <div className="min-w-0">
+                                    {isFullWidth && (
+                                        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug mb-0.5 truncate">
+                                            {story.title}
+                                        </h2>
+                                    )}
+                                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                            {comments.length > 0 ? `${comments.length} comments` : `${story.descendants || 0} comments`}
+                                        </span>
+                                        {refreshComments && (
+                                            <button
+                                                onClick={refreshComments}
+                                                title="Refresh comments"
+                                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                                             >
-                                                {discussSummarizing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} className="group-hover:scale-110 transition-transform" />}
-                                                {discussSummarizing ? "Analyzing Discussion..." : "Summarize Discussion"}
+                                                <RefreshCw size={12} className={commentsLoading ? 'animate-spin text-orange-500' : ''} />
                                             </button>
-                                        </div>
-                                    )
-                                )}
+                                        )}
+                                    </div>
+                                </div>
 
-                                {/* Top-Level Comment Submission Form */}
-                                <div className="p-4 bg-slate-50/40 dark:bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-200/50 dark:border-slate-800/60 flex flex-col gap-2.5 transition-all duration-200 focus-within:border-orange-500/30 focus-within:ring-1 focus-within:ring-orange-500/10">
-                                    <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400 select-none">Post a comment</h4>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {!isWebPreview() && !story.discussion_summary && comments.length > 0 && (
+                                        <button 
+                                            onClick={handleSummarizeDiscussion}
+                                            disabled={discussSummarizing}
+                                            className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1.5 border border-indigo-500/20 cursor-pointer disabled:opacity-50"
+                                        >
+                                            {discussSummarizing ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                            <span>{discussSummarizing ? 'Summarizing...' : 'Summarize'}</span>
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={() => setShowCommentComposer(prev => !prev)}
+                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1 border cursor-pointer ${
+                                            showCommentComposer
+                                                ? 'bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30'
+                                                : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/80'
+                                        }`}
+                                    >
+                                        <Plus size={12} className={showCommentComposer ? 'rotate-45 transition-transform' : 'transition-transform'} />
+                                        <span>{showCommentComposer ? 'Cancel' : 'Comment'}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Collapsible Comment Composer — only shown when user explicitly clicks + Comment */}
+                            {showCommentComposer && (
+                                <div className="mb-5 p-3.5 bg-slate-50 dark:bg-[#1a2234] rounded-xl border border-slate-200 dark:border-slate-700/80 flex flex-col gap-2.5">
                                     <textarea
                                         value={topCommentText}
                                         onChange={(e) => setTopCommentText(e.target.value)}
-                                        placeholder="Add to the discussion..."
+                                        placeholder="Add to the HN discussion..."
                                         rows={3}
-                                        className="w-full text-xs p-3 rounded-xl border border-slate-250 dark:border-slate-800 bg-white/70 dark:bg-slate-950/60 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500/80 outline-none transition-all resize-none shadow-sm"
+                                        autoFocus
+                                        className="w-full text-xs p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#131824] text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500/80 outline-none resize-none"
                                     />
                                     {topCommentError && (
-                                        <div className="text-[10px] text-red-500 font-bold flex items-center gap-1">
+                                        <div className="text-[11px] text-red-500 font-semibold flex items-center gap-1">
                                             <AlertCircle size={12} className="shrink-0" />
                                             {topCommentError}
                                         </div>
                                     )}
-                                    <div className="flex justify-end">
+                                    <div className="flex justify-end gap-2">
+                                        <button
+                                            onClick={() => { setShowCommentComposer(false); setTopCommentError(null); }}
+                                            className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+                                        >
+                                            Cancel
+                                        </button>
                                         <button
                                             onClick={handleTopCommentSubmit}
                                             disabled={topCommentSubmitting || !topCommentText.trim()}
-                                            className="px-4 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 rounded-lg transition-all shadow-sm cursor-pointer"
+                                            className="px-3.5 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-40 rounded-lg transition-colors cursor-pointer"
                                         >
-                                            {topCommentSubmitting ? 'Posting...' : 'Post'}
+                                            {topCommentSubmitting ? 'Posting...' : 'Post Comment'}
                                         </button>
                                     </div>
                                 </div>
+                            )}
+
+                        {((commentsLoading && comments.length === 0) || (isIngesting && comments.length === 0)) ? (
+                            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
+                                <RefreshCw size={22} className="animate-spin text-orange-500" />
+                                <span className="font-medium text-xs">
+                                    {isIngesting ? "Syncing discussion from HN..." : "Loading discussion..."}
+                                </span>
+                            </div>
+                        ) : (comments && comments.length > 0) || isIngesting ? (
+                            <div className="pb-16 space-y-5">
+
+                                {/* Discussion Summary Card (only shown when generated) */}
+                                {!isWebPreview() && story.discussion_summary && (
+                                    <div className="p-4 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-xl border border-indigo-200/80 dark:border-indigo-500/20">
+                                        <div className="flex items-center gap-1.5 mb-2.5">
+                                            <Sparkles size={13} className="text-indigo-500" />
+                                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300">Discussion Summary</h4>
+                                        </div>
+                                        <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-200 leading-relaxed font-sans">
+                                            <ReactMarkdown
+                                                components={{
+                                                    li: ({node, ...props}) => {
+                                                        const rawText = node?.children?.map((c: any) => c.value || c.children?.[0]?.value || '').join('') || '';
+                                                        const isNumbered = /^\s*\d+\./.test(rawText);
+                                                        return (
+                                                            <li className="flex gap-2.5 items-start mb-2">
+                                                                {!isNumbered && (
+                                                                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                                                                )}
+                                                                <span className="flex-1 m-0 p-0" {...props} />
+                                                            </li>
+                                                        );
+                                                    },
+                                                    ul: ({node, ...props}) => <ul className="pl-0 list-none" {...props} />,
+                                                }}
+                                            >
+                                                {story.discussion_summary}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <CommentList
                                     comments={comments}
@@ -662,57 +710,72 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                 )}
                             </div>
                         )}
+                        </div>
                     </div>
                 </div>
 
                 {/* Local AI Assistant Tab Content */}
-                <div className={`flex-1 flex flex-col min-h-0 relative bg-white dark:bg-[#0f172a] ${activeTab !== 'ai' ? 'hidden' : ''}`}>
+                <div className={`flex-1 flex flex-col min-h-0 relative bg-white dark:bg-[#131824] ${activeTab !== 'ai' ? 'hidden' : ''}`}>
                     {/* Chat Messages */}
-                    <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar space-y-6 min-h-0">
+                    <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar min-h-0">
+                        <div className={`space-y-6 ${isFullWidth ? 'max-w-3xl mx-auto' : ''}`}>
                         {messages.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center opacity-40 px-10 gap-4">
-                                <div className="p-4 rounded-full bg-indigo-500/10 text-indigo-500">
-                                    <MessageSquare size={32} />
-                                </div>
-                                <div>
-                                    <h3 className="text-sm font-bold uppercase tracking-widest mb-2">Local AI Assistant</h3>
-                                    <p className="text-xs leading-relaxed mb-6">
-                                        Ask me anything about this story or the discussion below. 
-                                        I have full context of the article and top comments.
-                                    </p>
-                                    
-                                    <div className="flex flex-col gap-3">
-                                        {story.summary ? (
-                                            <button 
-                                                onClick={() => {
-                                                    setMessages([{ role: 'assistant', content: `### Article Summary\n\n${story.summary}` }]);
-                                                }}
-                                                className="px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-indigo-200 dark:border-indigo-500/20"
-                                            >
-                                                <Sparkles size={14} /> View Article Summary
-                                            </button>
-                                        ) : (
-                                            <button 
-                                                onClick={async () => {
-                                                    if (onSummarizeStory) {
-                                                        const res = await onSummarizeStory();
-                                                        if (res && res.summary) {
-                                                            setMessages([{ role: 'assistant', content: `### Article Summary\n\n${res.summary}` }]);
-                                                        }
-                                                    }
-                                                }}
-                                                className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
-                                            >
-                                                <Sparkles size={14} /> Summarize Article
-                                            </button>
-                                        )}
+                            <div className="py-6 space-y-5">
+                                {isFullWidth && (
+                                    <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-snug">
+                                        {story.title}
+                                    </h2>
+                                )}
+                                {story.summary ? (
+                                    <div className="p-5 rounded-xl bg-slate-50 dark:bg-[#1a2234] border border-slate-200 dark:border-slate-700/80">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Sparkles size={14} className="text-amber-500" />
+                                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Article Summary</h3>
+                                        </div>
+                                        <ul className="space-y-2.5">
+                                            {story.summary.split('\n').map(l => l.replace(/^[-*•\d.)\s]+/, '').trim()).filter(Boolean).map((line, i) => (
+                                                <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 shrink-0" />
+                                                    <span>{line}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ) : (
+                                    <div className="p-6 rounded-xl bg-slate-50 dark:bg-[#1a2234] border border-slate-200 dark:border-slate-700/80 flex flex-col items-center text-center gap-3">
+                                        <Sparkles size={22} className="text-indigo-500" />
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+                                            Generate a quick summary of this article or ask questions below using your local AI model.
+                                        </p>
                                         <button 
-                                            onClick={() => setChatInput("What is the main takeaway from the comments?")}
-                                            className="px-4 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-white/10"
+                                            onClick={async () => {
+                                                if (onSummarizeStory) {
+                                                    const res = await onSummarizeStory();
+                                                    if (res && res.summary) {
+                                                        setMessages([{ role: 'assistant', content: `### Article Summary\n\n${res.summary}` }]);
+                                                    }
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
                                         >
-                                            <MessageSquare size={14} /> Analyze Comments
+                                            <Sparkles size={13} /> Summarize Article
                                         </button>
                                     </div>
+                                )}
+
+                                <div className="flex flex-wrap gap-2">
+                                    <button 
+                                        onClick={() => setChatInput("What are the key technical takeaways from this article?")}
+                                        className="px-3 py-1.5 bg-slate-100 dark:bg-[#1a2234] hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700/80 cursor-pointer"
+                                    >
+                                        Key technical takeaways?
+                                    </button>
+                                    <button 
+                                        onClick={() => setChatInput("What is the main consensus and pushback in the HN comments?")}
+                                        className="px-3 py-1.5 bg-slate-100 dark:bg-[#1a2234] hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700/80 cursor-pointer"
+                                    >
+                                        Main consensus & pushback in comments?
+                                    </button>
                                 </div>
                             </div>
                         ) : (
@@ -776,13 +839,14 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                             </div>
                         )}
                         <div ref={messagesEndRef} />
+                        </div>
                     </div>
 
                     {/* Chat Input */}
-                    <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">
+                    <div className="p-3.5 border-t border-slate-200 dark:border-slate-800/90 bg-slate-50/70 dark:bg-[#161d2e]">
                         <form 
                             onSubmit={(e) => handleSendMessage(e)} 
-                            className="relative flex items-end gap-2"
+                            className={`relative flex items-end gap-2 ${isFullWidth ? 'max-w-3xl mx-auto' : ''}`}
                         >
                             <div className="flex-1 relative">
                                 <textarea

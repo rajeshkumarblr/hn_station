@@ -264,8 +264,16 @@ export function StoryCard({
                                 )}
                             </div>
                             <button
-                                onClick={(e) => { e.stopPropagation(); onSelect && onSelect(story.id); }}
-                                className={`flex items-center gap-1 transition-colors font-semibold ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-400'}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!isWebPreview() && onOpenInTab) {
+                                        onOpenInTab(story.id, 'discussion');
+                                    } else {
+                                        onSelect && onSelect(story.id);
+                                    }
+                                }}
+                                title="Open discussion"
+                                className={`flex items-center gap-1 transition-colors font-semibold hover:text-orange-500 cursor-pointer ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-400'}`}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 {story.descendants > 0 ? story.descendants : ''}
@@ -313,7 +321,7 @@ export function StoryCard({
             <div className="absolute bottom-2 right-3 flex items-center gap-1 z-20">
                 {!isWebPreview() && onOpenInTab && (
                     <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); }}
+                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, story.url ? 'article' : 'discussion'); }}
                         className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title="Open in Tab"
                     >

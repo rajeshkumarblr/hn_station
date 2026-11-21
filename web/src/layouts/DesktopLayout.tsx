@@ -807,7 +807,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     transform: `translateY(${virtualItem.start}px)`,
                                                 }}
                                                 onClick={() => setHighlightedStoryId(story.id)}
-                                                onDoubleClick={() => handleStorySelect(story.id, 'split')}
+                                                onDoubleClick={() => handleStorySelect(story.id, story.url ? 'article' : 'discussion')}
                                             >
                                                 <StoryCard
                                                     story={story} 
@@ -855,7 +855,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 <ReaderPane
                                     story={tab.story}
                                     isActive={true}
-                                    activeTab={(tab.mode || 'split') as any}
+                                    activeTab={(tab.mode || 'article') as any}
                                     onTabChange={(m) => app.handleStorySelect?.(tab.storyId, m)}
                                     onHome={app.handleHome}
                                     onClose={() => closeTab(tab.id)}
@@ -976,7 +976,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 onClose={() => setIsBriefingOpen(false)}
                 onGoDeep={(storyId) => {
                     setIsBriefingOpen(false);
-                    handleStorySelect(storyId, 'split');
+                    handleStorySelect(storyId, 'article');
                 }}
                 onSummarizeStory={app.handleSummarizeStory}
             />

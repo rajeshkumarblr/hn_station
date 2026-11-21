@@ -454,7 +454,7 @@ export function useAppState() {
             return;
         }
 
-        const actualMode = overrideMode || (story.url ? 'split' : 'discussion');
+        const actualMode = overrideMode || (story.url ? 'article' : 'discussion');
 
         setTabs(prev => {
             // Check if tab already exists

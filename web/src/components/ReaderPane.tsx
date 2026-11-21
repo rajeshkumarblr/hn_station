@@ -3,9 +3,30 @@ import type { Story } from '../types';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
-import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, Home, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock, Sun, Moon } from 'lucide-react';
+import { Check, ExternalLink, Link, RefreshCw, Bookmark, Sparkles, MessageSquare, FileText, ChevronLeft, ChevronRight, Lock, Sun, Moon, Columns, BookOpen, Globe } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
 import { useKeyboardNav } from '../hooks/useKeyboardNav';
 import { AISidebar } from './AISidebar';
+
+function sanitizeReaderHtml(rawHtml: string): string {
+    if (typeof window === 'undefined' || !rawHtml) return '';
+    const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
+    doc.querySelectorAll('script, style, iframe, object, embed, form, noscript').forEach(el => el.remove());
+    doc.querySelectorAll('*').forEach(el => {
+        for (const attr of Array.from(el.attributes)) {
+            const name = attr.name.toLowerCase();
+            if (name.startsWith('on') || ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(attr.value))) {
+                el.removeAttribute(attr.name);
+            }
+        }
+        if (el.tagName === 'A') {
+            el.setAttribute('target', '_blank');
+            el.setAttribute('rel', 'noreferrer noopener');
+        }
+    });
+    return doc.body.innerHTML;
+}
 
 interface ReaderPaneProps {
     story: Story;
@@ -36,8 +57,7 @@ interface ReaderPaneProps {
 }
 
 export function ReaderPane({ 
-    story, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
-    isAISidebarOpen = true,
+    story, onHome, onTakeFocus, initialActiveCommentId, onSaveProgress, onToggleSave, activeTab, onTabChange, isActive, onSetGlobalWarning, onSetIframeBlocked, user,
     onToggleAISidebar,
     onSetSummary,
     onSetDiscussionSummary,
@@ -56,7 +76,53 @@ export function ReaderPane({
     const paneRef = useRef<HTMLDivElement>(null);
     const isWebMode = isWebPreview();
     const [iframeBlocked, setIframeBlocked] = useState<boolean>(story.iframe_blocked || false);
+
+    // Single-focus view mode by default ('article' | 'discussion' | 'ai'), with optional 'split'
+    const resolveInitialView = (): 'article' | 'discussion' | 'ai' | 'split' => {
+        if (isWebMode) return 'discussion';
+        if (activeTab === 'discussion') return 'discussion';
+        if (activeTab === 'split') return 'split';
+        return story.url ? 'article' : 'discussion';
+    };
+    const [viewMode, setViewMode] = useState<'article' | 'discussion' | 'ai' | 'split'>(resolveInitialView);
     const [sidebarTab, setSidebarTab] = useState<'discussion' | 'summary' | 'ai'>('discussion');
+
+    // Clean Reader Mode state (persisted in localStorage)
+    const [isReaderMode, setIsReaderMode] = useState<boolean>(() => {
+        try {
+            return localStorage.getItem('hn_article_reader_mode') === 'true';
+        } catch {
+            return false;
+        }
+    });
+    const [readerContent, setReaderContent] = useState<{ content: string; title: string; content_type: string } | null>(null);
+    const [readerLoading, setReaderLoading] = useState<boolean>(false);
+    const [readerError, setReaderError] = useState<string | null>(null);
+
+    const toggleReaderMode = useCallback((next: boolean) => {
+        setIsReaderMode(next);
+        try {
+            localStorage.setItem('hn_article_reader_mode', next ? 'true' : 'false');
+        } catch { }
+    }, []);
+
+    const switchViewMode = useCallback((next: 'article' | 'discussion' | 'ai' | 'split') => {
+        setViewMode(next);
+        if (next === 'discussion') {
+            setSidebarTab('discussion');
+            onToggleAISidebar?.(true);
+            onTabChange?.('discussion');
+        } else if (next === 'ai') {
+            setSidebarTab('ai');
+            onToggleAISidebar?.(true);
+        } else if (next === 'split') {
+            onToggleAISidebar?.(true);
+            onTabChange?.('split');
+        } else {
+            onToggleAISidebar?.(false);
+            onTabChange?.('article');
+        }
+    }, [onToggleAISidebar, onTabChange]);
 
     const [isMobileView, setIsMobileView] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
     const [mobileTab, setMobileTab] = useState<'article' | 'comments' | 'ai'>('comments');
@@ -72,7 +138,21 @@ export function ReaderPane({
     useEffect(() => {
         setMobileTab('comments');
         setSidebarTab('discussion');
+        setReaderContent(null);
+        setReaderError(null);
+        setViewMode(resolveInitialView());
     }, [story.id]);
+
+    // Sync if parent explicitly changes activeTab (e.g. clicking comment count on a card)
+    useEffect(() => {
+        if (isWebMode || !activeTab) return;
+        if (activeTab === 'discussion' && viewMode === 'article') {
+            setViewMode('discussion');
+            setSidebarTab('discussion');
+        } else if (activeTab === 'article' && viewMode === 'split') {
+            setViewMode('article');
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         if (mobileTab === 'ai' && sidebarTab === 'discussion') {
@@ -188,17 +268,15 @@ export function ReaderPane({
 
         const handleWillNavigate = (e: any) => {
             const url = e.url;
-            // If it's a different URL than the base story URL, open externally
-            // Or if the user explicitly wants "any link" to open externally
             if (url !== storyUrl && !url.startsWith('about:')) {
                 e.preventDefault();
-                (window as any).electron?.openExternal(url);
+                (window as any).electronAPI?.openExternal?.(url);
             }
         };
 
         const handleNewWindow = (e: any) => {
             e.preventDefault();
-            (window as any).electron?.openExternal(e.url);
+            (window as any).electronAPI?.openExternal?.(e.url);
         };
 
         webview.addEventListener('will-navigate', handleWillNavigate);
@@ -327,6 +405,37 @@ export function ReaderPane({
         };
     }, [story.id, baseUrl]);
 
+    // Fetch clean Reader Mode content when Reader Mode is active
+    useEffect(() => {
+        if (!isReaderMode || !story.id || !story.url || !baseUrl || readerContent) return;
+        let cancelled = false;
+        setReaderLoading(true);
+        setReaderError(null);
+        fetchWithAuth(`${baseUrl}/api/stories/${story.id}/content`)
+            .then(async res => {
+                if (!res.ok) throw new Error(`Failed to extract readable content (${res.status})`);
+                return res.json();
+            })
+            .then(data => {
+                if (!cancelled) {
+                    setReaderContent({
+                        content: data.content || '',
+                        title: data.title || story.title,
+                        content_type: data.content_type || 'html',
+                    });
+                }
+            })
+            .catch(err => {
+                if (!cancelled) {
+                    setReaderError(err.message || 'Could not load Reader Mode for this site');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setReaderLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [isReaderMode, story.id, story.url, baseUrl, readerContent, story.title]);
+
     // Poll for comments only when tab is active AND backend is actively ingesting
     useEffect(() => {
         if (!story.id || !isActive || !isIngesting) return;
@@ -451,32 +560,49 @@ export function ReaderPane({
                 switch (e.key.toLowerCase()) {
                     case 'q':
                         e.preventDefault();
-                        onToggleAISidebar?.(false);
+                        switchViewMode('article');
                         break;
                     case 'g':
                         e.preventDefault();
-                        setSidebarTab('ai');
-                        onToggleAISidebar?.(true);
+                        switchViewMode('ai');
                         break;
                     case 'h':
                         e.preventDefault();
-                        setSidebarTab('discussion');
-                        onToggleAISidebar?.(true);
+                        switchViewMode('discussion');
                         break;
                     case 'k':
                         e.preventDefault();
                         if (!isWebMode) {
-                            setSidebarTab('summary');
-                            onToggleAISidebar?.(true);
+                            switchViewMode('ai');
                         }
                         break;
+                }
+                return;
+            }
+
+            if (!e.metaKey && !e.altKey) {
+                if (e.key === '1') {
+                    e.preventDefault();
+                    switchViewMode('article');
+                } else if (e.key === '2') {
+                    e.preventDefault();
+                    switchViewMode('discussion');
+                } else if (e.key === '3') {
+                    e.preventDefault();
+                    switchViewMode('ai');
+                } else if (e.key === '4') {
+                    e.preventDefault();
+                    switchViewMode(viewMode === 'split' ? 'article' : 'split');
+                } else if (e.key.toLowerCase() === 'r' && (viewMode === 'article' || viewMode === 'split')) {
+                    e.preventDefault();
+                    toggleReaderMode(!isReaderMode);
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isActive, onToggleAISidebar]);
+    }, [isActive, switchViewMode, viewMode, isWebMode, toggleReaderMode, isReaderMode]);
 
     // Sync progress
     useEffect(() => {
@@ -485,159 +611,173 @@ export function ReaderPane({
         }
     }, [activeCommentId, onSaveProgress]);
 
+    const showArticlePane = isMobileView ? (mobileTab === 'article') : (!isWebMode && (viewMode === 'article' || viewMode === 'split'));
+    const showSidePane = isMobileView ? (mobileTab !== 'article') : (isWebMode || viewMode === 'discussion' || viewMode === 'ai' || viewMode === 'split');
+    const isSplit = !isMobileView && !isWebMode && viewMode === 'split';
+    const isSideFullWidth = !isMobileView && !isWebMode && (viewMode === 'discussion' || viewMode === 'ai');
+    const commentCount = comments.length > 0 ? comments.length : (story.descendants || 0);
 
     return (
-        <div className="relative h-full flex flex-col bg-white dark:bg-[#111d2e] shadow-[0_-1px_0_0_rgba(255,255,255,0.05)] overflow-hidden">
+        <div className="relative h-full flex flex-col bg-white dark:bg-[#131824] overflow-hidden">
             
-            {/* Horizontal Browser Chrome (URL Bar & Controls) */}
+            {/* Slim Single Reader Toolbar */}
             {!isWebMode && (
-                <div className="flex items-center gap-4 px-4 py-2 bg-[#f1f3f4] dark:bg-[#1a1a1a] border-b border-slate-300 dark:border-white/10 shrink-0">
-                    {/* 1. Main Navigation */}
-                    <div className="flex items-center gap-0.5">
-                        <button 
-                            onClick={() => articleWebviewRef.current?.goBack()} 
-                            disabled={!canGoBack}
-                            className={`p-1.5 rounded-full transition-all ${canGoBack ? 'text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10' : 'text-slate-400/50 dark:text-slate-600'}`}
-                            title="Go Back"
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
-                        <button 
-                            onClick={() => articleWebviewRef.current?.goForward()} 
-                            disabled={!canGoForward}
-                            className={`p-1.5 rounded-full transition-all ${canGoForward ? 'text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10' : 'text-slate-400/50 dark:text-slate-600'}`}
-                            title="Go Forward"
-                        >
-                            <ChevronRight size={18} />
-                        </button>
-                        <button 
-                            onClick={() => articleWebviewRef.current?.reload()} 
-                            className={`p-1.5 rounded-full transition-all text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 ${isLoading ? 'animate-spin' : ''}`}
-                            title="Reload"
-                        >
-                            <RefreshCw size={16} />
-                        </button>
-                        <button 
-                            onClick={() => {
-                                if (articleWebviewRef.current) {
-                                    articleWebviewRef.current.src = storyUrl;
-                                }
-                            }} 
-                            className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all" 
-                            title="Home (Reset to Original Article)"
-                        >
-                            <Home size={18} />
-                        </button>
+                <div className="flex items-center justify-between gap-3 px-3.5 h-[42px] bg-slate-50 dark:bg-[#161d2e] border-b border-slate-200 dark:border-slate-800/90 shrink-0 select-none">
+                    {/* Left: Compact Navigation & URL */}
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        {showArticlePane && !isReaderMode && (
+                            <div className="flex items-center gap-0.5 shrink-0">
+                                <button 
+                                    onClick={() => articleWebviewRef.current?.goBack()} 
+                                    disabled={!canGoBack}
+                                    className={`p-1 rounded-md transition-colors ${canGoBack ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 cursor-pointer' : 'text-slate-300 dark:text-slate-700'}`}
+                                    title="Go Back"
+                                >
+                                    <ChevronLeft size={16} />
+                                </button>
+                                <button 
+                                    onClick={() => articleWebviewRef.current?.goForward()} 
+                                    disabled={!canGoForward}
+                                    className={`p-1 rounded-md transition-colors ${canGoForward ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 cursor-pointer' : 'text-slate-300 dark:text-slate-700'}`}
+                                    title="Go Forward"
+                                >
+                                    <ChevronRight size={16} />
+                                </button>
+                                <button 
+                                    onClick={() => articleWebviewRef.current?.reload()} 
+                                    className={`p-1 rounded-md transition-colors text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 cursor-pointer ${isLoading ? 'animate-spin' : ''}`}
+                                    title="Reload page"
+                                >
+                                    <RefreshCw size={13} />
+                                </button>
+                            </div>
+                        )}
 
                         {onToggleSave && (
                             <button 
                                 onClick={() => onToggleSave(story.id, !story.is_saved)} 
-                                className={`p-1.5 rounded-full transition-all ml-1 ${story.is_saved ? 'text-orange-500 hover:bg-orange-500/10' : 'text-slate-500 hover:bg-black/10 dark:hover:bg-white/10'}`} 
-                                title={story.is_saved ? 'Unbookmark' : 'Bookmark'}
+                                className={`p-1.5 rounded-md transition-colors shrink-0 cursor-pointer ${story.is_saved ? 'text-amber-500 hover:bg-amber-500/10' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800'}`} 
+                                title={story.is_saved ? 'Remove bookmark' : 'Bookmark story'}
                             >
-                                <Bookmark size={18} fill={story.is_saved ? "currentColor" : "none"} />
+                                <Bookmark size={14} fill={story.is_saved ? "currentColor" : "none"} />
                             </button>
                         )}
+
+                        {/* Slim URL Pill */}
+                        <form 
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (articleWebviewRef.current && urlInput) {
+                                    let targetUrl = urlInput.trim();
+                                    if (!/^https?:\/\//i.test(targetUrl)) {
+                                        targetUrl = 'https://' + targetUrl;
+                                    }
+                                    toggleReaderMode(false);
+                                    articleWebviewRef.current.src = targetUrl;
+                                }
+                            }}
+                            className="flex-1 max-w-xl flex items-center bg-white dark:bg-[#111726] border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 gap-2 group focus-within:ring-1 focus-within:ring-sky-500/40"
+                        >
+                            <Lock size={11} className="text-emerald-500/70 shrink-0" />
+                            <input 
+                                ref={addressInputRef}
+                                type="text"
+                                value={urlInput}
+                                onChange={(e) => setUrlInput(e.target.value)}
+                                className="flex-1 bg-transparent text-[12px] text-slate-600 dark:text-slate-300 outline-none w-full truncate"
+                                spellCheck={false}
+                            />
+                            <div className="flex items-center gap-0.5 shrink-0">
+                                <button 
+                                    type="button"
+                                    onClick={handleCopyLink}
+                                    className={`p-1 rounded transition-colors cursor-pointer ${isCopied ? 'text-emerald-500' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                                    title="Copy URL"
+                                >
+                                    {isCopied ? <Check size={12} /> : <Link size={12} />}
+                                </button>
+                                <a 
+                                    href={currentUrl} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition-colors"
+                                    title="Open in default browser"
+                                >
+                                    <ExternalLink size={12} />
+                                </a>
+                            </div>
+                        </form>
                     </div>
 
-                    {/* 2. URL Address Bar */}
-                    <form 
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            if (articleWebviewRef.current && urlInput) {
-                                let targetUrl = urlInput.trim();
-                                if (!/^https?:\/\//i.test(targetUrl)) {
-                                    targetUrl = 'https://' + targetUrl;
-                                }
-                                articleWebviewRef.current.src = targetUrl;
-                            }
-                        }}
-                        className="flex-1 max-w-2xl flex items-center bg-white dark:bg-black/50 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-1.5 gap-2 group transition-all focus-within:ring-2 focus-within:ring-blue-500/30"
-                    >
-                        <div className="text-green-500/70">
-                            <Lock size={12} />
-                        </div>
-                        <input 
-                            ref={addressInputRef}
-                            type="text"
-                            value={urlInput}
-                            onChange={(e) => setUrlInput(e.target.value)}
-                            className="flex-1 bg-transparent text-[13px] text-slate-700 dark:text-slate-200 outline-none w-full"
-                            spellCheck={false}
-                        />
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                                onClick={handleCopyLink}
-                                className={`p-1 rounded-md transition-all ${isCopied ? 'text-green-500 bg-green-50' : 'text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                                title="Copy URL"
-                            >
-                                {isCopied ? <Check size={14} /> : <Link size={14} />}
-                            </button>
-                            <a 
-                                href={currentUrl} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="p-1 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all"
-                                title="Open in Browser"
-                            >
-                                <ExternalLink size={14} />
-                            </a>
-                        </div>
-                    </form>
+                    {/* Right: Reader/Web Toggle + Single-Focus View Switcher + Optional Split */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* Reader vs Live Web Toggle (only when viewing Article or Split) */}
+                        {showArticlePane && story.url && (
+                            <div className="flex items-center bg-slate-200/70 dark:bg-[#111726] border border-slate-200 dark:border-slate-800 rounded-lg p-0.5">
+                                <button
+                                    onClick={() => toggleReaderMode(true)}
+                                    className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${isReaderMode ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    title="Clean distraction-free Reader Mode (R)"
+                                >
+                                    <BookOpen size={12} />
+                                    <span>Reader</span>
+                                </button>
+                                <button
+                                    onClick={() => toggleReaderMode(false)}
+                                    className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${!isReaderMode ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    title="Original Live Webpage (R)"
+                                >
+                                    <Globe size={12} />
+                                    <span>Web</span>
+                                </button>
+                                {!isReaderMode && (
+                                    <button
+                                        onClick={() => setArticleDarkMode(prev => prev === 'dark' ? 'original' : 'dark')}
+                                        className={`p-1 ml-0.5 rounded-md transition-colors cursor-pointer ${articleDarkMode === 'dark' ? 'text-amber-400 bg-slate-700/60' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                                        title={articleDarkMode === 'dark' ? 'Switch webpage to original light colors' : 'Apply dark mode to webpage'}
+                                    >
+                                        {articleDarkMode === 'dark' ? <Moon size={12} /> : <Sun size={12} />}
+                                    </button>
+                                )}
+                            </div>
+                        )}
 
-                    {/* 3. Integrated Tools */}
-                    <div className="flex items-center gap-3">
-                        {/* View Mode Toggle */}
-                        <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
-                            <button
-                                onClick={() => setArticleDarkMode('original')}
-                                className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'original' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                                title="Original Theme (Native)"
+                        {/* Primary Single-Focus Mode Switcher: Article | Discussion | AI */}
+                        <div className="flex items-center bg-slate-200/70 dark:bg-[#111726] border border-slate-200 dark:border-slate-800 rounded-lg p-0.5">
+                            <button 
+                                onClick={() => switchViewMode('article')}
+                                className={`px-2.5 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${viewMode === 'article' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                title="Full-width Article (1)"
                             >
-                                <Sun size={14} />
+                                <FileText size={13} />
+                                <span>Article</span>
                             </button>
-                            <button
-                                onClick={() => setArticleDarkMode('auto')}
-                                className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'auto' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                                title="Follow System Theme"
+                            <button 
+                                onClick={() => switchViewMode('discussion')}
+                                className={`px-2.5 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${viewMode === 'discussion' ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                title="Full-width Discussion (2)"
                             >
-                                <Sparkles size={14} />
+                                <MessageSquare size={13} />
+                                <span>Discussion{commentCount > 0 ? ` (${commentCount})` : ''}</span>
                             </button>
-                            <button
-                                onClick={() => setArticleDarkMode('dark')}
-                                className={`p-1.5 rounded-md transition-all ${articleDarkMode === 'dark' ? 'bg-white dark:bg-slate-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
-                                title="Safe Dark Mode (Forced)"
+                            <button 
+                                onClick={() => switchViewMode('ai')}
+                                className={`px-2.5 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${viewMode === 'ai' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                title="Full-width AI Summary & Chat (3)"
                             >
-                                <Moon size={14} />
+                                <Sparkles size={13} />
+                                <span>AI</span>
                             </button>
                         </div>
 
-                        <div className="flex items-center bg-slate-200/50 dark:bg-black/30 border border-slate-300 dark:border-white/10 rounded-lg p-0.5">
-                            <button 
-                                onClick={() => onToggleAISidebar?.(false)}
-                                className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${!isAISidebarOpen ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                                title="Article View"
-                            >
-                                <FileText size={14} />
-                                Article
-                            </button>
-                            <button 
-                                onClick={() => { setSidebarTab('discussion'); onToggleAISidebar?.(true); }}
-                                className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'discussion' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                                title="Discussion"
-                            >
-                                <MessageSquare size={14} />
-                                Discussion
-                            </button>
-                            <button 
-                                onClick={() => { setSidebarTab('ai'); onToggleAISidebar?.(true); }}
-                                className={`px-3 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 ${isAISidebarOpen && sidebarTab === 'ai' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                                title="AI Assistant"
-                            >
-                                <Sparkles size={14} />
-                                AI
-                            </button>
-                        </div>
+                        {/* Optional Split View Toggle */}
+                        <button
+                            onClick={() => switchViewMode(viewMode === 'split' ? 'article' : 'split')}
+                            className={`p-1.5 rounded-lg border transition-all cursor-pointer ${viewMode === 'split' ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-600 dark:text-indigo-300' : 'bg-white dark:bg-[#111726] border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                            title={viewMode === 'split' ? 'Exit Side-by-Side Split (4)' : 'Side-by-Side Split View (4)'}
+                        >
+                            <Columns size={14} />
+                        </button>
                     </div>
                 </div>
             )}
@@ -652,24 +792,85 @@ export function ReaderPane({
                     />
                 )}
                 
-                {/* Article Content */}
+                {/* Article Pane (kept mounted in Desktop so switching Article <-> Discussion is instant!) */}
                 {(!isWebMode || (isMobileView && mobileTab === 'article')) && (
                     <div 
                         ref={paneRef} 
-                        className="flex-1 bg-white relative overflow-hidden h-full"
-                        style={isMobileView && mobileTab !== 'article' ? { display: 'none' } : undefined}
+                        className="flex-1 bg-white dark:bg-[#131824] relative overflow-hidden h-full"
+                        style={{ display: showArticlePane ? 'block' : 'none' }}
                     >
+                        {/* Clean Reader Mode Overlay */}
+                        {isReaderMode && story.url && (
+                            <div className="absolute inset-0 z-20 overflow-y-auto custom-scrollbar bg-[#faf9f6] dark:bg-[#131824] px-6 py-8 sm:px-10">
+                                <article className="max-w-3xl mx-auto pb-20">
+                                    <header className="mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
+                                        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 leading-tight mb-3">
+                                            {readerContent?.title || story.title}
+                                        </h1>
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                            <span>{(() => { try { return new URL(storyUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>
+                                            <span>·</span>
+                                            <span>▲ {story.score} points</span>
+                                            <span>·</span>
+                                            <button
+                                                onClick={() => switchViewMode('discussion')}
+                                                className="text-orange-600 dark:text-orange-400 hover:underline font-semibold cursor-pointer"
+                                            >
+                                                {commentCount} comments →
+                                            </button>
+                                            <span>·</span>
+                                            <button
+                                                onClick={() => toggleReaderMode(false)}
+                                                className="text-sky-600 dark:text-sky-400 hover:underline font-semibold cursor-pointer"
+                                            >
+                                                View original webpage
+                                            </button>
+                                        </div>
+                                    </header>
+
+                                    {readerLoading ? (
+                                        <div className="py-16 flex flex-col items-center gap-3 text-slate-400">
+                                            <RefreshCw size={22} className="animate-spin text-sky-500" />
+                                            <span className="text-xs font-medium">Extracting clean article text...</span>
+                                        </div>
+                                    ) : readerError ? (
+                                        <div className="py-12 text-center space-y-4">
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">{readerError}</p>
+                                            <button
+                                                onClick={() => toggleReaderMode(false)}
+                                                className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer"
+                                            >
+                                                Switch to Live Web View
+                                            </button>
+                                        </div>
+                                    ) : readerContent?.content_type === 'markdown' ? (
+                                        <div className="prose prose-slate dark:prose-invert prose-base sm:prose-lg max-w-none leading-relaxed prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-800">
+                                            <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                                                {readerContent.content}
+                                            </ReactMarkdown>
+                                        </div>
+                                    ) : readerContent?.content ? (
+                                        <div
+                                            className="prose prose-slate dark:prose-invert prose-base sm:prose-lg max-w-none leading-[1.75] prose-headings:font-bold prose-a:text-sky-600 dark:prose-a:text-sky-400 prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-pre:rounded-xl prose-img:rounded-xl"
+                                            dangerouslySetInnerHTML={{ __html: sanitizeReaderHtml(readerContent.content) }}
+                                        />
+                                    ) : null}
+                                </article>
+                            </div>
+                        )}
+
                         {!isActive ? (
-                            <div className="w-full h-full bg-slate-50 dark:bg-[#0f172a]" />
+                            <div className="w-full h-full bg-slate-50 dark:bg-[#131824]" />
                         ) : !isWebMode ? (
                             <webview
                                 ref={articleWebviewRef}
                                 src={storyUrl}
                                 className="w-full h-full border-0 absolute inset-0 bg-white"
+                                style={{ visibility: isReaderMode ? 'hidden' : 'visible' }}
                                 title="Article Web View"
                             />
                         ) : iframeBlocked ? (
-                            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-[#0f172a]">
+                            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-[#131824]">
                                 <div className="w-16 h-16 bg-red-100 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-4">
                                     <ExternalLink size={32} className="text-red-500" />
                                 </div>
@@ -692,20 +893,21 @@ export function ReaderPane({
                     </div>
                 )}
                                 
-                {/* Resizer Handle */}
-                {!isWebMode && isAISidebarOpen && (
+                {/* Resizer Handle (Only in Split View) */}
+                {isSplit && (
                     <div 
                         onMouseDown={startResizing}
-                        className={`w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors z-50 flex items-center justify-center group ${isResizing ? 'bg-blue-500' : 'bg-transparent'}`}
+                        className={`w-1 cursor-col-resize hover:bg-sky-500/40 transition-colors z-50 flex items-center justify-center group ${isResizing ? 'bg-sky-500' : 'bg-transparent'}`}
                     >
-                        <div className="w-[1px] h-8 bg-slate-300 dark:bg-slate-700 group-hover:bg-blue-400"></div>
+                        <div className="w-[1px] h-8 bg-slate-300 dark:bg-slate-700 group-hover:bg-sky-400"></div>
                     </div>
                 )}
 
                 <AISidebar
                     story={story}
-                    isOpen={isMobileView ? (mobileTab !== 'article') : (isWebMode ? true : isAISidebarOpen)}
-                    onClose={() => onToggleAISidebar?.(false)}
+                    isOpen={showSidePane}
+                    isFullWidth={isSideFullWidth}
+                    onClose={() => switchViewMode('article')}
                     user={user}
                     onSetSummary={(summary, topics) => {
                         onSetSummary?.(story.id, summary, topics);
