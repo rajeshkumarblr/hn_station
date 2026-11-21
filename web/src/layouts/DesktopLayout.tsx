@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import pkg from '../../package.json';
-import { RefreshCw, Home, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon, Github, Pin, Play } from 'lucide-react';
+import { RefreshCw, Home, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon, Github, Pin, Play, Layers, List } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
+import { GroupedFeed } from '../components/GroupedFeed';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getTagStyle } from '../utils/colors';
 import { ReaderPane } from '../components/ReaderPane';
@@ -12,7 +13,7 @@ import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
 import { BriefingDeck, type BriefingStage } from '../components/BriefingDeck';
 import { StatusBar } from '../components/StatusBar';
-import { MODES } from '../types';
+import { MODES, type Story } from '../types';
 import { isElectron as getIsElectron, isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
  
@@ -41,6 +42,36 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     // Slideshow overlay state (opt-in via the Slideshow button; normal feed view is always default)
     const [isBriefingOpen, setIsBriefingOpen] = useState<boolean>(false);
     const [briefingStage, setBriefingStage] = useState<BriefingStage>('postgres');
+
+    // Feed layout mode: Topic-Grouped (default on #ALL) vs flat ranked List
+    const [feedViewMode, setFeedViewMode] = useState<'grouped' | 'list'>(() => {
+        try {
+            const saved = localStorage.getItem('hn_feed_view_mode');
+            if (saved === 'list' || saved === 'grouped') return saved;
+        } catch { }
+        return 'grouped';
+    });
+    const [groupedRefreshKey, setGroupedRefreshKey] = useState(0);
+    const [highlightedStoryOverride, setHighlightedStoryOverride] = useState<Story | null>(null);
+
+    const hasActiveTopicFilter = activeTopics.some(t => !disabledTopics.includes(t));
+    const isGroupedActive =
+        !isWebPreview() &&
+        feedViewMode === 'grouped' &&
+        primaryTab === 'feed' &&
+        (mode === 'default' || mode === 'latest' || mode === 'votes') &&
+        !hasActiveTopicFilter &&
+        app.searchQuery.trim() === '';
+
+    const handleSetFeedViewMode = useCallback((next: 'grouped' | 'list') => {
+        setFeedViewMode(next);
+        try { localStorage.setItem('hn_feed_view_mode', next); } catch { }
+        if (next === 'grouped') {
+            setDisabledTopics([...activeTopics]);
+            app.setSearchQuery('');
+            setPrimaryTab('feed');
+        }
+    }, [activeTopics, setDisabledTopics, app, setPrimaryTab]);
     
     // Close menu when clicking outside
     useEffect(() => {
@@ -157,7 +188,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const virtualizer = useVirtualizer({
         count: stories.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => isWebPreview() ? 72 : 120, // Estimated height of a StoryCard
+        estimateSize: () => isWebPreview() ? 72 : 94, // Estimated height of a StoryCard
         overscan: 5,
     });
 
@@ -174,18 +205,20 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     }, [virtualItems, stories.length, hasMore, fetchingMore, loading, fetchNextPage]);
 
     // Resolve the story object for the highlighted (keyboard/hovered) card
-    const highlightedStory = stories.find(s => s.id === highlightedStoryId) ?? null;
+    const highlightedStory =
+        stories.find(s => s.id === highlightedStoryId) ??
+        (highlightedStoryOverride && highlightedStoryOverride.id === highlightedStoryId ? highlightedStoryOverride : null);
 
     useGlobalKeyboardNav(app, (index) => virtualizer.scrollToIndex(index, { align: 'center' }));
 
     useEffect(() => {
-        if (!loading && stories.length > 0) {
+        if (!isGroupedActive && !loading && stories.length > 0) {
             const hasHighlighted = stories.some(s => s.id === highlightedStoryId);
             if (!hasHighlighted) {
                 setHighlightedStoryId(stories[0].id);
             }
         }
-    }, [stories, loading, highlightedStoryId]);
+    }, [stories, loading, highlightedStoryId, isGroupedActive]);
 
     // Mark as read after 10s
     useEffect(() => {
@@ -540,8 +573,11 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     {/* Left Fixed Controls */}
                     <div className="flex items-center gap-3 shrink-0">
                         <button 
-                            onClick={app.handleRefresh} 
-                            className="p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-[#1e273d] shadow-sm"
+                            onClick={() => {
+                                app.handleRefresh();
+                                setGroupedRefreshKey(k => k + 1);
+                            }} 
+                            className="p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-[#1e273d] shadow-sm cursor-pointer"
                             title="Refresh stories from Hacker News"
                         >
                             <RefreshCw size={14} className={loading ? 'animate-spin text-indigo-500' : ''} />
@@ -668,31 +704,25 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     </div>
 
                     {/* Right Toolbar Actions */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <div className="flex items-center gap-2 mr-1">
-                            <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] border border-slate-200 dark:border-slate-700/80 rounded-lg p-0.5 text-[9px] font-black uppercase tracking-tighter shadow-inner" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
-                                <button 
-                                    onClick={() => app.setTopicMatch('any')}
-                                    title="Show stories that contain ANY of the selected topics"
-                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
-                                >
-                                    Any
-                                </button>
-                                <button 
-                                    onClick={() => app.setTopicMatch('all')}
-                                    title="Show stories that contain ALL selected topics (AND logic)"
-                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
-                                >
-                                    All
-                                </button>
-                                <button 
-                                    onClick={() => app.setTopicMatch('exclusive')}
-                                    title="Exclusive mode: Selecting a topic clears others"
-                                    className={`px-2 py-1 rounded-md transition-all ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
-                                >
-                                    Excl
-                                </button>
-                            </div>
+                    <div className="flex items-center gap-2.5 shrink-0">
+                        {/* Grouped vs Flat List Toggle */}
+                        <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] border border-slate-200 dark:border-slate-700/80 rounded-lg p-0.5 text-[10px] font-bold shadow-inner">
+                            <button
+                                onClick={() => handleSetFeedViewMode('grouped')}
+                                title="Group stories by topic (Postgres, AI & LLMs, Systems, General HN)"
+                                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all cursor-pointer ${isGroupedActive ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                            >
+                                <Layers size={11} />
+                                <span>Topics</span>
+                            </button>
+                            <button
+                                onClick={() => handleSetFeedViewMode('list')}
+                                title="Flat ranked list"
+                                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all cursor-pointer ${!isGroupedActive ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                            >
+                                <List size={11} />
+                                <span>List</span>
+                            </button>
                         </div>
 
                         <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/80" />
@@ -703,8 +733,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 setIsSidebarCollapsed(newState);
                                 localStorage.setItem('hn_feed_sidebar_collapsed', newState.toString());
                             }}
-                            className={`p-2 rounded-lg transition-all border ${isSidebarCollapsed ? 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-600 dark:text-indigo-400'}`}
-                            title={isSidebarCollapsed ? "Expand Sidebar (Ctrl+Q)" : "Collapse Sidebar (Ctrl+Q)"}
+                            className={`p-2 rounded-lg transition-all border cursor-pointer ${isSidebarCollapsed ? 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-600 dark:text-indigo-400'}`}
+                            title={isSidebarCollapsed ? "Expand Article Insight Sidebar (Ctrl+Q)" : "Collapse Article Insight Sidebar (Ctrl+Q)"}
                         >
                             <Layout size={16} className={isSidebarCollapsed ? 'opacity-50' : 'opacity-100'} />
                         </button>
@@ -778,6 +808,36 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
                 >
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+                        {isGroupedActive ? (
+                            <GroupedFeed
+                                apiBase={app.apiBase}
+                                stories={stories}
+                                selectedStoryId={selectedStoryId}
+                                highlightedStoryId={app.highlightedStoryId}
+                                readIds={readIds}
+                                hiddenIds={app.hiddenStories}
+                                activeTopics={activeTopics}
+                                onSelectStory={(story) => {
+                                    setHighlightedStoryOverride(story);
+                                    setHighlightedStoryId(story.id);
+                                }}
+                                onOpenInTab={handleStorySelect}
+                                onToggleSave={(isWebPreview() || user) ? handleToggleSave : undefined}
+                                onHide={handleHideStory}
+                                onFilterTopic={(topics) => {
+                                    setActiveTopics(prev => {
+                                        const next = [...prev];
+                                        for (const t of topics) {
+                                            if (!next.includes(t)) next.push(t);
+                                        }
+                                        setDisabledTopics(next.filter(x => !topics.includes(x)));
+                                        return next;
+                                    });
+                                    app.setTopicMatch(topics.length > 1 ? 'any' : 'exclusive');
+                                }}
+                                refreshKey={groupedRefreshKey}
+                            />
+                        ) : (
                         <div 
                             ref={parentRef}
                             className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#f8fafc] dark:bg-[#131824]"
@@ -802,12 +862,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                 key={story.id}
                                                 data-index={virtualItem.index}
                                                 ref={virtualizer.measureElement}
-                                                className={`absolute top-0 left-0 w-full ${isWebPreview() ? 'px-3 py-1' : 'px-6 py-2.5'}`}
+                                                className={`absolute top-0 left-0 w-full ${isWebPreview() ? 'px-3 py-1' : 'px-5 py-1.5'}`}
                                                 style={{
                                                     transform: `translateY(${virtualItem.start}px)`,
                                                 }}
-                                                onClick={() => setHighlightedStoryId(story.id)}
-                                                onDoubleClick={() => handleStorySelect(story.id, story.url ? 'article' : 'discussion')}
                                             >
                                                 <StoryCard
                                                     story={story} 
@@ -823,6 +881,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                     activeTopics={activeTopics}
                                                     selectedTopics={activeTopics.filter(t => !disabledTopics.includes(t))}
                                                     topicMatch={app.topicMatch}
+                                                    hiddenTags={activeTopics.filter(t => !disabledTopics.includes(t))}
                                                 />
                                             </div>
                                         );
@@ -844,6 +903,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 <div className="flex-1 flex items-center justify-center p-20 text-slate-400 font-medium">No stories found in this view.</div>
                             )}
                         </div>
+                        )}
                     </div>
                 </main>
 

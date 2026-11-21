@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Bookmark, Check, Link, Terminal, ExternalLink, Columns, X, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bookmark, Terminal, X, Sparkles, MessageSquare } from 'lucide-react';
 import { getTagStyle } from '../utils/colors';
 import { isWebPreview } from '../utils/env';
 import { getApiBase } from '../utils/apiBase';
@@ -19,13 +19,14 @@ export interface Story {
     summary?: string;
     topics?: string[];
 }
+
 interface StoryCardProps {
     story: Story;
     index?: number;
     onSelect?: (id: number) => void;
     onToggleSave?: (id: number, saved: boolean) => void;
     onHide?: (id: number) => void;
-    onOpenInTab?: (id: number, mode: 'article' | 'discussion' | 'split') => void;
+    onOpenInTab?: (id: number, mode?: 'article' | 'discussion' | 'split', keepOpen?: boolean, storyOverride?: Story) => void;
     onSummarize?: (id: number) => void;
     isSelected?: boolean;
     isHighlighted?: boolean;
@@ -34,40 +35,43 @@ interface StoryCardProps {
     activeTopics?: string[];
     selectedTopics?: string[];
     topicMatch?: 'any' | 'all' | 'exclusive';
+    hiddenTags?: string[];
 }
-
-
-
-
-
-
-// A tag that shows as plain #hashtag text, lights up with its color when clicked
-
-
 
 export function StoryCard({
     story, index, onSelect, onToggleSave, onHide, onOpenInTab,
-    isSelected, isHighlighted, isRead, activeTopics = [], selectedTopics = [],
+    isSelected, isHighlighted, isRead, activeTopics = [], hiddenTags = [],
 }: StoryCardProps) {
+    const hoverTimerRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+        };
+    }, []);
+
+    const hiddenLower = new Set(hiddenTags.map(t => t.toLowerCase()));
     const displayTopics = (() => {
         const seen = new Set<string>();
         const result: string[] = [];
         const titleLower = (story.title || '').toLowerCase();
         for (const t of activeTopics) {
-            if (t && titleLower.includes(t.toLowerCase()) && !seen.has(t.toLowerCase())) {
-                seen.add(t.toLowerCase());
+            const lower = t?.toLowerCase();
+            if (t && lower && !hiddenLower.has(lower) && titleLower.includes(lower) && !seen.has(lower)) {
+                seen.add(lower);
                 result.push(t);
             }
         }
         if (story.topics) {
             for (const t of story.topics) {
-                if (t && !seen.has(t.toLowerCase())) {
-                    seen.add(t.toLowerCase());
+                const lower = t?.toLowerCase();
+                if (t && lower && !hiddenLower.has(lower) && !seen.has(lower)) {
+                    seen.add(lower);
                     result.push(t);
                 }
             }
         }
-        return result.slice(0, 4);
+        return result.slice(0, 3);
     })();
 
     let domain = '';
@@ -75,20 +79,9 @@ export function StoryCard({
         if (story.url) {
             domain = new URL(story.url).hostname.replace(/^www\./, '');
         }
-    } catch (e) {
+    } catch {
         // ignore invalid urls
     }
-
-    const [isCopied, setIsCopied] = useState(false);
-    const handleCopyLink = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        const urlToCopy = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
-        navigator.clipboard.writeText(urlToCopy);
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-    };
-
-
 
     const [voted, setVoted] = useState<'up' | 'down' | null>(null);
     const [localScore, setLocalScore] = useState(story.score);
@@ -107,8 +100,8 @@ export function StoryCard({
         const hnPassword = localStorage.getItem('hn_password');
 
         if (!hnUsername || !hnPassword) {
-            setVoteError("Set HN login in settings");
-            setTimeout(() => setVoteError(null), 3000);
+            setVoteError('Set HN login in settings');
+            setTimeout(() => setVoteError(null), 2500);
             return;
         }
 
@@ -124,8 +117,8 @@ export function StoryCard({
                     password: hnPassword,
                     action: 'vote',
                     item_id: story.id,
-                    how: direction
-                })
+                    how: direction,
+                }),
             });
 
             if (!res.ok) {
@@ -134,10 +127,10 @@ export function StoryCard({
             }
 
             setVoted(direction);
-            setLocalScore(prev => direction === 'up' ? prev + 1 : prev - 1);
+            setLocalScore(prev => (direction === 'up' ? prev + 1 : prev - 1));
         } catch (err: any) {
             setVoteError(err.message || 'Error voting');
-            setTimeout(() => setVoteError(null), 3000);
+            setTimeout(() => setVoteError(null), 2500);
         } finally {
             setVoting(false);
         }
@@ -146,8 +139,7 @@ export function StoryCard({
     const dimmed = story.is_read || isRead;
     const saved = story.is_saved || false;
 
-
-    const [contextMenuPos, setContextMenuPos] = useState<{ x: number, y: number } | null>(null);
+    const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
 
     const handleContextMenu = (e: React.MouseEvent) => {
         if (!onOpenInTab) return;
@@ -162,270 +154,255 @@ export function StoryCard({
         return () => window.removeEventListener('click', closeMenu);
     }, [contextMenuPos]);
 
-    // Focus (keyboard/hover) vs Selection (open tab)
-    // We want the current focus to be the most prominent.
-    // Fallback: If no topic match, check if title contains the active topic keyword
-
-
-    // Uniform elevated card surface (no pitch-black zebra striping)
-    const cardBg = 'bg-white dark:bg-[#1a2234] border-slate-200/90 dark:border-slate-700/60 shadow-sm';
-
+    const cardBg = 'bg-white dark:bg-[#182032] border-slate-200/80 dark:border-slate-800/90';
     const activeBg = isHighlighted
-        ? `bg-amber-50/50 dark:bg-[#232e47] border-l-[3.5px] border-l-amber-400 border-y border-r border-y-amber-500/30 border-r-amber-500/20 shadow-lg shadow-black/20 z-10 ring-1 ring-amber-400/25`
+        ? 'bg-amber-50/40 dark:bg-[#1f2940] border-l-[3px] border-l-amber-400 border-y border-r border-y-slate-200/80 border-r-slate-200/80 dark:border-y-slate-700/80 dark:border-r-slate-700/80 shadow-sm z-10'
         : isSelected
-            ? `bg-orange-500/5 dark:bg-[#202b42] border-l-[3.5px] border-l-orange-500 border-y border-r border-slate-200 dark:border-slate-700/70 shadow-md`
-            : `${cardBg} border hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/70 dark:hover:bg-[#202a40] hover:shadow-md`;
+            ? 'bg-orange-500/5 dark:bg-[#1d273c] border-l-[3px] border-l-orange-500 border-y border-r border-slate-200 dark:border-slate-700/70'
+            : `${cardBg} border hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50/70 dark:hover:bg-[#1d273c]`;
 
-    // Compute time-ago for the story
     const timeAgo = (() => {
-        if (!story.time) return '';
-        const d = new Date(story.time);
-        const s = Math.floor((Date.now() - d.getTime()) / 1000);
-        if (s > 86400) return Math.floor(s / 86400) + 'd';
-        if (s > 3600) return Math.floor(s / 3600) + 'h';
-        if (s > 60) return Math.floor(s / 60) + 'm';
+        const ts = (story as any).posted_at || story.time || story.created_at;
+        if (!ts) return '';
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return '';
+        const s = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+        if (s >= 86400) return Math.floor(s / 86400) + 'd';
+        if (s >= 3600) return Math.floor(s / 3600) + 'h';
+        if (s >= 60) return Math.floor(s / 60) + 'm';
         return s + 's';
     })();
+
+    const cleanSummaryLine = story.summary && story.summary.trim().length > 0
+        ? story.summary
+              .replace(/^([#\s\-*•]|\d+\.)+/, '')
+              .replace(/^\*\*|\*\*$/g, '')
+              .split('\n')[0]
+              .replace(/^([#\s\-*•]|\d+\.)+/, '')
+              .replace(/^\*\*|\*\*$/g, '')
+              .trim()
+              .slice(0, 150)
+        : '';
+
+    const handleCardClick = () => {
+        onSelect?.(story.id);
+        if (!isWebPreview() && onOpenInTab) {
+            onOpenInTab(story.id, story.url ? 'article' : 'discussion', false, story);
+        }
+    };
+
+    const handleMouseEnter = () => {
+        if (!onSelect || isHighlighted) return;
+        hoverTimerRef.current = window.setTimeout(() => {
+            onSelect(story.id);
+        }, 160);
+    };
+
+    const handleMouseLeave = () => {
+        if (hoverTimerRef.current) {
+            window.clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = null;
+        }
+    };
 
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all duration-200 flex flex-col justify-center relative ${isWebPreview() ? 'rounded-xl px-4 py-2.5' : 'rounded-xl px-5 py-3.5'} ${activeBg}`}
-            style={{ animationDelay: `${(index !== undefined ? index % 10 : 0) * 0.05}s` }}
-            onClick={() => onSelect && onSelect(story.id)}
+            className={`group transition-all duration-150 flex flex-col justify-center relative rounded-xl px-4 py-2.5 cursor-pointer ${activeBg}`}
+            style={{ animationDelay: `${(index !== undefined ? index % 10 : 0) * 0.03}s` }}
+            onClick={handleCardClick}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             onContextMenu={handleContextMenu}
         >
-            {/* Inline Actions Row - Prominent & Discoverable below title */}
-            <div className="relative z-10">
-                <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                        <h3 className="text-[15px] leading-snug mb-1.5 font-semibold whitespace-normal transition-all duration-200">
-                            <span
-                                className={`hover:text-indigo-600 dark:hover:text-sky-300 transition-colors cursor-pointer ${isHighlighted ? 'text-amber-600 dark:text-amber-300 font-bold' : ''} ${!isHighlighted ? (dimmed && !isSelected ? 'text-slate-500 dark:text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100') : ''}`}
-                            >
-                                {story.title}
+            <div className="relative z-10 pr-14">
+                {/* Headline */}
+                <h3 className="text-[14.5px] leading-snug mb-1 font-semibold whitespace-normal">
+                    <span
+                        className={`group-hover:text-sky-600 dark:group-hover:text-sky-300 transition-colors ${
+                            isHighlighted
+                                ? 'text-amber-600 dark:text-amber-300'
+                                : dimmed && !isSelected
+                                    ? 'text-slate-500 dark:text-slate-400 font-normal'
+                                    : 'text-slate-900 dark:text-slate-100'
+                        }`}
+                    >
+                        {story.title}
+                    </span>
+                </h3>
+
+                {/* Quiet Single-Line Metadata */}
+                <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
+                    {domain ? (
+                        <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                            <img
+                                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                                alt=""
+                                className="w-3.5 h-3.5 rounded-sm opacity-75"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                            <span className="truncate max-w-[160px]">{domain}</span>
+                        </span>
+                    ) : story.title.startsWith('Ask HN') ? (
+                        <span className="inline-flex items-center gap-1 text-indigo-500 dark:text-indigo-400 font-medium">
+                            <Terminal size={10} />
+                            <span>Ask HN</span>
+                        </span>
+                    ) : null}
+
+                    {domain && <span className="text-slate-300 dark:text-slate-700">·</span>}
+
+                    {timeAgo && <span>{timeAgo}</span>}
+
+                    {story.by && (
+                        <>
+                            <span className="text-slate-300 dark:text-slate-700">·</span>
+                            <span className="text-slate-500 dark:text-slate-400">{story.by}</span>
+                        </>
+                    )}
+
+                    <span className="text-slate-300 dark:text-slate-700">·</span>
+
+                    {/* Clean Plain Inline Upvote */}
+                    <span className="relative inline-flex items-center">
+                        <button
+                            onClick={(e) => handleVote(e, 'up')}
+                            disabled={voting}
+                            title="Upvote story"
+                            className={`inline-flex items-center gap-0.5 font-semibold transition-colors cursor-pointer ${
+                                voted === 'up'
+                                    ? 'text-orange-500'
+                                    : 'text-amber-600/90 dark:text-amber-400/90 hover:text-orange-500'
+                            }`}
+                        >
+                            <span>▲</span>
+                            <span>{localScore}</span>
+                        </button>
+                        {voteError && (
+                            <span className="absolute bottom-full mb-1 left-0 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-[100]">
+                                {voteError}
                             </span>
-                        </h3>
+                        )}
+                    </span>
 
-                        {/* Compact Metadata Row */}
-                        <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1 text-[11.5px] text-slate-500 dark:text-slate-400 font-medium pr-28">
-                            {story.by && (
-                                <span className="font-semibold text-orange-600/90 dark:text-orange-400/90">{story.by}</span>
-                            )}
-                            {timeAgo && (
-                                <span className="text-slate-400 dark:text-slate-400">{timeAgo}</span>
-                            )}
-                            {(story.by || timeAgo) && (domain || (!domain && story.title.startsWith('Ask HN'))) && (
-                                <span className="text-slate-300 dark:text-slate-600">·</span>
-                            )}
-                            {domain && (
-                                <div className="flex items-center gap-1.5">
-                                    <img
-                                        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-                                        alt=""
-                                        className="w-3.5 h-3.5 rounded-sm opacity-80 group-hover:opacity-100 transition-all"
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                    <span className="truncate max-w-[140px] text-slate-500 dark:text-slate-300 font-semibold">{domain}</span>
-                                </div>
-                            )}
-                            {!domain && story.title.startsWith('Ask HN') && (
-                                <div className="flex items-center gap-1 text-indigo-500 dark:text-indigo-400">
-                                    <Terminal size={10} />
-                                    <span>Ask HN</span>
-                                </div>
-                            )}
-                            <div className="relative flex items-center shrink-0">
-                                <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-md px-1.5 py-0.5 border border-slate-200/70 dark:border-slate-700/70">
-                                    <button
-                                        onClick={(e) => handleVote(e, 'up')}
-                                        disabled={voting}
-                                        title="Upvote story"
-                                        className={`transition-colors p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 ${voted === 'up' ? 'text-orange-500' : 'text-slate-400 hover:text-orange-500'}`}
+                    {/* Comment Count (opens directly to Discussion tab) */}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isWebPreview() && onOpenInTab) {
+                                onOpenInTab(story.id, 'discussion', false, story);
+                            } else {
+                                onSelect?.(story.id);
+                            }
+                        }}
+                        title="Open discussion"
+                        className={`inline-flex items-center gap-1 transition-colors font-medium hover:text-orange-500 cursor-pointer ${
+                            story.descendants > 0 ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'
+                        }`}
+                    >
+                        <MessageSquare size={11} />
+                        <span>{story.descendants || 0}</span>
+                    </button>
+
+                    {/* Quiet Muted Topic Tags (non-redundant only) */}
+                    {displayTopics.length > 0 && (
+                        <div className="inline-flex items-center gap-1.5 ml-1">
+                            {displayTopics.map(label => {
+                                const style = getTagStyle(label);
+                                return (
+                                    <span
+                                        key={label}
+                                        className="text-[10.5px] font-medium opacity-75"
+                                        style={{ color: style.color }}
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
-                                    </button>
-                                    <span className={`text-[11px] font-bold select-none px-0.5 ${voted === 'up' ? 'text-orange-500' : voted === 'down' ? 'text-blue-500' : 'text-amber-600 dark:text-amber-400'}`}>
-                                        {localScore}
+                                        #{label}
                                     </span>
-                                    <button
-                                        onClick={(e) => handleVote(e, 'down')}
-                                        disabled={voting}
-                                        title="Downvote story"
-                                        className={`transition-colors p-0.5 rounded hover:bg-slate-200/50 dark:hover:bg-slate-700/50 ${voted === 'down' ? 'text-blue-500' : 'text-slate-400 hover:text-blue-500'}`}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                                    </button>
-                                </div>
-                                {voteError && (
-                                    <div className="absolute bottom-full mb-1.5 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-[100] animate-in fade-in zoom-in-95 duration-150">
-                                        {voteError}
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!isWebPreview() && onOpenInTab) {
-                                        onOpenInTab(story.id, 'discussion');
-                                    } else {
-                                        onSelect && onSelect(story.id);
-                                    }
-                                }}
-                                title="Open discussion"
-                                className={`flex items-center gap-1 transition-colors font-semibold hover:text-orange-500 cursor-pointer ${story.descendants > 0 ? 'text-indigo-600 dark:text-indigo-300' : 'text-slate-400'}`}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                {story.descendants > 0 ? story.descendants : ''}
-                            </button>
-
-                            {/* Story Topic Badges */}
-                            {displayTopics.length > 0 && (
-                                <div className="flex items-center gap-1.5 ml-1">
-                                    {displayTopics.map(label => {
-                                        const style = getTagStyle(label);
-                                        const isFiltered = selectedTopics.some(st => st.toLowerCase() === label.toLowerCase());
-                                        return (
-                                            <span
-                                                key={label}
-                                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-tight border shadow-sm ${isFiltered ? 'ring-1 ring-current' : ''}`}
-                                                style={{ backgroundColor: style.bg, color: style.color, borderColor: style.border }}
-                                            >
-                                                #{label}
-                                            </span>
-                                        );
-                                    })}
-                                </div>
-                            )}
-
-                            {/* 1-line AI Summary Preview */}
-                            {story.summary && story.summary.trim().length > 0 && !isWebPreview() && (
-                                <p className="w-full text-[12.5px] text-slate-600 dark:text-slate-300 mt-1.5 line-clamp-1 font-normal leading-snug">
-                                    <Sparkles size={11} className="inline mr-1.5 text-amber-500 dark:text-amber-400 -mt-0.5" />
-                                    {story.summary
-                                        .replace(/^([#\s\-*•]|\d+\.)+/, '')
-                                        .replace(/^\*\*|\*\*$/g, '')
-                                        .split('\n')[0]
-                                        .replace(/^([#\s\-*•]|\d+\.)+/, '')
-                                        .replace(/^\*\*|\*\*$/g, '')
-                                        .trim()
-                                        .slice(0, 140)}
-                                </p>
-                            )}
+                                );
+                            })}
                         </div>
-                    </div>
+                    )}
                 </div>
+
+                {/* 1-Line AI Summary Preview */}
+                {cleanSummaryLine && !isWebPreview() && (
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-1 leading-snug">
+                        <Sparkles size={10} className="inline mr-1.5 text-amber-500/80 -mt-0.5" />
+                        {cleanSummaryLine}
+                    </p>
+                )}
             </div>
 
-            {/* Sleek Action Icons in the Bottom-Right Corner */}
-            <div className="absolute bottom-2 right-3 flex items-center gap-1 z-20">
-                {!isWebPreview() && onOpenInTab && (
+            {/* Minimal Hover-Only Actions: Bookmark & Hide */}
+            <div className={`absolute top-2.5 right-3 flex items-center gap-1 z-20 transition-opacity duration-150 ${saved ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                {onToggleSave && (
                     <button
-                        onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, story.url ? 'article' : 'discussion'); }}
-                        className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        title="Open in Tab"
+                        onClick={(e) => { e.stopPropagation(); onToggleSave(story.id, !saved); }}
+                        className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                            saved
+                                ? 'text-amber-500 bg-amber-500/10'
+                                : 'text-slate-400 hover:text-amber-500 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                        }`}
+                        title={saved ? 'Remove bookmark' : 'Bookmark story'}
                     >
-                        <Columns size={12} />
+                        <Bookmark size={13} fill={saved ? 'currentColor' : 'none'} />
                     </button>
                 )}
-
-                <button
-                    onClick={(e) => { e.stopPropagation(); (window as any).electronAPI ? (window as any).electronAPI.openExternal(story.url) : window.open(story.url, '_blank'); }}
-                    className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-355 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    title="Open Website in Browser"
-                >
-                    <ExternalLink size={12} />
-                </button>
-
-                <button
-                    onClick={(e) => { handleCopyLink(e); }}
-                    className={`p-1 rounded transition-colors ${isCopied ? 'text-green-500 bg-green-50 dark:bg-green-950/20' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-355 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
-                    title={isCopied ? 'Copied!' : 'Copy Link'}
-                >
-                    {isCopied ? <Check size={12} /> : <Link size={12} />}
-                </button>
-
-                <button
-                    onClick={(e) => { e.stopPropagation(); if (onToggleSave) onToggleSave(story.id, !saved); }}
-                    className={`p-1 rounded transition-colors ${saved
-                        ? 'text-amber-500 bg-amber-50/80 dark:bg-amber-500/10'
-                        : onToggleSave 
-                            ? 'text-slate-400 dark:text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-                            : 'text-slate-200 dark:text-slate-800 cursor-not-allowed'
-                    }`}
-                    title={!onToggleSave ? 'Login to bookmark' : saved ? 'Unbookmark' : 'Bookmark'}
-                >
-                    <Bookmark size={12} fill={saved ? "currentColor" : "none"} />
-                </button>
-
                 {onHide && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onHide(story.id); }}
-                        className="p-1 rounded text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors hover:bg-red-50/30 dark:hover:bg-red-950/10"
-                        title="Hide Story"
+                        className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                        title="Hide story"
                     >
-                        <X size={12} />
+                        <X size={13} />
                     </button>
                 )}
             </div>
 
-
-            {/* Context Menu Popup */}
+            {/* Right-Click Context Menu */}
             {contextMenuPos && onOpenInTab && (
                 <div
-                    className="fixed z-[10000] w-[22rem] bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl py-1 text-sm text-slate-700 dark:text-slate-200 animate-in fade-in duration-100"
+                    className="fixed z-[10000] w-64 bg-white dark:bg-[#171f30] border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl py-1 text-xs text-slate-700 dark:text-slate-200"
                     style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
+                    onClick={e => e.stopPropagation()}
                 >
-                    {isWebPreview() ? (
-                        <>
-                            <button
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    if (story.url) window.open(story.url, '_blank');
-                                    onOpenInTab(story.id, 'discussion'); 
-                                    setContextMenuPos(null); 
-                                }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 font-semibold text-blue-600 dark:text-blue-400"
-                            >
-                                📖 Open Article & Discussion Comments
-                            </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'discussion'); setContextMenuPos(null); }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 font-medium"
-                            >
-                                💬 Open Discussion Comments
-                            </button>
-                            {story.url && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); window.open(story.url, '_blank'); setContextMenuPos(null); }}
-                                    className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 font-medium"
-                                >
-                                    ↗ Open Article in New Tab
-                                </button>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'split'); setContextMenuPos(null); }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 font-semibold text-blue-600 dark:text-blue-400"
-                            >
-                                📖 Show article and discussion side by side
-                            </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'article'); setContextMenuPos(null); }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 font-medium border-b border-slate-100 dark:border-slate-800"
-                            >
-                                📄 Open Story Tab
-                            </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onOpenInTab(story.id, 'discussion'); setContextMenuPos(null); }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 font-medium"
-                            >
-                                💬 Open Discussion Tab
-                            </button>
-                        </>
-                    )}
+                    <button
+                        onClick={() => { onOpenInTab(story.id, 'article', true, story); setContextMenuPos(null); }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold cursor-pointer"
+                    >
+                        Open &amp; Pin Tab
+                    </button>
+                    <button
+                        onClick={() => { onOpenInTab(story.id, 'discussion', false, story); setContextMenuPos(null); }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                        Open Discussion
+                    </button>
+                    <button
+                        onClick={() => { onOpenInTab(story.id, 'split', false, story); setContextMenuPos(null); }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                        Open Side-by-Side Split
+                    </button>
+                    <div className="my-1 border-t border-slate-200 dark:border-slate-800" />
+                    <button
+                        onClick={() => {
+                            const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
+                            (window as any).electronAPI ? (window as any).electronAPI.openExternal(url) : window.open(url, '_blank');
+                            setContextMenuPos(null);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                        Open in Browser
+                    </button>
+                    <button
+                        onClick={() => {
+                            navigator.clipboard.writeText(story.url || `https://news.ycombinator.com/item?id=${story.id}`);
+                            setContextMenuPos(null);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                        Copy Link
+                    </button>
                 </div>
             )}
         </div>

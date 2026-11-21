@@ -420,18 +420,20 @@ export function useAppState() {
         }
     }, [mode]);
 
-    const handleStorySelect = useCallback((id: number, overrideMode?: 'article' | 'discussion' | 'split', keepOpen?: boolean) => {
+    const handleStorySelect = useCallback((id: number, overrideMode?: 'article' | 'discussion' | 'split', keepOpen?: boolean, storyOverride?: Story) => {
         let story = storyBuffer.find(s => s.id === id);
 
-        // If story is not in the current buffer (e.g. user moved to another page),
-        // check if we already have the story data in one of our open tabs.
+        // If story is not in the current buffer (e.g. user moved to another page or clicked from Grouped Feed),
+        // check open tabs or use the provided story object.
         if (!story) {
             const existingTab = tabs.find(t => t.storyId === id);
             if (existingTab) {
                 story = existingTab.story;
             }
         }
-
+        if (!story && storyOverride) {
+            story = storyOverride;
+        }
 
         if (!story) return;
 
