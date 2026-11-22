@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     ChevronLeft, ChevronRight, BookOpen, ExternalLink,
-    MessageSquare, Sparkles, Play, Pause, Database, Cpu,
-    RefreshCw, X
+    MessageSquare, Play, Pause, RefreshCw, X
 } from 'lucide-react';
 import type { Story } from '../types';
 import { fetchWithAuth } from '../utils/api';
@@ -227,7 +226,7 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[250] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8 select-none"
+            className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 sm:p-8 select-none"
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
@@ -237,19 +236,17 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
                 onClick={handlePrev}
                 disabled={stage === 'postgres' && currentIndex === 0}
                 title="Previous Slide (←)"
-                className="hidden md:flex items-center justify-center w-11 h-11 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-lg mr-4 disabled:opacity-25 disabled:pointer-events-none transition-all cursor-pointer shrink-0"
+                className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 border border-white/10 shadow-lg mr-4 disabled:opacity-25 disabled:pointer-events-none transition-colors cursor-pointer shrink-0"
             >
-                <ChevronLeft size={22} />
+                <ChevronLeft size={20} />
             </button>
 
             {/* Centered Slideshow Card */}
-            <div className="w-full max-w-3xl max-h-[85vh] bg-white dark:bg-[#171f30] border border-slate-200 dark:border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="w-full max-w-3xl max-h-[85vh] bg-[#fafaf8] dark:bg-[#161619] border border-stone-200 dark:border-white/[0.08] rounded-xl shadow-2xl flex flex-col overflow-hidden">
                 {/* Slim Progress Bar */}
-                <div className="h-1 w-full bg-slate-100 dark:bg-slate-800 shrink-0">
+                <div className="h-[2px] w-full bg-stone-200 dark:bg-white/[0.06] shrink-0">
                     <div
-                        className={`h-full transition-all duration-150 ${
-                            stage === 'postgres' ? 'bg-sky-500' : 'bg-indigo-500'
-                        }`}
+                        className="h-full bg-[#e06834] transition-all duration-150"
                         style={{
                             width: isPlaying
                                 ? `${progress}%`
@@ -259,128 +256,126 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
                 </div>
 
                 {/* Single Clean Header Bar */}
-                <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
+                <div className="px-5 py-3 border-b border-stone-200/80 dark:border-white/[0.07] flex items-center justify-between gap-3 shrink-0">
                     {/* Topic Switcher */}
-                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#111726] p-1 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-0.5 bg-stone-200/60 dark:bg-white/[0.05] p-0.5 rounded-md">
                         <button
                             onClick={() => handleStageSwitch('postgres')}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-3 py-1 rounded-[5px] text-[12px] font-medium transition-colors cursor-pointer ${
                                 stage === 'postgres'
-                                    ? 'bg-sky-600 text-white shadow-sm'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                                    ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm'
+                                    : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
                             }`}
                         >
-                            <Database size={12} />
-                            <span>Postgres</span>
+                            Postgres
                         </button>
                         <button
                             onClick={() => handleStageSwitch('ai')}
-                            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-3 py-1 rounded-[5px] text-[12px] font-medium transition-colors cursor-pointer ${
                                 stage === 'ai'
-                                    ? 'bg-indigo-600 text-white shadow-sm'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                                    ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm'
+                                    : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
                             }`}
                         >
-                            <Cpu size={12} />
-                            <span>LLM & AI</span>
+                            LLM &amp; AI
                         </button>
                     </div>
 
-                    {/* Right Controls: Auto-Play + Prominent Close Button */}
-                    <div className="flex items-center gap-2">
+                    {/* Right Controls: Auto-Play + Close Button */}
+                    <div className="flex items-center gap-1.5">
                         <button
                             onClick={() => setIsPlaying(p => !p)}
                             title={isPlaying ? 'Pause auto-advance' : 'Auto-advance slides'}
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${
                                 isPlaying
-                                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
-                                    : 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                    ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                    : 'bg-stone-200/60 dark:bg-white/[0.06] text-stone-600 dark:text-zinc-300 hover:text-stone-900 dark:hover:text-white'
                             }`}
                         >
-                            {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+                            {isPlaying ? <Pause size={11} /> : <Play size={11} />}
                             <span>{isPlaying ? 'Pause' : 'Auto'}</span>
                         </button>
 
                         <button
                             onClick={onClose}
                             title="Close Slideshow (Esc)"
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-[#1e273d] hover:bg-red-500/15 hover:text-red-500 hover:border-red-500/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-stone-200/60 dark:bg-white/[0.06] hover:bg-stone-200 dark:hover:bg-white/[0.1] text-stone-600 dark:text-zinc-300 hover:text-stone-900 dark:hover:text-white text-[12px] font-medium transition-colors cursor-pointer"
                         >
-                            <X size={14} />
+                            <X size={13} />
                             <span>Close</span>
                         </button>
                     </div>
                 </div>
 
                 {/* Scrollable Slide Body */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 sm:px-8">
+                <div className="flex-1 overflow-y-auto custom-scrollbar px-7 py-7 sm:px-9">
                     {loading && activeStories.length === 0 ? (
-                        <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-400">
-                            <RefreshCw size={24} className="animate-spin text-sky-500" />
-                            <span className="text-sm">Loading slides...</span>
+                        <div className="py-16 flex flex-col items-center justify-center gap-3 text-stone-400 dark:text-zinc-500">
+                            <RefreshCw size={20} className="animate-spin" />
+                            <span className="text-[13px]">Loading slides…</span>
                         </div>
                     ) : !currentStory ? (
-                        <div className="py-16 text-center text-slate-400 text-sm">
+                        <div className="py-16 text-center text-stone-400 dark:text-zinc-500 text-[13px]">
                             No {stage === 'postgres' ? 'Postgres' : 'LLM & AI'} stories available yet.
                         </div>
                     ) : (
                         <>
                             {/* Minimal Metadata Line */}
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-3">
-                                <span className="font-bold text-slate-700 dark:text-slate-200">
+                            <div className="flex flex-wrap items-center gap-2 text-[12px] text-stone-400 dark:text-zinc-500 mb-3">
+                                <span className="font-medium text-stone-700 dark:text-zinc-300 tabular-nums">
                                     {currentIndex + 1} / {activeStories.length}
                                 </span>
                                 <span>·</span>
                                 {currentStory.url && (
                                     <>
-                                        <span className="font-medium text-slate-600 dark:text-slate-300">
+                                        <span className="text-stone-600 dark:text-zinc-400">
                                             {getDomain(currentStory.url)}
                                         </span>
                                         <span>·</span>
                                     </>
                                 )}
-                                <span className="font-semibold text-amber-500">▲ {currentStory.score}</span>
+                                <span className="tabular-nums">▲ {currentStory.score}</span>
                                 <span>·</span>
                                 <span>{formatRelativeTime((currentStory as any).posted_at || currentStory.time || currentStory.created_at)}</span>
                                 <span>·</span>
-                                <span className="inline-flex items-center gap-1">
-                                    <MessageSquare size={12} /> {currentStory.descendants || 0}
+                                <span className="inline-flex items-center gap-1 tabular-nums">
+                                    <MessageSquare size={11} /> {currentStory.descendants || 0}
                                 </span>
                             </div>
 
                             {/* Headline */}
                             <h2
                                 onClick={() => onGoDeep(currentStory.id, stage, currentIndex)}
-                                className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-snug hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer mb-5"
+                                className="text-xl sm:text-[23px] font-semibold tracking-[-0.02em] text-stone-900 dark:text-[#f2f2f5] leading-[1.3] hover:text-[#e06834] dark:hover:text-[#eb7c49] transition-colors cursor-pointer mb-6"
                             >
                                 {currentStory.title}
                             </h2>
 
-                            {/* AI Summary */}
-                            <div className="rounded-xl bg-slate-50 dark:bg-[#121928] border border-slate-200 dark:border-slate-800 p-5">
+                            {/* Editorial Takeaways */}
+                            <div className="pt-5 border-t border-stone-200/80 dark:border-white/[0.07]">
                                 {summaryBullets.length > 0 ? (
-                                    <ul className="space-y-2.5">
+                                    <ul className="space-y-3.5 m-0 p-0 list-none select-text">
                                         {summaryBullets.map((bullet, idx) => (
-                                            <li key={idx} className="flex items-start gap-2.5 text-sm sm:text-[15px] text-slate-700 dark:text-slate-200 leading-relaxed">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 shrink-0" />
+                                            <li key={idx} className="flex items-start gap-3 font-editorial text-[15px] text-stone-700 dark:text-[#d6d6dc] leading-[1.72]">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-[#e06834]/75 mt-[11px] shrink-0" />
                                                 <span>{bullet}</span>
                                             </li>
                                         ))}
                                     </ul>
                                 ) : (
                                     <div className="flex items-center justify-between gap-4 py-2">
-                                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                                        <span className="text-[13px] text-stone-500 dark:text-zinc-400">
                                             {summarizingIds.has(currentStory.id)
-                                                ? 'Generating summary...'
+                                                ? 'Generating summary…'
                                                 : 'No summary generated yet for this story.'}
                                         </span>
                                         <button
                                             onClick={() => triggerSummary(currentStory.id)}
                                             disabled={summarizingIds.has(currentStory.id)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-stone-200/70 dark:bg-white/[0.08] text-stone-800 dark:text-zinc-200 text-[12px] font-medium transition-colors cursor-pointer disabled:opacity-50 shrink-0"
                                         >
-                                            <Sparkles size={12} className={summarizingIds.has(currentStory.id) ? 'animate-spin' : ''} />
-                                            <span>{summarizingIds.has(currentStory.id) ? 'Summarizing...' : 'Summarize'}</span>
+                                            <RefreshCw size={11} className={summarizingIds.has(currentStory.id) ? 'animate-spin' : ''} />
+                                            <span>{summarizingIds.has(currentStory.id) ? 'Summarizing…' : 'Summarize'}</span>
                                         </button>
                                     </div>
                                 )}
@@ -389,15 +384,15 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
                     )}
                 </div>
 
-                {/* Clean Single-Row Footer (Never Clipped) */}
+                {/* Clean Single-Row Footer */}
                 {currentStory && (
-                    <div className="px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-[#131a29] flex items-center justify-between gap-3 shrink-0">
+                    <div className="px-6 py-3.5 border-t border-stone-200/80 dark:border-white/[0.07] bg-[#f5f5f2] dark:bg-[#131316] flex items-center justify-between gap-3 shrink-0">
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => onGoDeep(currentStory.id, stage, currentIndex)}
-                                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+                                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[12px] font-medium transition-opacity hover:opacity-90 cursor-pointer"
                             >
-                                <BookOpen size={14} />
+                                <BookOpen size={13} />
                                 <span>Read Article</span>
                             </button>
 
@@ -406,9 +401,9 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
                                     href={currentStory.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-[#1e273d] hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-200/70 dark:bg-white/[0.06] hover:bg-stone-200 dark:hover:bg-white/[0.1] text-stone-700 dark:text-zinc-300 text-[12px] font-medium transition-colors"
                                 >
-                                    <ExternalLink size={13} />
+                                    <ExternalLink size={12} />
                                     <span className="hidden sm:inline">Browser</span>
                                 </a>
                             )}
@@ -424,12 +419,10 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
                                         setProgress(0);
                                     }}
                                     title={s.title}
-                                    className={`h-2 rounded-full transition-all cursor-pointer ${
+                                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
                                         idx === currentIndex
-                                            ? stage === 'postgres'
-                                                ? 'w-5 bg-sky-500'
-                                                : 'w-5 bg-indigo-500'
-                                            : 'w-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
+                                            ? 'w-5 bg-[#e06834]'
+                                            : 'w-1.5 bg-stone-300 dark:bg-zinc-700 hover:bg-stone-400'
                                     }`}
                                 />
                             ))}
@@ -440,7 +433,7 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
                             <button
                                 onClick={handlePrev}
                                 disabled={stage === 'postgres' && currentIndex === 0}
-                                className="p-2 rounded-lg bg-white dark:bg-[#1e273d] hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 disabled:opacity-35 transition-colors cursor-pointer md:hidden"
+                                className="p-1.5 rounded-lg bg-stone-200/70 dark:bg-white/[0.06] text-stone-700 dark:text-zinc-300 disabled:opacity-35 transition-colors cursor-pointer md:hidden"
                                 title="Previous (←)"
                             >
                                 <ChevronLeft size={14} />
@@ -449,25 +442,25 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
                             {isLastPgSlide ? (
                                 <button
                                     onClick={() => handleStageSwitch('ai')}
-                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[12px] font-medium transition-opacity hover:opacity-90 cursor-pointer"
                                 >
-                                    <span>LLM & AI</span>
-                                    <ChevronRight size={14} />
+                                    <span>LLM &amp; AI</span>
+                                    <ChevronRight size={13} />
                                 </button>
                             ) : isLastAiSlide ? (
                                 <button
                                     onClick={onClose}
-                                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition-colors cursor-pointer"
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-stone-200/80 dark:bg-white/[0.08] text-stone-800 dark:text-zinc-200 text-[12px] font-medium transition-colors cursor-pointer"
                                 >
                                     <span>Done</span>
                                 </button>
                             ) : (
                                 <button
                                     onClick={handleNext}
-                                    className="flex items-center gap-1 px-3.5 py-2 rounded-lg bg-slate-800 dark:bg-slate-200 hover:bg-slate-700 dark:hover:bg-white text-white dark:text-slate-900 text-xs font-bold transition-colors cursor-pointer"
+                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-stone-200/80 dark:bg-white/[0.08] hover:bg-stone-200 dark:hover:bg-white/[0.12] text-stone-800 dark:text-zinc-100 text-[12px] font-medium transition-colors cursor-pointer"
                                 >
                                     <span>Next</span>
-                                    <ChevronRight size={14} />
+                                    <ChevronRight size={13} />
                                 </button>
                             )}
                         </div>
@@ -479,9 +472,9 @@ export const BriefingDeck: React.FC<BriefingDeckProps> = ({
             <button
                 onClick={handleNext}
                 title="Next Slide (→)"
-                className="hidden md:flex items-center justify-center w-11 h-11 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-lg ml-4 transition-all cursor-pointer shrink-0"
+                className="hidden md:flex items-center justify-center w-10 h-10 rounded-full bg-zinc-900/90 hover:bg-zinc-800 text-zinc-200 border border-white/10 shadow-lg ml-4 transition-colors cursor-pointer shrink-0"
             >
-                <ChevronRight size={22} />
+                <ChevronRight size={20} />
             </button>
         </div>
     );

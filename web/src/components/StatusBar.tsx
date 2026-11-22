@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import pkg from '../../package.json';
 import { getApiBase, subscribeApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
 import { isWebPreview } from '../utils/env';
-import { Clock, Zap, CheckCircle2, Github } from 'lucide-react';
 
 interface Status {
     next_refresh_at: string;
@@ -14,10 +12,12 @@ interface Status {
     current_task?: string;
 }
 
-export function StatusBar() {
+/**
+ * Quiet inline activity indicator for the top header.
+ * Stays completely invisible when idle; only shows subtle text while refreshing or summarizing.
+ */
+export function HeaderSyncStatus() {
     const [status, setStatus] = useState<Status | null>(null);
-    const [error, setError] = useState(false);
-    const [retries, setRetries] = useState(0);
     const [baseUrl, setBaseUrl] = useState(getApiBase());
     const isWeb = isWebPreview();
 
@@ -28,7 +28,6 @@ export function StatusBar() {
     }, []);
 
     useEffect(() => {
-        // In web preview mode, don't poll /api/status — it will always fail
         if (!baseUrl || isWeb) return;
 
         const fetchStatus = async () => {
@@ -37,15 +36,9 @@ export function StatusBar() {
                 if (res.ok) {
                     const data = await res.json();
                     setStatus(data);
-                    setError(false);
-                    setRetries(0);
-                } else {
-                    setRetries(prev => prev + 1);
-                    if (retries >= 2) setError(true);
                 }
-            } catch (e) {
-                setRetries(prev => prev + 1);
-                if (retries >= 2) setError(true);
+            } catch {
+                // Silent when local backend is starting
             }
         };
 
@@ -54,92 +47,36 @@ export function StatusBar() {
             if (!document.hidden) fetchStatus();
         }, 12000);
         return () => clearInterval(interval);
-    }, [baseUrl, retries, isWeb]);
+    }, [baseUrl, isWeb]);
 
-    // Web preview mode: always show a clean status immediately
-    if (isWeb || error) {
+    if (isWeb || !status) return null;
+
+    if (status.is_refreshing) {
         return (
-            <div className="h-7 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
-                <div className="flex items-center gap-2 text-slate-550 dark:text-slate-400">
-                    <span className="flex h-2 w-2 relative">
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span>Web Preview Mode</span>
-                </div>
-                <div className="flex items-center gap-4 text-indigo-600 dark:text-indigo-400/80">
-                    <span>HN Station v{pkg.version}</span>
-                    <a
-                        href="https://github.com/rajeshkumarblr/hn_station"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 text-slate-400 hover:text-orange-500 transition-colors normal-case tracking-normal"
-                        title="View source on GitHub"
-                    >
-                        <Github size={13} />
-                        <span className="text-[9px] font-bold">GitHub</span>
-                    </a>
-                </div>
-            </div>
+            <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-stone-500 dark:text-zinc-400 mr-1.5 select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#e06834] animate-pulse" />
+                <span>Refreshing…</span>
+            </span>
         );
     }
 
-    if (!status) {
+    if (status.ai_status === 'Busy') {
         return (
-            <div className="h-7 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
-                <div className="flex items-center gap-2 text-slate-550 dark:text-slate-400">
-                    <span className="flex h-2 w-2 relative">
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                    </span>
-                    <span>Connecting to local agent...</span>
-                </div>
-                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400/80">
-                    <span>HN Station</span>
-                </div>
-            </div>
+            <span
+                className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-stone-500 dark:text-zinc-400 mr-1.5 max-w-[180px] select-none"
+                title={status.current_task ? `Summarizing: ${status.current_task}` : 'Generating local summary'}
+            >
+                <span className="w-1.5 h-1.5 rounded-full bg-stone-400 dark:bg-zinc-500 animate-pulse shrink-0" />
+                <span className="truncate">
+                    Summarizing{status.auto_summarize_queue > 0 ? ` (${status.auto_summarize_queue})` : '…'}
+                </span>
+            </span>
         );
     }
 
-    const nextRefresh = new Date(status.next_refresh_at);
-    const now = new Date();
-    const diffMs = nextRefresh.getTime() - now.getTime();
-    const diffMins = Math.max(0, Math.ceil(diffMs / 60000));
-
-    return (
-        <div className="h-7 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 flex items-center justify-between text-[9px] font-black tracking-[0.1em] uppercase select-none">
-            <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                    <Clock size={12} className={status.is_refreshing ? "text-indigo-500" : ""} />
-                    {status.is_refreshing ? (
-                        <span className="text-indigo-500">Refreshing Feed...</span>
-                    ) : (
-                        <span>Next Refresh: <span className="text-slate-900 dark:text-slate-100">{diffMins}m</span></span>
-                    )}
-                </div>
-
-                <div className="w-px h-3 bg-slate-200 dark:bg-slate-800" />
-
-                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                    <Zap size={12} className={status.ai_status === 'Busy' ? "text-orange-500" : "text-indigo-500"} />
-                    AI Insights: 
-                    <span className={
-                        status.ai_status === 'Rate-Limited' ? "text-amber-500 font-bold" : 
-                        status.ai_status === 'Busy' ? "text-orange-500" : "text-indigo-500"
-                    }>
-                        {status.ai_status === 'Busy' ? `Analyzing: ${status.current_task || 'Story'}` : status.ai_status}
-                    </span>
-                    {status.auto_summarize_queue > 0 && (
-                        <span className="ml-1 px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
-                            {status.auto_summarize_queue} queued
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400/80">
-                <CheckCircle2 size={12} />
-                <span>Station Engine v{pkg.version}</span>
-            </div>
-        </div>
-    );
+    return null;
 }
 
+export function StatusBar() {
+    return null;
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Sparkles, X, MessageSquare, ChevronRight, Copy, Check, Zap, AlertCircle, Plus, Maximize2, Minimize2 } from 'lucide-react';
+import { RefreshCw, X, MessageSquare, ChevronRight, Copy, Check, AlertCircle, Plus, Maximize2, Minimize2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getApiBase } from '../utils/apiBase';
 import { fetchWithAuth } from '../utils/api';
@@ -7,7 +7,6 @@ import { isWebPreview } from '../utils/env';
 import { getClientAISettings, clientGenerateChatResponse } from '../utils/aiClient';
 import type { Story, User } from '../types';
 import { CommentList } from './CommentList';
-import { getTagStyle } from '../utils/colors';
 
 interface AISidebarProps {
     story: Story;
@@ -428,7 +427,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
 
     return (
         <div 
-            className={`h-full flex flex-col bg-white dark:bg-[#131824] relative transition-all duration-200 ${isFullWidth ? '' : 'border-l border-slate-200 dark:border-slate-800/90 shadow-xl'}`}
+            className={`h-full flex flex-col bg-[#fafaf8] dark:bg-[#121214] relative transition-all duration-200 ${isFullWidth ? '' : 'border-l border-stone-200/80 dark:border-white/[0.07]'}`}
             style={(isFullWidth || isWebPreview() || (typeof window !== 'undefined' && window.innerWidth < 768)) ? {
                 display: isOpen ? 'flex' : 'none',
                 width: '100%',
@@ -442,21 +441,21 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
         >
             {/* Slim Split-Only Header (hidden in full-width mode since the top toolbar already switches tabs) */}
             {!isFullWidth && (!isWebPreview() || (typeof window !== 'undefined' && window.innerWidth < 768)) && (
-                <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 dark:bg-[#161d2e] border-b border-slate-200 dark:border-slate-800/90 shrink-0">
+                <div className="flex items-center justify-between px-3 py-1.5 bg-[#f5f5f2] dark:bg-[#161619] border-b border-stone-200/80 dark:border-white/[0.07] shrink-0">
                     <div className="flex items-center gap-1">
                         <button 
                             onClick={() => onTabChange('discussion')}
                             title="View community comments"
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${activeTab === 'discussion' ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer ${activeTab === 'discussion' ? 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-900 dark:text-zinc-100' : 'text-stone-500 dark:text-zinc-400 hover:text-stone-800 dark:hover:text-zinc-200'}`}
                         >
                             <MessageSquare size={12} /> <span>Discussion</span>
                         </button>
                         <button 
                             onClick={() => onTabChange('ai')}
-                            title="AI Summary & Chat"
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${activeTab === 'ai' ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                            title="Summary & Q&A"
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer ${activeTab === 'ai' ? 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-900 dark:text-zinc-100' : 'text-stone-500 dark:text-zinc-400 hover:text-stone-800 dark:hover:text-zinc-200'}`}
                         >
-                            <Sparkles size={12} /> <span>AI</span>
+                            <span>Ask AI</span>
                         </button>
                     </div>
                     
@@ -465,7 +464,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                             <button 
                                 onClick={() => { setMessages([]); setChatInput(''); }}
                                 title="Clear Chat History"
-                                className="p-1 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                className="p-1 hover:bg-stone-200/70 dark:hover:bg-white/[0.07] rounded-md text-stone-400 dark:text-zinc-500 hover:text-stone-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                             >
                                 <RefreshCw size={13} />
                             </button>
@@ -476,16 +475,16 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                     <button 
                                         onClick={onToggleMaximize}
                                         title="Maximize Discussion / AI pane"
-                                        className="flex items-center gap-1 px-2 py-1 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-md text-[11px] font-semibold text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                                        className="flex items-center gap-1 px-2 py-1 hover:bg-stone-200/70 dark:hover:bg-white/[0.07] rounded-md text-[11.5px] font-medium text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-white transition-colors cursor-pointer"
                                     >
-                                        <Maximize2 size={12} />
+                                        <Maximize2 size={11} />
                                         <span>Maximize</span>
                                     </button>
                                 )}
                                 <button 
                                     onClick={onClose}
                                     title="Hide pane (Maximize Article)"
-                                    className="p-1 hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                    className="p-1 hover:bg-stone-200/70 dark:hover:bg-white/[0.07] rounded-md text-stone-400 dark:text-zinc-500 hover:text-stone-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                                 >
                                     <X size={14} />
                                 </button>
@@ -496,7 +495,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
             )}
 
             {/* Content Container */}
-            <div className="flex-1 overflow-hidden relative flex flex-col bg-white dark:bg-[#131824]">
+            <div className="flex-1 overflow-hidden relative flex flex-col bg-[#fafaf8] dark:bg-[#121214]">
 
                 {/* Discussion Tab Content */}
                 <div 
@@ -506,25 +505,25 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                 >
                     <div className="flex-1 overflow-y-auto px-5 py-5 custom-scrollbar">
                         <div className={isFullWidth ? 'max-w-3xl mx-auto' : ''}>
-                            {/* Compact Discussion Action Bar (replaces permanent Post a Comment box & giant button) */}
-                            <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 mb-4 border-b border-slate-200/80 dark:border-slate-800/80">
+                            {/* Compact Discussion Action Bar */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 mb-4 border-b border-stone-200/80 dark:border-white/[0.08]">
                                 <div className="min-w-0">
                                     {isFullWidth && (
-                                        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug mb-0.5 truncate">
+                                        <h2 className="text-[17px] font-semibold tracking-[-0.015em] text-stone-900 dark:text-[#f2f2f5] leading-snug mb-1 truncate">
                                             {story.title}
                                         </h2>
                                     )}
-                                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                    <div className="flex items-center gap-2 text-[12px] text-stone-500 dark:text-zinc-400">
+                                        <span className="font-medium text-stone-700 dark:text-zinc-300 tabular-nums">
                                             {comments.length > 0 ? `${comments.length} comments` : `${story.descendants || 0} comments`}
                                         </span>
                                         {refreshComments && (
                                             <button
                                                 onClick={refreshComments}
                                                 title="Refresh comments"
-                                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                                                className="p-1 rounded hover:bg-stone-200/60 dark:hover:bg-white/[0.06] text-stone-400 dark:text-zinc-500 hover:text-stone-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                                             >
-                                                <RefreshCw size={12} className={commentsLoading ? 'animate-spin text-orange-500' : ''} />
+                                                <RefreshCw size={12} className={commentsLoading ? 'animate-spin text-[#e06834]' : ''} />
                                             </button>
                                         )}
                                     </div>
@@ -535,19 +534,19 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                         <button 
                                             onClick={handleSummarizeDiscussion}
                                             disabled={discussSummarizing}
-                                            className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1.5 border border-indigo-500/20 cursor-pointer disabled:opacity-50"
+                                            className="px-2.5 py-1 bg-stone-200/70 dark:bg-white/[0.06] hover:bg-stone-200 dark:hover:bg-white/[0.1] text-stone-700 dark:text-zinc-300 rounded-md text-[11.5px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                                         >
-                                            {discussSummarizing ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                                            <span>{discussSummarizing ? 'Summarizing...' : 'Summarize'}</span>
+                                            {discussSummarizing && <RefreshCw size={11} className="animate-spin" />}
+                                            <span>{discussSummarizing ? 'Summarizing…' : 'Summarize'}</span>
                                         </button>
                                     )}
 
                                     <button
                                         onClick={() => setShowCommentComposer(prev => !prev)}
-                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1 border cursor-pointer ${
+                                        className={`px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors flex items-center gap-1 cursor-pointer ${
                                             showCommentComposer
-                                                ? 'bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30'
-                                                : 'bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/80'
+                                                ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                                : 'bg-stone-200/70 dark:bg-white/[0.06] hover:bg-stone-200 dark:hover:bg-white/[0.1] text-stone-700 dark:text-zinc-300'
                                         }`}
                                     >
                                         <Plus size={12} className={showCommentComposer ? 'rotate-45 transition-transform' : 'transition-transform'} />
@@ -558,28 +557,28 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                         <button
                                             onClick={onToggleMaximize}
                                             title="Restore Side-by-Side Split View"
-                                            className="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors flex items-center gap-1 border bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 cursor-pointer"
+                                            className="px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors flex items-center gap-1 bg-stone-200/70 dark:bg-white/[0.06] hover:bg-stone-200 dark:hover:bg-white/[0.1] text-stone-700 dark:text-zinc-300 cursor-pointer"
                                         >
-                                            <Minimize2 size={12} />
+                                            <Minimize2 size={11} />
                                             <span>Split</span>
                                         </button>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Collapsible Comment Composer — only shown when user explicitly clicks + Comment */}
+                            {/* Collapsible Comment Composer */}
                             {showCommentComposer && (
-                                <div className="mb-5 p-3.5 bg-slate-50 dark:bg-[#1a2234] rounded-xl border border-slate-200 dark:border-slate-700/80 flex flex-col gap-2.5">
+                                <div className="mb-5 p-3.5 bg-stone-100/80 dark:bg-[#18181b] rounded-lg border border-stone-200 dark:border-white/[0.08] flex flex-col gap-2.5">
                                     <textarea
                                         value={topCommentText}
                                         onChange={(e) => setTopCommentText(e.target.value)}
                                         placeholder="Add to the HN discussion..."
                                         rows={3}
                                         autoFocus
-                                        className="w-full text-xs p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#131824] text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500/80 outline-none resize-none"
+                                        className="w-full text-[13px] p-2.5 rounded-md border border-stone-200 dark:border-zinc-800 bg-white dark:bg-[#121214] text-stone-900 dark:text-zinc-100 placeholder-stone-400 dark:placeholder-zinc-500 focus:border-stone-400 dark:focus:border-zinc-600 outline-none resize-none"
                                     />
                                     {topCommentError && (
-                                        <div className="text-[11px] text-red-500 font-semibold flex items-center gap-1">
+                                        <div className="text-[11.5px] text-red-500 font-medium flex items-center gap-1">
                                             <AlertCircle size={12} className="shrink-0" />
                                             {topCommentError}
                                         </div>
@@ -587,39 +586,36 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                     <div className="flex justify-end gap-2">
                                         <button
                                             onClick={() => { setShowCommentComposer(false); setTopCommentError(null); }}
-                                            className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+                                            className="px-3 py-1.5 text-[12px] font-medium text-stone-500 hover:text-stone-800 dark:text-zinc-400 dark:hover:text-zinc-200 rounded-md cursor-pointer"
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             onClick={handleTopCommentSubmit}
                                             disabled={topCommentSubmitting || !topCommentText.trim()}
-                                            className="px-3.5 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-40 rounded-lg transition-colors cursor-pointer"
+                                            className="px-3.5 py-1.5 text-[12px] font-medium text-white bg-stone-900 dark:bg-zinc-100 dark:text-zinc-950 hover:opacity-90 disabled:opacity-40 rounded-md transition-opacity cursor-pointer"
                                         >
-                                            {topCommentSubmitting ? 'Posting...' : 'Post Comment'}
+                                            {topCommentSubmitting ? 'Posting…' : 'Post Comment'}
                                         </button>
                                     </div>
                                 </div>
                             )}
 
                         {((commentsLoading && comments.length === 0) || (isIngesting && comments.length === 0)) ? (
-                            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
-                                <RefreshCw size={22} className="animate-spin text-orange-500" />
-                                <span className="font-medium text-xs">
-                                    {isIngesting ? "Syncing discussion from HN..." : "Loading discussion..."}
+                            <div className="flex flex-col items-center justify-center py-20 gap-3 text-stone-400 dark:text-zinc-500">
+                                <RefreshCw size={18} className="animate-spin" />
+                                <span className="text-[12.5px]">
+                                    {isIngesting ? "Syncing discussion from HN…" : "Loading discussion…"}
                                 </span>
                             </div>
                         ) : (comments && comments.length > 0) || isIngesting ? (
                             <div className="pb-16 space-y-5">
 
-                                {/* Discussion Summary Card (only shown when generated) */}
+                                {/* Discussion Summary */}
                                 {!isWebPreview() && story.discussion_summary && (
-                                    <div className="p-4 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-xl border border-indigo-200/80 dark:border-indigo-500/20">
-                                        <div className="flex items-center gap-1.5 mb-2.5">
-                                            <Sparkles size={13} className="text-indigo-500" />
-                                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300">Discussion Summary</h4>
-                                        </div>
-                                        <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-slate-700 dark:text-slate-200 leading-relaxed font-sans">
+                                    <div className="p-5 bg-[#f5f5f2] dark:bg-[#17171a] rounded-lg border border-stone-200/80 dark:border-white/[0.08]">
+                                        <h4 className="text-[11.5px] font-medium text-stone-400 dark:text-zinc-500 mb-3">Discussion summary</h4>
+                                        <div className="font-editorial prose prose-stone dark:prose-invert prose-sm max-w-none text-stone-700 dark:text-[#d4d4d8] leading-[1.7]">
                                             <ReactMarkdown
                                                 components={{
                                                     li: ({node, ...props}) => {
@@ -628,7 +624,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                                         return (
                                                             <li className="flex gap-2.5 items-start mb-2">
                                                                 {!isNumbered && (
-                                                                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                                                                    <span className="mt-[9px] w-1.5 h-1.5 rounded-full bg-[#e06834]/75 shrink-0" />
                                                                 )}
                                                                 <span className="flex-1 m-0 p-0" {...props} />
                                                             </li>
@@ -651,39 +647,30 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                     refreshComments={refreshComments}
                                 />
 
-                                {/* Article Specific Topics (Suggested) - Moved from Header */}
+                                {/* Quiet Monochrome Article Topics */}
                                 {story.topics && story.topics.length > 0 && setActiveTopics && setDisabledTopics && (
-                                    <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                        <div className="flex items-center gap-1.5 mb-4">
-                                            <Zap size={11} className="text-amber-500" />
-                                            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Article Topics</h4>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
+                                    <div className="mt-8 pt-5 border-t border-stone-200/80 dark:border-white/[0.07]">
+                                        <h4 className="text-[11.5px] font-medium text-stone-400 dark:text-zinc-500 mb-2.5">Topics</h4>
+                                        <div className="flex flex-wrap gap-1.5">
                                             {story.topics.map(topic => {
                                                 const isPresent = activeTopics.includes(topic);
                                                 const isEnabled = isPresent && !disabledTopics.includes(topic);
-                                                const style = getTagStyle(topic);
                                                 return (
                                                     <button
                                                         key={`article-topic-${topic}`}
                                                         onClick={() => {
                                                             if (!isPresent) {
-                                                                // Add new chip
                                                                 setActiveTopics(prev => [...new Set([...prev, topic])]);
                                                                 if (topicMatch === 'exclusive') {
-                                                                    // In exclusive mode, disable all existing topics
                                                                     setDisabledTopics([...activeTopics]);
                                                                 } else {
-                                                                    // In other modes, ensure the new chip is enabled
                                                                     setDisabledTopics(prev => prev.filter(x => x !== topic));
                                                                 }
                                                             } else {
-                                                                // Chip is already present, toggle enabled state
                                                                 if (isEnabled) {
                                                                     setDisabledTopics(prev => [...new Set([...prev, topic])]);
                                                                 } else {
                                                                     if (topicMatch === 'exclusive') {
-                                                                        // Enable ONLY this one
                                                                         setDisabledTopics(activeTopics.filter(x => x !== topic));
                                                                     } else {
                                                                         setDisabledTopics(prev => prev.filter(x => x !== topic));
@@ -691,16 +678,13 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                                                 }
                                                             }
                                                         }}
-                                                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all border shadow-sm ${isEnabled 
-                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-slate-950 shadow-md opacity-100' 
-                                                            : 'opacity-50 hover:opacity-100 hover:scale-105 bg-white/5 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50'}`}
-                                                        style={{ 
-                                                            backgroundColor: style.bg, 
-                                                            color: style.color, 
-                                                            borderColor: isEnabled ? style.color : style.border
-                                                        }}
+                                                        className={`px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer ${
+                                                            isEnabled
+                                                                ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                                                : 'bg-stone-200/65 text-stone-600 hover:bg-stone-200 dark:bg-white/[0.06] dark:text-zinc-400 dark:hover:bg-white/[0.1] dark:hover:text-zinc-200'
+                                                        }`}
                                                     >
-                                                        {isEnabled ? '✓ ' : '#'}{topic}
+                                                        {topic}
                                                     </button>
                                                 );
                                             })}
@@ -710,26 +694,21 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                                <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mb-6 text-slate-300 dark:text-slate-700">
-                                    <MessageSquare size={32} />
-                                </div>
-                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-2">No comments yet</h3>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-500 leading-relaxed max-w-[200px] mb-8">
-                                    Hacker News might have discussion for this story that hasn't been synced yet.
+                                <h3 className="text-[14px] font-medium text-stone-600 dark:text-zinc-300 mb-1.5">No comments yet</h3>
+                                <p className="text-[12.5px] text-stone-400 dark:text-zinc-500 leading-relaxed max-w-[240px] mb-5">
+                                    Hacker News discussion hasn&apos;t been synced yet.
                                 </p>
                                 
                                 {story.descendants > 0 && (
                                     <button
                                         onClick={async () => {
                                             const baseUrl = getApiBase();
-                                            // Calling the story details endpoint triggers a sync if comments are missing
                                             await fetchWithAuth(`${baseUrl}/api/stories/${story.id}`);
-                                            // The ReaderPane parent component will handle the polling via isIngesting state
-                                            window.location.reload(); // Quickest way to trigger parent refresh
+                                            window.location.reload();
                                         }}
-                                        className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-500/20 active:scale-95"
+                                        className="px-4 py-2 bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 rounded-lg text-[12px] font-medium transition-opacity hover:opacity-90 cursor-pointer"
                                     >
-                                        Sync {story.descendants} Comments
+                                        Sync {story.descendants} comments
                                     </button>
                                 )}
                             </div>
@@ -739,37 +718,33 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                 </div>
 
                 {/* Local AI Assistant Tab Content */}
-                <div className={`flex-1 flex flex-col min-h-0 relative bg-white dark:bg-[#131824] ${activeTab !== 'ai' ? 'hidden' : ''}`}>
+                <div className={`flex-1 flex flex-col min-h-0 relative bg-[#fafaf8] dark:bg-[#121214] ${activeTab !== 'ai' ? 'hidden' : ''}`}>
                     {/* Chat Messages */}
                     <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar min-h-0">
                         <div className={`space-y-6 ${isFullWidth ? 'max-w-3xl mx-auto' : ''}`}>
                         {messages.length === 0 ? (
-                            <div className="py-6 space-y-5">
+                            <div className="py-4 space-y-6">
                                 {isFullWidth && (
-                                    <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-snug">
+                                    <h2 className="text-[19px] font-semibold tracking-[-0.015em] text-stone-900 dark:text-[#f2f2f5] leading-snug">
                                         {story.title}
                                     </h2>
                                 )}
                                 {story.summary ? (
-                                    <div className="p-5 rounded-xl bg-slate-50 dark:bg-[#1a2234] border border-slate-200 dark:border-slate-700/80">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <Sparkles size={14} className="text-amber-500" />
-                                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">Article Summary</h3>
-                                        </div>
-                                        <ul className="space-y-2.5">
+                                    <div className="space-y-3">
+                                        <h3 className="text-[11.5px] font-medium text-stone-400 dark:text-zinc-500">Key takeaways</h3>
+                                        <ul className="space-y-3 m-0 p-0 list-none">
                                             {story.summary.split('\n').map(l => l.replace(/^[-*•\d.)\s]+/, '').trim()).filter(Boolean).map((line, i) => (
-                                                <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 shrink-0" />
+                                                <li key={i} className="flex items-start gap-3 font-editorial text-[14.5px] text-stone-700 dark:text-[#d6d6dc] leading-[1.7]">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-[#e06834]/75 mt-[10px] shrink-0" />
                                                     <span>{line}</span>
                                                 </li>
                                             ))}
                                         </ul>
                                     </div>
                                 ) : (
-                                    <div className="p-6 rounded-xl bg-slate-50 dark:bg-[#1a2234] border border-slate-200 dark:border-slate-700/80 flex flex-col items-center text-center gap-3">
-                                        <Sparkles size={22} className="text-indigo-500" />
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-                                            Generate a quick summary of this article or ask questions below using your local AI model.
+                                    <div className="py-4 space-y-3">
+                                        <p className="text-[13px] text-stone-500 dark:text-zinc-400 max-w-sm">
+                                            Generate a summary of this article or ask questions below using your local model.
                                         </p>
                                         <button 
                                             onClick={async () => {
@@ -780,37 +755,37 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                                     }
                                                 }
                                             }}
-                                            className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                                            className="px-3.5 py-1.5 bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:opacity-90 rounded-lg text-[12px] font-medium transition-opacity cursor-pointer"
                                         >
-                                            <Sparkles size={13} /> Summarize Article
+                                            Summarize Article
                                         </button>
                                     </div>
                                 )}
 
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2 pt-3 border-t border-stone-200/80 dark:border-white/[0.07]">
                                     <button 
                                         onClick={() => setChatInput("What are the key technical takeaways from this article?")}
-                                        className="px-3 py-1.5 bg-slate-100 dark:bg-[#1a2234] hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700/80 cursor-pointer"
+                                        className="px-3 py-1.5 bg-stone-200/60 dark:bg-white/[0.05] hover:bg-stone-200 dark:hover:bg-white/[0.1] text-stone-700 dark:text-zinc-300 rounded-md text-[12px] transition-colors cursor-pointer"
                                     >
                                         Key technical takeaways?
                                     </button>
                                     <button 
                                         onClick={() => setChatInput("What is the main consensus and pushback in the HN comments?")}
-                                        className="px-3 py-1.5 bg-slate-100 dark:bg-[#1a2234] hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-medium transition-colors border border-slate-200 dark:border-slate-700/80 cursor-pointer"
+                                        className="px-3 py-1.5 bg-stone-200/60 dark:bg-white/[0.05] hover:bg-stone-200 dark:hover:bg-white/[0.1] text-stone-700 dark:text-zinc-300 rounded-md text-[12px] transition-colors cursor-pointer"
                                     >
-                                        Main consensus & pushback in comments?
+                                        Main consensus &amp; pushback in comments?
                                     </button>
                                 </div>
                             </div>
                         ) : (
                             messages.map((msg, idx) => (
-                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                                    <div className={`max-w-[90%] rounded-2xl px-4 py-3 shadow-sm ${
+                                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[90%] rounded-xl px-4 py-3 ${
                                         msg.role === 'user' 
-                                            ? 'bg-indigo-600 text-white rounded-tr-none ml-auto' 
-                                            : 'bg-slate-100 dark:bg-slate-800/80 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700/50 rounded-tl-none mr-auto'
+                                            ? 'bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 ml-auto' 
+                                            : 'bg-stone-100 dark:bg-[#19191d] text-stone-800 dark:text-zinc-200 border border-stone-200/80 dark:border-white/[0.07] mr-auto'
                                     }`}>
-                                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed break-words overflow-x-hidden select-text prose-code:before:content-none prose-code:after:content-none">
+                                        <div className="prose prose-sm dark:prose-invert max-w-none text-[13.5px] leading-relaxed break-words overflow-x-hidden select-text prose-code:before:content-none prose-code:after:content-none">
                                             <ReactMarkdown
                                                 rehypePlugins={[rehypeHighlight]}
                                                 components={{
@@ -819,27 +794,25 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                                         const match = /language-(\w+)/.exec(className || '');
                                                         const codeString = String(children).replace(/\n$/, '');
                                                         
-                                                        // Code Block (with or without language)
                                                         if (!inline && (match || codeString.includes('\n'))) {
                                                             const lang = match ? match[1] : 'code';
                                                             return (
-                                                                <div className="my-3 rounded-lg border border-slate-300/50 dark:border-white/10 overflow-hidden bg-slate-950/50 dark:bg-black/40 shadow-sm">
-                                                                    <div className="flex items-center justify-between px-3 py-1 bg-slate-200/50 dark:bg-white/5 border-b border-slate-300/50 dark:border-white/10">
-                                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                                                <div className="my-3 rounded-lg border border-stone-300/60 dark:border-white/10 overflow-hidden bg-zinc-950/90">
+                                                                    <div className="flex items-center justify-between px-3 py-1 bg-white/5 border-b border-white/10">
+                                                                        <span className="text-[10px] font-medium text-zinc-400">
                                                                             {lang}
                                                                         </span>
                                                                         <CopyButton text={codeString} />
                                                                     </div>
-                                                                    <code className={`${className} block p-3.5 overflow-x-auto custom-scrollbar font-mono text-[13px] leading-relaxed text-slate-200`} {...props}>
+                                                                    <code className={`${className} block p-3.5 overflow-x-auto custom-scrollbar font-mono text-[12.5px] leading-relaxed text-zinc-200`} {...props}>
                                                                         {children}
                                                                     </code>
                                                                 </div>
                                                             );
                                                         }
                                                         
-                                                        // Inline Code
                                                         return (
-                                                            <code className="bg-slate-200/60 dark:bg-slate-700/40 px-1.5 py-0.5 rounded-md text-indigo-600 dark:text-indigo-300 font-mono text-[0.9em] border border-slate-300/50 dark:border-slate-600/30" {...props}>
+                                                            <code className="bg-stone-200/70 dark:bg-white/[0.08] px-1.5 py-0.5 rounded text-stone-900 dark:text-zinc-200 font-mono text-[0.9em]" {...props}>
                                                                 {children}
                                                             </code>
                                                         );
@@ -854,11 +827,11 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                             ))
                         )}
                         {isChatLoading && (
-                            <div className="flex justify-start animate-pulse">
-                                <div className="bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/50 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
-                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                            <div className="flex justify-start">
+                                <div className="bg-stone-100 dark:bg-[#19191d] border border-stone-200/80 dark:border-white/[0.07] rounded-xl px-4 py-3 flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 bg-stone-400 dark:bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+                                    <div className="w-1.5 h-1.5 bg-stone-400 dark:bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                                    <div className="w-1.5 h-1.5 bg-stone-400 dark:bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
                                 </div>
                             </div>
                         )}
@@ -867,7 +840,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                     </div>
 
                     {/* Chat Input */}
-                    <div className="p-3.5 border-t border-slate-200 dark:border-slate-800/90 bg-slate-50/70 dark:bg-[#161d2e]">
+                    <div className="p-3.5 border-t border-stone-200/80 dark:border-white/[0.07] bg-[#f5f5f2] dark:bg-[#161619]">
                         <form 
                             onSubmit={(e) => handleSendMessage(e)} 
                             className={`relative flex items-end gap-2 ${isFullWidth ? 'max-w-3xl mx-auto' : ''}`}
@@ -877,7 +850,6 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                     value={chatInput}
                                     onChange={(e) => {
                                         setChatInput(e.target.value);
-                                        // Auto-resize logic
                                         e.target.style.height = 'auto';
                                         e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
                                     }}
@@ -885,22 +857,21 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault();
                                             handleSendMessage();
-                                            // Reset height
                                             const target = e.target as HTMLTextAreaElement;
                                             target.style.height = 'auto';
                                         }
                                     }}
-                                    placeholder="Message local assistant..."
+                                    placeholder="Ask about this article or discussion..."
                                     rows={1}
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-4 py-3 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all shadow-inner resize-none min-h-[44px] max-h-[200px] custom-scrollbar"
+                                    className="w-full bg-white dark:bg-[#121214] border border-stone-200 dark:border-zinc-800 rounded-lg px-3.5 py-2.5 text-[13px] text-stone-900 dark:text-zinc-100 placeholder-stone-400 dark:placeholder-zinc-500 focus:outline-none focus:border-stone-400 dark:focus:border-zinc-600 transition-colors resize-none min-h-[42px] max-h-[200px] custom-scrollbar"
                                 />
                             </div>
                             <button
                                 type="submit"
                                 disabled={!chatInput.trim() || isChatLoading}
-                                className="p-2.5 rounded-xl bg-indigo-600 text-white disabled:opacity-30 disabled:bg-slate-400 transition-all shadow-lg shadow-indigo-500/20 shrink-0 mb-0.5"
+                                className="p-2.5 rounded-lg bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 disabled:opacity-30 transition-opacity shrink-0 cursor-pointer"
                             >
-                                <ChevronRight size={20} />
+                                <ChevronRight size={18} />
                             </button>
                         </form>
                     </div>

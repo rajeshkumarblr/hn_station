@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Sparkles, X, Download, ShieldCheck, Zap, Monitor, Copy, Check, RefreshCw, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Copy, Check, RefreshCw, ExternalLink, MessageSquare, ArrowRight } from 'lucide-react';
 import type { Story } from '../types';
 import ReactMarkdown from 'react-markdown';
-import { getTagStyle } from '../utils/colors';
+import { fetchWithAuth } from '../utils/api';
 
 interface FilterSidebarProps {
     activeTopics: string[];
@@ -11,19 +11,85 @@ interface FilterSidebarProps {
     setDisabledTopics: React.Dispatch<React.SetStateAction<string[]>>;
     highlightedStory?: Story | null;
     onSummarize?: (id: number) => Promise<any>;
+    onOpenInTab?: (id: number, mode?: 'article' | 'discussion' | 'split', keepOpen?: boolean, storyOverride?: Story) => void;
+    apiBase?: string;
     user: any;
     topicMatch?: 'any' | 'all' | 'exclusive';
 }
 
+// In-memory cache for hover-dwell article excerpts (keyed by story ID)
+const excerptCache = new Map<number, string[] | null>();
 
+function extractCleanParagraphs(raw: string, contentType: string, title?: string): string[] {
+    if (!raw || !raw.trim()) return [];
+    const titleLower = (title || '').trim().toLowerCase();
+    const boilerplatePattern = /^(accept all|cookie|we use cookies|privacy policy|sign in|log in|subscribe|share this|follow us|copyright ©)/i;
+    const paragraphs: string[] = [];
+    let totalChars = 0;
 
-const AI_COLORS = [
-    'text-blue-500 dark:text-blue-400',
-    'text-emerald-500 dark:text-emerald-400',
-    'text-orange-500 dark:text-orange-400',
-    'text-purple-500 dark:text-purple-400',
-    'text-rose-500 dark:text-rose-400'
-];
+    const pushCandidate = (text: string) => {
+        const cleaned = text.replace(/\s+/g, ' ').trim();
+        if (cleaned.length < 45) return;
+        if (cleaned.toLowerCase() === titleLower) return;
+        if (boilerplatePattern.test(cleaned)) return;
+        if (paragraphs.length >= 4 || totalChars >= 950) return;
+        const remaining = 1050 - totalChars;
+        const clipped = cleaned.length > remaining + 40
+            ? cleaned.slice(0, remaining).replace(/\s+\S*$/, '') + '…'
+            : cleaned;
+        paragraphs.push(clipped);
+        totalChars += clipped.length;
+    };
+
+    if (contentType === 'markdown') {
+        const stripped = raw
+            .replace(/```[\s\S]*?```/g, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)/g, '')
+            .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+            .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+            .replace(/^#{1,6}\s+.*$/gm, '')
+            .replace(/[*_`~]/g, '');
+
+        for (const block of stripped.split(/\n\s*\n/)) {
+            if (paragraphs.length >= 4 || totalChars >= 950) break;
+            if (/^\s*[-|+:=]{3,}\s*$/.test(block)) continue;
+            pushCandidate(block);
+        }
+        return paragraphs;
+    }
+
+    if (typeof window !== 'undefined') {
+        const doc = new DOMParser().parseFromString(raw, 'text/html');
+        doc.querySelectorAll('script, style, nav, header, footer, aside, svg, figure, table, form, button, noscript, iframe').forEach(el => el.remove());
+
+        const pNodes = Array.from(doc.querySelectorAll('p'));
+        for (const p of pNodes) {
+            if (paragraphs.length >= 4 || totalChars >= 950) break;
+            pushCandidate(p.textContent || '');
+        }
+
+        if (paragraphs.length === 0 && doc.body?.textContent) {
+            for (const block of doc.body.textContent.split(/\n+/)) {
+                if (paragraphs.length >= 4 || totalChars >= 950) break;
+                pushCandidate(block);
+            }
+        }
+    }
+
+    return paragraphs;
+}
+
+function formatTimeAgo(ts?: string): string {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    const s = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+    if (s >= 86400) return Math.floor(s / 86400) + 'd';
+    if (s >= 3600) return Math.floor(s / 3600) + 'h';
+    if (s >= 60) return Math.floor(s / 60) + 'm';
+    return s + 's';
+}
 
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     activeTopics,
@@ -32,24 +98,82 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     setDisabledTopics,
     highlightedStory,
     onSummarize,
+    onOpenInTab,
+    apiBase,
     user,
     topicMatch = 'any',
 }) => {
-    const [isFeaturesModalOpen, setIsFeaturesModalOpen] = useState(false);
     const [summarizing, setSummarizing] = useState(false);
     const [copied, setCopied] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    React.useEffect(() => {
+    // Dwell-loaded article excerpt state
+    const [excerptParagraphs, setExcerptParagraphs] = useState<string[] | null>(null);
+    const [excerptLoading, setExcerptLoading] = useState(false);
+
+    useEffect(() => {
         setErrorMsg(null);
     }, [highlightedStory?.id]);
+
+    // Auto-fetch clean opening paragraphs after a 550ms dwell on a story
+    useEffect(() => {
+        const storyId = highlightedStory?.id;
+        const storyUrl = highlightedStory?.url;
+        const storyTitle = highlightedStory?.title;
+
+        if (!storyId || !storyUrl || !apiBase) {
+            setExcerptParagraphs(null);
+            setExcerptLoading(false);
+            return;
+        }
+
+        if (excerptCache.has(storyId)) {
+            setExcerptParagraphs(excerptCache.get(storyId) ?? null);
+            setExcerptLoading(false);
+            return;
+        }
+
+        setExcerptParagraphs(null);
+        setExcerptLoading(false);
+
+        const controller = new AbortController();
+        const dwellTimer = window.setTimeout(() => {
+            setExcerptLoading(true);
+            fetchWithAuth(`${apiBase}/api/stories/${storyId}/content`, { signal: controller.signal })
+                .then(res => (res.ok ? res.json() : null))
+                .then(data => {
+                    if (controller.signal.aborted) return;
+                    const paras = data?.content
+                        ? extractCleanParagraphs(data.content, data.content_type || 'html', storyTitle)
+                        : [];
+                    const result = paras.length > 0 ? paras : null;
+                    excerptCache.set(storyId, result);
+                    setExcerptParagraphs(result);
+                })
+                .catch(err => {
+                    if (err?.name !== 'AbortError') {
+                        excerptCache.set(storyId, null);
+                    }
+                })
+                .finally(() => {
+                    if (!controller.signal.aborted) {
+                        setExcerptLoading(false);
+                    }
+                });
+        }, 550);
+
+        return () => {
+            window.clearTimeout(dwellTimer);
+            controller.abort();
+        };
+    }, [highlightedStory?.id, highlightedStory?.url, highlightedStory?.title, apiBase]);
 
     const handleCopy = async () => {
         if (!highlightedStory?.summary) return;
         try {
             await navigator.clipboard.writeText(highlightedStory.summary);
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            setTimeout(() => setCopied(false), 1800);
         } catch (err) {
             console.error('Failed to copy!', err);
         }
@@ -71,279 +195,261 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         }
     };
 
-
-
+    const domain = (() => {
+        try {
+            if (highlightedStory?.url) {
+                return new URL(highlightedStory.url).hostname.replace(/^www\./, '');
+            }
+        } catch { }
+        return '';
+    })();
 
     const summary = highlightedStory?.summary ?? null;
-    const hasSummary = summary && summary.trim().length > 0;
+    const hasSummary = Boolean(summary && summary.trim().length > 0);
     const aiEnabled = user?.ai_summaries_enabled;
 
-    return (
-        <div className="flex-1 shrink-0 h-full border-l border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#161d2e] backdrop-blur-xl hidden md:flex flex-col gap-0 overflow-hidden">
+    const summaryLines = hasSummary
+        ? summary!
+              .split('\n')
+              .map(line => line.trim())
+              .filter(line => line.length > 0)
+              .map(line => {
+                  const match = line.match(/^\s*(?:[-*•]|\d+\.)\s+(.*)/);
+                  return match ? match[1].trim() : line;
+              })
+        : [];
 
-            {/* ── AI Summary & Suggested Tags (Top 70%) ─────────────────────────────────── */}
-            {(aiEnabled || hasSummary) ? (
-                <div className="flex-1 overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-4 duration-500">
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#1a2234]/60">
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <Sparkles size={12} className="text-amber-500" />
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">Article Insight</h3>
-                            </div>
-                        </div>
-                        
-                        {hasSummary && (
-                            <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={handleCopy}
-                                    title="Copy Summary"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-                                >
-                                    {copied ? <Check size={12} /> : <Copy size={12} />}
-                                </button>
-                                <button 
-                                    onClick={handleRegen}
-                                    disabled={summarizing}
-                                    title="Regenerate Summary"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700 disabled:opacity-50"
-                                >
-                                    <RefreshCw size={12} className={summarizing ? "animate-spin" : ""} />
-                                </button>
-                            </div>
+    if (!highlightedStory) {
+        return (
+            <aside className="flex-1 shrink-0 h-full border-l border-stone-200/80 dark:border-white/[0.07] bg-[#f5f5f2] dark:bg-[#161619] hidden md:flex items-center justify-center p-8 text-center">
+                <p className="text-[13px] text-stone-400 dark:text-zinc-500">
+                    Hover or select a story to preview
+                </p>
+            </aside>
+        );
+    }
+
+    const externalUrl = highlightedStory.url || `https://news.ycombinator.com/item?id=${highlightedStory.id}`;
+
+    return (
+        <aside className="flex-1 shrink-0 h-full border-l border-stone-200/80 dark:border-white/[0.07] bg-[#f5f5f2] dark:bg-[#161619] hidden md:flex flex-col overflow-hidden">
+            {/* Editorial Story Header */}
+            <div className="px-6 pt-5 pb-4 border-b border-stone-200/80 dark:border-white/[0.07] shrink-0">
+                {/* Top Metadata + Quiet Icon Actions */}
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-1.5 text-[11.5px] text-stone-400 dark:text-zinc-500 min-w-0 truncate">
+                        {domain && (
+                            <span className="text-stone-500 dark:text-zinc-400 truncate">{domain}</span>
+                        )}
+                        {domain && <span className="opacity-40">·</span>}
+                        {highlightedStory.time && <span>{formatTimeAgo(highlightedStory.time)}</span>}
+                        {highlightedStory.score != null && (
+                            <>
+                                <span className="opacity-40">·</span>
+                                <span className="tabular-nums">{highlightedStory.score} pts</span>
+                            </>
+                        )}
+                        {highlightedStory.by && (
+                            <>
+                                <span className="opacity-40">·</span>
+                                <span className="truncate">{highlightedStory.by}</span>
+                            </>
                         )}
                     </div>
 
-                    {/* Story Title Context */}
-                    {highlightedStory && (
-                        <div className="relative px-4 py-3.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-amber-50/40 dark:bg-[#1d263b] border-l-[3px] border-l-amber-500">
-                            <p className="text-[14.5px] font-bold text-slate-900 dark:text-slate-100 leading-snug line-clamp-2">
-                                {highlightedStory.title}
-                            </p>
-                            <div className="flex items-center gap-3 mt-2 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                {highlightedStory.by && (
-                                    <span className="text-slate-600 dark:text-slate-300 font-semibold">by {highlightedStory.by}</span>
-                                )}
-                                {highlightedStory.score != null && (
-                                    <span className="flex items-center gap-0.5 text-orange-600 dark:text-amber-400 font-bold">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6" /></svg>
-                                        {highlightedStory.score}
-                                    </span>
-                                )}
-                                {highlightedStory.descendants != null && highlightedStory.descendants > 0 && (
-                                    <span className="flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                        {highlightedStory.descendants}
-                                    </span>
-                                )}
-                                {highlightedStory.time && (
-                                    <span className="flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                        {(() => {
-                                            const d = new Date(highlightedStory.time);
-                                            const s = Math.floor((Date.now() - d.getTime()) / 1000);
-                                            if (s > 86400) return Math.floor(s / 86400) + 'd';
-                                            if (s > 3600) return Math.floor(s / 3600) + 'h';
-                                            if (s > 60) return Math.floor(s / 60) + 'm';
-                                            return s + 's';
-                                        })()}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0 custom-scrollbar">
-                        {hasSummary ? (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                        {hasSummary && (
                             <>
-                                {/* Markdown Summary with Index-Based Colors */}
-                                <div className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed font-medium select-text mb-6">
-                                    <ul className="pl-0 list-none m-0 space-y-2.5">
-                                        {summary.split('\n').filter(line => line.trim().length > 0).map((line, idx) => {
-                                            const colorClass = AI_COLORS[idx % AI_COLORS.length];
-                                            
-                                            // Extract potential bullet or number (e.g., "1.", "-", "*")
-                                            const bulletMatch = line.match(/^\s*([-*•]|\d+\.)\s+(.*)/);
-                                            const bullet = bulletMatch ? bulletMatch[1] : null;
-                                            const content = bulletMatch ? bulletMatch[2] : line.trim();
-                                            
-                                            return (
-                                                <li key={idx} className={`${colorClass} flex gap-0 items-start group p-3 rounded-xl bg-slate-50 dark:bg-[#1c2539] border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-all`}>
-                                                    <div className="flex items-center justify-center w-6 shrink-0 pt-0.5">
-                                                        {bullet && /^\d+\./.test(bullet) ? (
-                                                            <span className="text-[11px] font-black opacity-70 group-hover:opacity-100 transition-opacity leading-none">{bullet}</span>
-                                                        ) : (
-                                                            <ChevronRight size={14} className="opacity-70 group-hover:opacity-100 transition-all" />
-                                                        )}
-                                                    </div>
-
-                                                    <div className="flex-1 text-slate-700 dark:text-slate-200 min-w-0 leading-relaxed">
-                                                        <ReactMarkdown
-                                                            components={{
-                                                                p: ({ node, ...props }) => <span className="block m-0 p-0" {...props} />,
-                                                                strong: ({ node, ...props }) => <strong className="text-indigo-600 dark:text-amber-300 font-bold" {...props} />
-                                                            }}
-                                                        >
-                                                            {content}
-                                                        </ReactMarkdown>
-                                                    </div>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </div>
-
-                                
-                                {/* Article Specific Topics (Suggested) */}
-                                {highlightedStory?.topics && highlightedStory.topics.length > 0 && (
-                                    <div className="mt-4 border-t border-slate-200/80 dark:border-slate-800/80 pt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                        <div className="flex items-center gap-1.5 mb-2.5">
-                                            <Zap size={11} className="text-amber-500" />
-                                            <h4 className="text-[9.5px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Article Topics (Click to Filter)</h4>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {highlightedStory.topics.map(topic => {
-                                                const isPresent = activeTopics.includes(topic);
-                                                const isEnabled = isPresent && !disabledTopics.includes(topic);
-                                                const style = getTagStyle(topic);
-                                                return (
-                                                    <button
-                                                        key={`article-topic-${topic}`}
-                                                        onClick={() => {
-                                                            if (!isPresent) {
-                                                                setActiveTopics(prev => [...new Set([...prev, topic])]);
-                                                                if (topicMatch === 'exclusive') {
-                                                                    setDisabledTopics([...activeTopics]);
-                                                                } else {
-                                                                    setDisabledTopics(prev => prev.filter(x => x !== topic));
-                                                                }
-                                                            } else {
-                                                                if (isEnabled) {
-                                                                    setDisabledTopics(prev => [...new Set([...prev, topic])]);
-                                                                } else {
-                                                                    if (topicMatch === 'exclusive') {
-                                                                        setDisabledTopics(activeTopics.filter(x => x !== topic));
-                                                                    } else {
-                                                                        setDisabledTopics(prev => prev.filter(x => x !== topic));
-                                                                    }
-                                                                }
-                                                            }
-                                                        }}
-                                                        className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all border shadow-sm cursor-pointer ${isEnabled 
-                                                            ? 'scale-105 ring-1 ring-offset-1 dark:ring-offset-[#161d2e] shadow-md' 
-                                                            : 'hover:scale-105'}`}
-                                                        style={{ 
-                                                            backgroundColor: style.bg, 
-                                                            color: style.color, 
-                                                            borderColor: isEnabled ? style.color : style.border
-                                                        }}
-                                                    >
-                                                        {isEnabled ? '✓ ' : '#'}{topic}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
+                                <button
+                                    onClick={handleCopy}
+                                    title="Copy summary"
+                                    className="p-1.5 rounded-md text-stone-400 dark:text-zinc-500 hover:text-stone-800 dark:hover:text-zinc-200 hover:bg-stone-200/70 dark:hover:bg-white/[0.07] transition-colors cursor-pointer"
+                                >
+                                    {copied ? <Check size={13} className="text-stone-700 dark:text-zinc-200" /> : <Copy size={13} />}
+                                </button>
+                                <button
+                                    onClick={handleRegen}
+                                    disabled={summarizing}
+                                    title="Regenerate summary"
+                                    className="p-1.5 rounded-md text-stone-400 dark:text-zinc-500 hover:text-stone-800 dark:hover:text-zinc-200 hover:bg-stone-200/70 dark:hover:bg-white/[0.07] transition-colors cursor-pointer disabled:opacity-40"
+                                >
+                                    <RefreshCw size={13} className={summarizing ? 'animate-spin' : ''} />
+                                </button>
                             </>
-                        ) : aiEnabled ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-8 opacity-80">
-                                <Sparkles size={24} className="text-slate-300 dark:text-slate-700" />
-                                <div className="flex flex-col items-center">
-                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">
-                                        {highlightedStory ? 'Ready to analyze' : 'Hover a story'}
+                        )}
+                        <button
+                            onClick={() => {
+                                (window as any).electronAPI
+                                    ? (window as any).electronAPI.openExternal(externalUrl)
+                                    : window.open(externalUrl, '_blank');
+                            }}
+                            title="Open in default browser"
+                            className="p-1.5 rounded-md text-stone-400 dark:text-zinc-500 hover:text-stone-800 dark:hover:text-zinc-200 hover:bg-stone-200/70 dark:hover:bg-white/[0.07] transition-colors cursor-pointer"
+                        >
+                            <ExternalLink size={13} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Story Headline */}
+                <h2
+                    onClick={() => onOpenInTab?.(highlightedStory.id, highlightedStory.url ? 'article' : 'discussion', false, highlightedStory)}
+                    className="text-[18px] font-semibold leading-[1.32] tracking-[-0.02em] text-stone-900 dark:text-[#f2f2f5] hover:text-[#e06834] dark:hover:text-[#eb7c49] transition-colors cursor-pointer"
+                >
+                    {highlightedStory.title}
+                </h2>
+
+                {/* Clean Primary Actions */}
+                {onOpenInTab && (
+                    <div className="flex items-center gap-2 mt-3.5">
+                        <button
+                            onClick={() => onOpenInTab(highlightedStory.id, highlightedStory.url ? 'article' : 'discussion', false, highlightedStory)}
+                            className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-stone-900 text-white hover:bg-stone-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white transition-colors cursor-pointer"
+                        >
+                            {highlightedStory.url ? 'Read Article' : 'Open Story'}
+                        </button>
+                        <button
+                            onClick={() => onOpenInTab(highlightedStory.id, 'discussion', false, highlightedStory)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-stone-200/70 text-stone-700 hover:bg-stone-200 dark:bg-white/[0.06] dark:text-zinc-300 dark:hover:bg-white/[0.1] transition-colors cursor-pointer"
+                        >
+                            <MessageSquare size={12} />
+                            <span>Discussion{highlightedStory.descendants ? ` (${highlightedStory.descendants})` : ''}</span>
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Scrollable Editorial Body: Takeaways + Dwell Article Excerpt + Quiet Topics */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0 custom-scrollbar space-y-6">
+                {/* 1. Key Takeaways (Unboxed Editorial Serif) */}
+                {(aiEnabled || hasSummary) && (
+                    <section>
+                        <h3 className="text-[11.5px] font-medium text-stone-400 dark:text-zinc-500 mb-3 select-none">
+                            Key takeaways
+                        </h3>
+
+                        {hasSummary ? (
+                            <ul className="space-y-3 m-0 p-0 list-none select-text">
+                                {summaryLines.map((content, idx) => (
+                                    <li key={idx} className="flex items-start gap-3">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#e06834]/75 mt-[10px] shrink-0" />
+                                        <div className="flex-1 font-editorial text-[14.5px] leading-[1.7] text-stone-700 dark:text-[#d6d6dc] min-w-0">
+                                            <ReactMarkdown
+                                                components={{
+                                                    p: ({ node, ...props }) => <span className="block m-0 p-0" {...props} />,
+                                                    strong: ({ node, ...props }) => (
+                                                        <strong className="font-semibold text-stone-900 dark:text-zinc-100" {...props} />
+                                                    ),
+                                                }}
+                                            >
+                                                {content}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <div className="py-2 space-y-3">
+                                <p className="text-[13px] text-stone-500 dark:text-zinc-400 leading-relaxed">
+                                    No summary generated yet for this story.
+                                </p>
+                                <button
+                                    onClick={handleRegen}
+                                    disabled={summarizing}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-stone-200/80 dark:bg-white/[0.08] text-stone-800 dark:text-zinc-200 hover:bg-stone-300/70 dark:hover:bg-white/[0.13] transition-colors cursor-pointer disabled:opacity-50"
+                                >
+                                    <RefreshCw size={12} className={summarizing ? 'animate-spin' : ''} />
+                                    <span>{summarizing ? 'Summarizing…' : 'Generate summary'}</span>
+                                </button>
+                                {errorMsg && (
+                                    <p className="text-[12px] text-red-600 dark:text-red-400 leading-snug break-words select-text">
+                                        {errorMsg}
                                     </p>
-                                    {highlightedStory && (
-                                        <button 
-                                            onClick={handleRegen}
-                                            disabled={summarizing}
-                                            className="mt-4 px-4 py-1.5 bg-blue-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-blue-700 transition-all flex items-center gap-1.5"
-                                        >
-                                            {summarizing ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                                            {summarizing ? 'Summarizing...' : 'Summarize Article'}
-                                        </button>
-                                    )}
-                                    {errorMsg && (
-                                        <p className="mt-3 px-3 py-2 text-[11px] text-rose-500 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg max-w-[240px] leading-snug break-words select-text">
-                                            {errorMsg}
-                                        </p>
-                                    )}
-                                </div>
+                                )}
                             </div>
-                        ) : null}
-                    </div>
-                </div>
-            ) : null}
+                        )}
+                    </section>
+                )}
 
-            {/* Removed bottom pane for deskop-cleanliness */}
-
-            {/* Features Modal */}
-            {isFeaturesModalOpen && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#0f172a] rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                <Monitor size={18} className="text-blue-500" />
-                                Desktop Features
-                            </h2>
-                            <button
-                                onClick={() => setIsFeaturesModalOpen(false)}
-                                className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
+                {/* 2. Dwell-Loaded Article Excerpt */}
+                {highlightedStory.url && (excerptLoading || (excerptParagraphs && excerptParagraphs.length > 0)) && (
+                    <section className="pt-5 border-t border-stone-200/80 dark:border-white/[0.07]">
+                        <div className="flex items-center justify-between mb-3 select-none">
+                            <h3 className="text-[11.5px] font-medium text-stone-400 dark:text-zinc-500">
+                                From the article
+                            </h3>
+                            {excerptLoading && (
+                                <span className="text-[11px] text-stone-400 dark:text-zinc-500">Loading preview…</span>
+                            )}
                         </div>
 
-                        <div className="p-6 space-y-6">
-                            <div className="space-y-4">
-                                <div className="flex gap-4">
-                                    <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl h-fit">
-                                        <ShieldCheck className="text-emerald-600 dark:text-emerald-400" size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">100% Private & Offline-first</h4>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                            Your data never leaves your machine. Local AI ensures absolute privacy.
+                        {excerptParagraphs && excerptParagraphs.length > 0 && (
+                            <div className="space-y-3 select-text">
+                                <div className="relative space-y-3 font-editorial text-[14px] leading-[1.72] text-stone-600 dark:text-zinc-400">
+                                    {excerptParagraphs.map((para, idx) => (
+                                        <p key={idx} className="m-0">
+                                            {para}
                                         </p>
-                                    </div>
+                                    ))}
                                 </div>
 
-                                <div className="flex gap-4">
-                                    <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl h-fit">
-                                        <Sparkles className="text-amber-600 dark:text-amber-400" size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Local LLM Integration</h4>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                            Directly connects with Ollama to run Llama3, Mistral, and more locally.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-4">
-                                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl h-fit">
-                                        <Zap className="text-blue-600 dark:text-blue-400" size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Multi-tab Workspace</h4>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                            Powerful split-view and tab management for deep research.
-                                        </p>
-                                    </div>
-                                </div>
+                                {onOpenInTab && (
+                                    <button
+                                        onClick={() => onOpenInTab(highlightedStory.id, 'article', false, highlightedStory)}
+                                        className="inline-flex items-center gap-1 pt-1 text-[12px] font-medium text-stone-600 dark:text-zinc-300 hover:text-[#e06834] dark:hover:text-[#eb7c49] transition-colors cursor-pointer"
+                                    >
+                                        <span>Continue reading</span>
+                                        <ArrowRight size={12} />
+                                    </button>
+                                )}
                             </div>
+                        )}
+                    </section>
+                )}
 
-                            <a
-                                href="/api/download/latest"
-                                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 transition-all font-bold text-sm"
-                            >
-                                <Download size={18} />
-                                Download for Windows
-                            </a>
+                {/* 3. Quiet Monochrome Topic Chips */}
+                {highlightedStory.topics && highlightedStory.topics.length > 0 && (
+                    <section className="pt-5 border-t border-stone-200/80 dark:border-white/[0.07]">
+                        <h4 className="text-[11.5px] font-medium text-stone-400 dark:text-zinc-500 mb-2.5 select-none">
+                            Topics
+                        </h4>
+                        <div className="flex flex-wrap gap-1.5">
+                            {highlightedStory.topics.map(topic => {
+                                const isPresent = activeTopics.includes(topic);
+                                const isEnabled = isPresent && !disabledTopics.includes(topic);
+                                return (
+                                    <button
+                                        key={`article-topic-${topic}`}
+                                        onClick={() => {
+                                            if (!isPresent) {
+                                                setActiveTopics(prev => [...new Set([...prev, topic])]);
+                                                if (topicMatch === 'exclusive') {
+                                                    setDisabledTopics([...activeTopics]);
+                                                } else {
+                                                    setDisabledTopics(prev => prev.filter(x => x !== topic));
+                                                }
+                                            } else if (isEnabled) {
+                                                setDisabledTopics(prev => [...new Set([...prev, topic])]);
+                                            } else if (topicMatch === 'exclusive') {
+                                                setDisabledTopics(activeTopics.filter(x => x !== topic));
+                                            } else {
+                                                setDisabledTopics(prev => prev.filter(x => x !== topic));
+                                            }
+                                        }}
+                                        className={`px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer ${
+                                            isEnabled
+                                                ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                                : 'bg-stone-200/65 text-stone-600 hover:bg-stone-200 hover:text-stone-900 dark:bg-white/[0.06] dark:text-zinc-400 dark:hover:bg-white/[0.1] dark:hover:text-zinc-200'
+                                        }`}
+                                    >
+                                        {topic}
+                                    </button>
+                                );
+                            })}
                         </div>
-                    </div>
-                </div>
-            )}
-
-        </div>
+                    </section>
+                )}
+            </div>
+        </aside>
     );
 };

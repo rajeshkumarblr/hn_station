@@ -216,10 +216,10 @@ export function ReaderPane({
                         document.head.appendChild(scrollStyle);
                     }
                     scrollStyle.textContent = \`
-                        ::-webkit-scrollbar { width: 10px !important; height: 10px !important; }
-                        ::-webkit-scrollbar-track { background: ${isDark ? '#0f172a' : '#f1f5f9'} !important; }
-                        ::-webkit-scrollbar-thumb { background: ${isDark ? '#334155' : '#cbd5e1'} !important; border-radius: 9999px !important; border: 2px solid ${isDark ? '#0f172a' : '#f1f5f9'} !important; }
-                        ::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#475569' : '#94a3b8'} !important; }
+                        ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+                        ::-webkit-scrollbar-track { background: ${isDark ? '#141416' : '#fafaf8'} !important; }
+                        ::-webkit-scrollbar-thumb { background: ${isDark ? '#323238' : '#d6d3d1'} !important; border-radius: 9999px !important; border: 2px solid ${isDark ? '#141416' : '#fafaf8'} !important; }
+                        ::-webkit-scrollbar-thumb:hover { background: ${isDark ? '#52525b' : '#a8a29e'} !important; }
                     \`;
 
                     // 2. Handle Safe Dark Mode
@@ -229,13 +229,13 @@ export function ReaderPane({
                             darkStyle = document.createElement('style');
                             darkStyle.id = darkId;
                             darkStyle.textContent = \`
-                                html, body { background-color: #0f172a !important; color: #cbd5e1 !important; }
+                                html, body { background-color: #141416 !important; color: #d4d4d8 !important; }
                                 div, section, main, article, header, footer, nav, aside { background-color: transparent !important; }
-                                p, span, li, a, b, strong, i, em, h1, h2, h3, h4, h5, h6 { color: #cbd5e1 !important; }
-                                h1, h2, h3, h4, h5, h6 { color: #f8fafc !important; }
-                                a { color: #38bdf8 !important; }
-                                pre, code { background-color: #1e293b !important; color: #e2e8f0 !important; padding: 4px !important; border-radius: 4px !important; }
-                                * { border-color: #334155 !important; }
+                                p, span, li, a, b, strong, i, em, h1, h2, h3, h4, h5, h6 { color: #d4d4d8 !important; }
+                                h1, h2, h3, h4, h5, h6 { color: #f4f4f5 !important; }
+                                a { color: #eb7c49 !important; }
+                                pre, code { background-color: #1e1e22 !important; color: #e4e4e7 !important; padding: 4px !important; border-radius: 4px !important; }
+                                * { border-color: #27272a !important; }
                             \`;
                             document.head.appendChild(darkStyle);
                         }
@@ -618,11 +618,11 @@ export function ReaderPane({
     const commentCount = comments.length > 0 ? comments.length : (story.descendants || 0);
 
     return (
-        <div className="relative h-full flex flex-col bg-white dark:bg-[#131824] overflow-hidden">
+        <div className="relative h-full flex flex-col bg-[#fafaf8] dark:bg-[#121214] overflow-hidden">
             
             {/* Slim Single Reader Toolbar */}
             {!isWebMode && (
-                <div className="flex items-center justify-between gap-3 px-3.5 h-[42px] bg-slate-50 dark:bg-[#161d2e] border-b border-slate-200 dark:border-slate-800/90 shrink-0 select-none">
+                <div className="flex items-center justify-between gap-3 px-3.5 h-[40px] bg-[#fafaf8] dark:bg-[#161619] border-b border-stone-200/80 dark:border-white/[0.07] shrink-0 select-none">
                     {/* Left: Compact Navigation & URL */}
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
                         {showArticlePane && !isReaderMode && (
@@ -630,22 +630,22 @@ export function ReaderPane({
                                 <button 
                                     onClick={() => articleWebviewRef.current?.goBack()} 
                                     disabled={!canGoBack}
-                                    className={`p-1 rounded-md transition-colors ${canGoBack ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 cursor-pointer' : 'text-slate-300 dark:text-slate-700'}`}
+                                    className={`p-1 rounded-md transition-colors ${canGoBack ? 'text-stone-600 dark:text-zinc-300 hover:bg-stone-200/60 dark:hover:bg-white/[0.06] cursor-pointer' : 'text-stone-300 dark:text-zinc-700'}`}
                                     title="Go Back"
                                 >
-                                    <ChevronLeft size={16} />
+                                    <ChevronLeft size={15} />
                                 </button>
                                 <button 
                                     onClick={() => articleWebviewRef.current?.goForward()} 
                                     disabled={!canGoForward}
-                                    className={`p-1 rounded-md transition-colors ${canGoForward ? 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 cursor-pointer' : 'text-slate-300 dark:text-slate-700'}`}
+                                    className={`p-1 rounded-md transition-colors ${canGoForward ? 'text-stone-600 dark:text-zinc-300 hover:bg-stone-200/60 dark:hover:bg-white/[0.06] cursor-pointer' : 'text-stone-300 dark:text-zinc-700'}`}
                                     title="Go Forward"
                                 >
-                                    <ChevronRight size={16} />
+                                    <ChevronRight size={15} />
                                 </button>
                                 <button 
                                     onClick={() => articleWebviewRef.current?.reload()} 
-                                    className={`p-1 rounded-md transition-colors text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 cursor-pointer ${isLoading ? 'animate-spin' : ''}`}
+                                    className={`p-1 rounded-md transition-colors text-stone-600 dark:text-zinc-300 hover:bg-stone-200/60 dark:hover:bg-white/[0.06] cursor-pointer ${isLoading ? 'animate-spin' : ''}`}
                                     title="Reload page"
                                 >
                                     <RefreshCw size={13} />
@@ -656,7 +656,7 @@ export function ReaderPane({
                         {onToggleSave && (
                             <button 
                                 onClick={() => onToggleSave(story.id, !story.is_saved)} 
-                                className={`p-1.5 rounded-md transition-colors shrink-0 cursor-pointer ${story.is_saved ? 'text-amber-500 hover:bg-amber-500/10' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-800'}`} 
+                                className={`p-1.5 rounded-md transition-colors shrink-0 cursor-pointer ${story.is_saved ? 'text-[#e06834]' : 'text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-200 hover:bg-stone-200/60 dark:hover:bg-white/[0.06]'}`} 
                                 title={story.is_saved ? 'Remove bookmark' : 'Bookmark story'}
                             >
                                 <Bookmark size={14} fill={story.is_saved ? "currentColor" : "none"} />
@@ -676,22 +676,22 @@ export function ReaderPane({
                                     articleWebviewRef.current.src = targetUrl;
                                 }
                             }}
-                            className="flex-1 max-w-xl flex items-center bg-white dark:bg-[#111726] border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 gap-2 group focus-within:ring-1 focus-within:ring-sky-500/40"
+                            className="flex-1 max-w-xl flex items-center bg-stone-200/50 dark:bg-white/[0.04] border border-transparent focus-within:border-stone-300 dark:focus-within:border-zinc-700 rounded-md px-2.5 py-1 gap-2 transition-colors"
                         >
-                            <Lock size={11} className="text-emerald-500/70 shrink-0" />
+                            <Lock size={11} className="text-stone-400 dark:text-zinc-500 shrink-0" />
                             <input 
                                 ref={addressInputRef}
                                 type="text"
                                 value={urlInput}
                                 onChange={(e) => setUrlInput(e.target.value)}
-                                className="flex-1 bg-transparent text-[12px] text-slate-600 dark:text-slate-300 outline-none w-full truncate"
+                                className="flex-1 bg-transparent text-[12px] text-stone-600 dark:text-zinc-300 outline-none w-full truncate"
                                 spellCheck={false}
                             />
                             <div className="flex items-center gap-0.5 shrink-0">
                                 <button 
                                     type="button"
                                     onClick={handleCopyLink}
-                                    className={`p-1 rounded transition-colors cursor-pointer ${isCopied ? 'text-emerald-500' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                                    className={`p-1 rounded transition-colors cursor-pointer ${isCopied ? 'text-stone-900 dark:text-zinc-100' : 'text-stone-400 dark:text-zinc-500 hover:text-stone-700 dark:hover:text-zinc-200'}`}
                                     title="Copy URL"
                                 >
                                     {isCopied ? <Check size={12} /> : <Link size={12} />}
@@ -700,7 +700,7 @@ export function ReaderPane({
                                     href={currentUrl} 
                                     target="_blank" 
                                     rel="noreferrer" 
-                                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition-colors"
+                                    className="p-1 text-stone-400 dark:text-zinc-500 hover:text-stone-700 dark:hover:text-zinc-200 rounded transition-colors"
                                     title="Open in default browser"
                                 >
                                     <ExternalLink size={12} />
@@ -713,81 +713,80 @@ export function ReaderPane({
                     <div className="flex items-center gap-2 shrink-0">
                         {/* Reader vs Live Web Toggle (only when viewing Article or Split) */}
                         {showArticlePane && story.url && (
-                            <div className="flex items-center bg-slate-200/70 dark:bg-[#111726] border border-slate-200 dark:border-slate-800 rounded-lg p-0.5">
+                            <div className="flex items-center bg-stone-200/60 dark:bg-white/[0.05] rounded-md p-0.5">
                                 <button
                                     onClick={() => toggleReaderMode(true)}
-                                    className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${isReaderMode ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    className={`px-2 py-0.5 rounded-[5px] text-[11.5px] font-medium flex items-center gap-1 transition-colors cursor-pointer ${isReaderMode ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm' : 'text-stone-500 dark:text-zinc-400 hover:text-stone-800 dark:hover:text-zinc-200'}`}
                                     title="Clean distraction-free Reader Mode (R)"
                                 >
-                                    <BookOpen size={12} />
+                                    <BookOpen size={11} />
                                     <span>Reader</span>
                                 </button>
                                 <button
                                     onClick={() => toggleReaderMode(false)}
-                                    className={`px-2 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${!isReaderMode ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    className={`px-2 py-0.5 rounded-[5px] text-[11.5px] font-medium flex items-center gap-1 transition-colors cursor-pointer ${!isReaderMode ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm' : 'text-stone-500 dark:text-zinc-400 hover:text-stone-800 dark:hover:text-zinc-200'}`}
                                     title="Original Live Webpage (R)"
                                 >
-                                    <Globe size={12} />
+                                    <Globe size={11} />
                                     <span>Web</span>
                                 </button>
                                 {!isReaderMode && (
                                     <button
                                         onClick={() => setArticleDarkMode(prev => prev === 'dark' ? 'original' : 'dark')}
-                                        className={`p-1 ml-0.5 rounded-md transition-colors cursor-pointer ${articleDarkMode === 'dark' ? 'text-amber-400 bg-slate-700/60' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                                        className={`p-1 ml-0.5 rounded-[5px] transition-colors cursor-pointer ${articleDarkMode === 'dark' ? 'text-[#e06834] bg-white dark:bg-zinc-800' : 'text-stone-400 dark:text-zinc-500 hover:text-stone-700 dark:hover:text-zinc-200'}`}
                                         title={articleDarkMode === 'dark' ? 'Switch webpage to original light colors' : 'Apply dark mode to webpage'}
                                     >
-                                        {articleDarkMode === 'dark' ? <Moon size={12} /> : <Sun size={12} />}
+                                        {articleDarkMode === 'dark' ? <Moon size={11} /> : <Sun size={11} />}
                                     </button>
                                 )}
                             </div>
                         )}
 
                         {/* Primary Single-Focus Mode Switcher: Article | Discussion | AI */}
-                        <div className="flex items-center bg-slate-200/70 dark:bg-[#111726] border border-slate-200 dark:border-slate-800 rounded-lg p-0.5">
+                        <div className="flex items-center bg-stone-200/60 dark:bg-white/[0.05] rounded-md p-0.5">
                             <button 
                                 onClick={() => switchViewMode('article')}
-                                className={`px-2.5 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${viewMode === 'article' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                className={`px-2.5 py-0.5 rounded-[5px] transition-colors text-[11.5px] font-medium flex items-center gap-1.5 cursor-pointer ${viewMode === 'article' ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm' : 'text-stone-500 dark:text-zinc-400 hover:text-stone-800 dark:hover:text-zinc-200'}`}
                                 title="Full-width Article (1)"
                             >
-                                <FileText size={13} />
+                                <FileText size={12} />
                                 <span>Article</span>
                             </button>
                             <button 
                                 onClick={() => switchViewMode('discussion')}
-                                className={`px-2.5 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${viewMode === 'discussion' ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                className={`px-2.5 py-0.5 rounded-[5px] transition-colors text-[11.5px] font-medium flex items-center gap-1.5 cursor-pointer ${viewMode === 'discussion' ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm' : 'text-stone-500 dark:text-zinc-400 hover:text-stone-800 dark:hover:text-zinc-200'}`}
                                 title="Full-width Discussion (2)"
                             >
-                                <MessageSquare size={13} />
+                                <MessageSquare size={12} />
                                 <span>Discussion{commentCount > 0 ? ` (${commentCount})` : ''}</span>
                             </button>
                             <button 
                                 onClick={() => switchViewMode('ai')}
-                                className={`px-2.5 py-1 rounded-md transition-all text-[11px] font-bold flex items-center gap-1.5 cursor-pointer ${viewMode === 'ai' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                                title="Full-width AI Summary & Chat (3)"
+                                className={`px-2.5 py-0.5 rounded-[5px] transition-colors text-[11.5px] font-medium flex items-center gap-1.5 cursor-pointer ${viewMode === 'ai' ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm' : 'text-stone-500 dark:text-zinc-400 hover:text-stone-800 dark:hover:text-zinc-200'}`}
+                                title="Full-width Summary & Q&A (3)"
                             >
-                                <Sparkles size={13} />
-                                <span>AI</span>
+                                <span>Ask AI</span>
                             </button>
                         </div>
 
                         {/* Clear Maximize / Restore Split Toggle */}
                         <button
                             onClick={() => switchViewMode(viewMode === 'split' ? 'article' : 'split')}
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer ${
                                 viewMode === 'split'
-                                    ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-600 dark:text-indigo-300'
-                                    : 'bg-white dark:bg-[#111726] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                                    ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                    : 'bg-stone-200/60 dark:bg-white/[0.05] text-stone-600 dark:text-zinc-300 hover:text-stone-900 dark:hover:text-white'
                             }`}
-                            title={viewMode === 'split' ? 'Maximize Article (4)' : 'Restore Side-by-Side Split View (4)'}
+                            title={viewMode === 'split' ? 'Maximize Article (4)' : 'Side-by-Side Split View (4)'}
                         >
                             {viewMode === 'split' ? (
                                 <>
-                                    <Maximize2 size={12} />
-                                    <span>Maximize Article</span>
+                                    <Maximize2 size={11} />
+                                    <span>Maximize</span>
                                 </>
                             ) : (
                                 <>
-                                    <Minimize2 size={12} />
+                                    <Minimize2 size={11} />
                                     <span>Split</span>
                                 </>
                             )}
@@ -810,62 +809,62 @@ export function ReaderPane({
                 {(!isWebMode || (isMobileView && mobileTab === 'article')) && (
                     <div 
                         ref={paneRef} 
-                        className="flex-1 bg-white dark:bg-[#131824] relative overflow-hidden h-full"
+                        className="flex-1 bg-[#fafaf8] dark:bg-[#121214] relative overflow-hidden h-full"
                         style={{ display: showArticlePane ? 'block' : 'none' }}
                     >
                         {/* Clean Reader Mode Overlay */}
                         {isReaderMode && story.url && (
-                            <div className="absolute inset-0 z-20 overflow-y-auto custom-scrollbar bg-[#faf9f6] dark:bg-[#131824] px-6 py-8 sm:px-10">
-                                <article className="max-w-3xl mx-auto pb-20">
-                                    <header className="mb-8 pb-6 border-b border-slate-200 dark:border-slate-800">
-                                        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 leading-tight mb-3">
+                            <div className="absolute inset-0 z-20 overflow-y-auto custom-scrollbar bg-[#fafaf8] dark:bg-[#141416] px-6 py-10 sm:px-12">
+                                <article className="max-w-2xl mx-auto pb-20">
+                                    <header className="mb-8 pb-6 border-b border-stone-200/80 dark:border-white/[0.08]">
+                                        <h1 className="text-2xl sm:text-[28px] font-semibold tracking-[-0.02em] text-stone-900 dark:text-[#f2f2f5] leading-[1.25] mb-3">
                                             {readerContent?.title || story.title}
                                         </h1>
-                                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                            <span>{(() => { try { return new URL(storyUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>
+                                        <div className="flex flex-wrap items-center gap-2 text-[12px] text-stone-400 dark:text-zinc-500">
+                                            <span className="text-stone-600 dark:text-zinc-400">{(() => { try { return new URL(storyUrl).hostname.replace(/^www\./, ''); } catch { return ''; } })()}</span>
                                             <span>·</span>
-                                            <span>▲ {story.score} points</span>
+                                            <span>{story.score} points</span>
                                             <span>·</span>
                                             <button
                                                 onClick={() => switchViewMode('discussion')}
-                                                className="text-orange-600 dark:text-orange-400 hover:underline font-semibold cursor-pointer"
+                                                className="text-stone-700 dark:text-zinc-300 hover:text-[#e06834] transition-colors font-medium cursor-pointer"
                                             >
-                                                {commentCount} comments →
+                                                {commentCount} comments
                                             </button>
                                             <span>·</span>
                                             <button
                                                 onClick={() => toggleReaderMode(false)}
-                                                className="text-sky-600 dark:text-sky-400 hover:underline font-semibold cursor-pointer"
+                                                className="text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                                             >
-                                                View original webpage
+                                                Original page
                                             </button>
                                         </div>
                                     </header>
 
                                     {readerLoading ? (
-                                        <div className="py-16 flex flex-col items-center gap-3 text-slate-400">
-                                            <RefreshCw size={22} className="animate-spin text-sky-500" />
-                                            <span className="text-xs font-medium">Extracting clean article text...</span>
+                                        <div className="py-16 flex flex-col items-center gap-3 text-stone-400 dark:text-zinc-500">
+                                            <RefreshCw size={18} className="animate-spin" />
+                                            <span className="text-[12.5px]">Loading article…</span>
                                         </div>
                                     ) : readerError ? (
                                         <div className="py-12 text-center space-y-4">
-                                            <p className="text-sm text-slate-500 dark:text-slate-400">{readerError}</p>
+                                            <p className="text-[13px] text-stone-500 dark:text-zinc-400">{readerError}</p>
                                             <button
                                                 onClick={() => toggleReaderMode(false)}
-                                                className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer"
+                                                className="px-4 py-2 rounded-lg bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[12px] font-medium cursor-pointer"
                                             >
-                                                Switch to Live Web View
+                                                Switch to Web View
                                             </button>
                                         </div>
                                     ) : readerContent?.content_type === 'markdown' ? (
-                                        <div className="prose prose-slate dark:prose-invert prose-base sm:prose-lg max-w-none leading-relaxed prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-800">
+                                        <div className="reader-prose prose prose-stone dark:prose-invert prose-base max-w-none leading-[1.78] prose-pre:bg-[#1c1c20] prose-pre:border prose-pre:border-white/[0.08]">
                                             <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
                                                 {readerContent.content}
                                             </ReactMarkdown>
                                         </div>
                                     ) : readerContent?.content ? (
                                         <div
-                                            className="prose prose-slate dark:prose-invert prose-base sm:prose-lg max-w-none leading-[1.75] prose-headings:font-bold prose-a:text-sky-600 dark:prose-a:text-sky-400 prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-pre:rounded-xl prose-img:rounded-xl"
+                                            className="reader-prose prose prose-stone dark:prose-invert prose-base max-w-none leading-[1.78] prose-headings:font-semibold prose-a:text-[#c85624] dark:prose-a:text-[#eb7c49] prose-pre:bg-[#1c1c20] prose-pre:text-zinc-100 prose-pre:rounded-lg prose-img:rounded-lg"
                                             dangerouslySetInnerHTML={{ __html: sanitizeReaderHtml(readerContent.content) }}
                                         />
                                     ) : null}
@@ -874,7 +873,7 @@ export function ReaderPane({
                         )}
 
                         {!isActive ? (
-                            <div className="w-full h-full bg-slate-50 dark:bg-[#131824]" />
+                            <div className="w-full h-full bg-[#fafaf8] dark:bg-[#121214]" />
                         ) : !isWebMode ? (
                             <webview
                                 ref={articleWebviewRef}
@@ -884,16 +883,16 @@ export function ReaderPane({
                                 title="Article Web View"
                             />
                         ) : iframeBlocked ? (
-                            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-[#131824]">
-                                <div className="w-16 h-16 bg-red-100 dark:bg-red-950/20 rounded-full flex items-center justify-center mb-4">
-                                    <ExternalLink size={32} className="text-red-500" />
+                            <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-[#fafaf8] dark:bg-[#121214]">
+                                <div className="w-12 h-12 bg-stone-200/70 dark:bg-white/[0.06] rounded-full flex items-center justify-center mb-4">
+                                    <ExternalLink size={20} className="text-stone-500 dark:text-zinc-400" />
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Iframe Preview Blocked</h3>
-                                <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm text-sm">
-                                    This website prohibits being nested in other apps. Please use the comments or AI summaries on other tabs, or open the link below.
+                                <h3 className="text-base font-semibold text-stone-900 dark:text-zinc-100 mb-2">Embed Blocked</h3>
+                                <p className="text-stone-500 dark:text-zinc-400 mb-6 max-w-sm text-[13px]">
+                                    This website prohibits embedding. You can open it directly in your browser.
                                 </p>
-                                <a href={storyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-lg shadow-orange-500/20 transition-all">
-                                    Open Original Article <ExternalLink size={14} />
+                                <a href={storyUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 rounded-lg text-[12.5px] font-medium transition-opacity hover:opacity-90">
+                                    Open Original Article <ExternalLink size={13} />
                                 </a>
                             </div>
                         ) : (
@@ -911,9 +910,9 @@ export function ReaderPane({
                 {isSplit && (
                     <div 
                         onMouseDown={startResizing}
-                        className={`w-1 cursor-col-resize hover:bg-sky-500/40 transition-colors z-50 flex items-center justify-center group ${isResizing ? 'bg-sky-500' : 'bg-transparent'}`}
+                        className={`w-1 cursor-col-resize hover:bg-stone-400/40 dark:hover:bg-zinc-600/40 transition-colors z-50 flex items-center justify-center group ${isResizing ? 'bg-[#e06834]/50' : 'bg-transparent'}`}
                     >
-                        <div className="w-[1px] h-8 bg-slate-300 dark:bg-slate-700 group-hover:bg-sky-400"></div>
+                        <div className="w-[1px] h-8 bg-stone-300 dark:bg-zinc-700" />
                     </div>
                 )}
 

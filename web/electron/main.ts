@@ -273,7 +273,7 @@ ipcMain.on('set-theme', (_event, theme: string) => {
     if (theme === 'dark' || theme === 'light' || theme === 'system') {
         nativeTheme.themeSource = theme;
         if (win && !win.isDestroyed()) {
-            win.setBackgroundColor(theme === 'light' ? '#f8fafc' : '#131824');
+            win.setBackgroundColor(theme === 'light' ? '#fafaf8' : '#121214');
         }
     }
 });
@@ -291,7 +291,7 @@ function createWindow() {
         show: false,
         frame: true,
         autoHideMenuBar: !isMac,
-        backgroundColor: nativeTheme.shouldUseDarkColors ? '#131824' : '#f8fafc',
+        backgroundColor: nativeTheme.shouldUseDarkColors ? '#121214' : '#fafaf8',
         icon: path.join(process.env.VITE_PUBLIC!, 'hn.ico'),
         webPreferences: {
             webviewTag: true,

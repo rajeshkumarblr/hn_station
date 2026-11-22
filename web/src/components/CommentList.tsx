@@ -136,12 +136,12 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
 
     return (
         <div
-            className={`text-sm group/comment relative transition-colors duration-150 ${isActive ? '-mx-3 px-3 border-l-2 border-amber-500/80 bg-amber-500/5 rounded-r-lg' : 'border-l-2 border-transparent'}`}
+            className={`text-sm group/comment relative transition-colors duration-100 ${isActive ? '-mx-3 px-3 border-l-2 border-[#e06834] bg-stone-200/40 dark:bg-white/[0.04] rounded-r-md' : 'border-l-2 border-transparent'}`}
             {...(depth === 0 ? { 'data-root-comment': 'true' } : {})}
         >
             {/* Content Wrapper - Target for highlight and navigation */}
             <div
-                className="comment-node group/node transition-colors duration-150 rounded-lg py-1.5 px-1.5 -ml-1.5 hover:bg-slate-100/70 dark:hover:bg-slate-800/35"
+                className="comment-node group/node transition-colors duration-100 rounded-md py-1.5 px-1.5 -ml-1.5 hover:bg-stone-100/80 dark:hover:bg-white/[0.025]"
                 data-comment-id={comment.id}
                 onClick={(e) => {
                     e.stopPropagation();
@@ -149,24 +149,24 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                 }}
             >
                 {/* Header row — author, time, and subtle hover-only actions */}
-                <div className="flex items-center justify-between gap-2 mb-1.5 text-xs text-slate-500 dark:text-slate-400 select-none">
+                <div className="flex items-center justify-between gap-2 mb-1.5 text-[12px] text-stone-400 dark:text-zinc-500 select-none">
                     <div className="flex items-center gap-2 min-w-0">
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsCollapsed(!isCollapsed);
                             }}
-                            className="hover:bg-slate-200/70 dark:hover:bg-slate-700/50 rounded px-1 py-0.5 -ml-1 transition-colors cursor-pointer flex items-center gap-1.5 focus:outline-none"
+                            className="hover:bg-stone-200/70 dark:hover:bg-white/[0.07] rounded px-1 py-0.5 -ml-1 transition-colors cursor-pointer flex items-center gap-1.5 focus:outline-none"
                             aria-expanded={!isCollapsed}
                             title={isCollapsed ? 'Expand thread' : 'Collapse thread'}
                         >
-                            <ChevronDown size={12} className={`text-slate-400 dark:text-slate-500 transition-transform duration-150 shrink-0 ${isCollapsed ? '-rotate-90 text-amber-500' : ''}`} />
-                            <span className={`font-semibold ${isActive ? 'text-amber-600 dark:text-amber-400' : 'text-orange-600 dark:text-orange-400/90'}`}>{comment.by}</span>
-                            <span className="text-[11px] text-slate-400 dark:text-slate-500">{getTimeAgo(new Date(comment.time))}</span>
+                            <ChevronDown size={12} className={`text-stone-400 dark:text-zinc-500 transition-transform duration-150 shrink-0 ${isCollapsed ? '-rotate-90 text-[#e06834]' : ''}`} />
+                            <span className={`font-medium ${isActive ? 'text-[#e06834]' : 'text-stone-700 dark:text-zinc-300'}`}>{comment.by}</span>
+                            <span className="text-[11px] text-stone-400 dark:text-zinc-500">{getTimeAgo(new Date(comment.time))}</span>
                         </button>
 
                         {isCollapsed && descendantCount > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 rounded text-slate-500 dark:text-slate-400 font-semibold">
+                            <span className="text-[10.5px] px-1.5 py-0.5 bg-stone-200/70 dark:bg-white/[0.06] rounded text-stone-500 dark:text-zinc-400 font-medium">
                                 +{descendantCount} {descendantCount === 1 ? 'reply' : 'replies'}
                             </span>
                         )}
@@ -174,12 +174,12 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
 
                     {/* Subtle inline actions — hidden until hover (or active vote/reply) */}
                     {!isCollapsed && (
-                        <div className={`flex items-center gap-2.5 text-[11px] font-medium transition-opacity duration-150 ${voted || isReplying || voteError ? 'opacity-100' : 'opacity-0 group-hover/node:opacity-100'}`}>
+                        <div className={`flex items-center gap-2.5 text-[11px] font-medium transition-opacity duration-100 ${voted || isReplying || voteError ? 'opacity-100' : 'opacity-0 group-hover/node:opacity-100'}`}>
                             <button
                                 onClick={handleUpvote}
                                 disabled={voting}
                                 title="Upvote comment"
-                                className={`flex items-center gap-0.5 transition-colors cursor-pointer ${voted === 'up' ? 'text-orange-500 font-bold' : 'text-slate-400 hover:text-orange-500'}`}
+                                className={`flex items-center gap-0.5 transition-colors cursor-pointer ${voted === 'up' ? 'text-[#e06834]' : 'text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-200'}`}
                             >
                                 <ChevronUp size={13} />
                                 <span>Up</span>
@@ -189,7 +189,7 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                                 onClick={handleDownvote}
                                 disabled={voting}
                                 title="Downvote comment"
-                                className={`flex items-center gap-0.5 transition-colors cursor-pointer ${voted === 'down' ? 'text-blue-500 font-bold' : 'text-slate-400 hover:text-blue-400'}`}
+                                className={`flex items-center gap-0.5 transition-colors cursor-pointer ${voted === 'down' ? 'text-stone-900 dark:text-zinc-100' : 'text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-200'}`}
                             >
                                 <ChevronDown size={13} />
                                 <span>Down</span>
@@ -201,14 +201,14 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                                     setIsReplying(!isReplying);
                                 }}
                                 title="Reply to comment"
-                                className={`flex items-center gap-1 transition-colors cursor-pointer ${isReplying ? 'text-indigo-500 font-bold' : 'text-slate-400 hover:text-indigo-400'}`}
+                                className={`flex items-center gap-1 transition-colors cursor-pointer ${isReplying ? 'text-stone-900 dark:text-zinc-100' : 'text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-200'}`}
                             >
                                 <MessageSquare size={11} />
                                 <span>Reply</span>
                             </button>
 
                             {voteError && (
-                                <span className="flex items-center gap-1 text-red-500 text-[10px]">
+                                <span className="flex items-center gap-1 text-red-500 text-[10.5px]">
                                     <AlertCircle size={10} className="shrink-0" />
                                     {voteError}
                                 </span>
@@ -219,23 +219,23 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
 
                 {!isCollapsed && (
                     <div
-                        className="font-sans text-[14px] text-slate-800 dark:text-slate-200/95 overflow-hidden break-words prose prose-slate dark:prose-invert max-w-none leading-[1.65] [&>p]:mb-2.5 [&>p:last-child]:mb-0 [&>pre]:bg-slate-100 dark:[&>pre]:bg-slate-800/80 [&>pre]:p-3 [&>pre]:rounded-lg [&>pre]:overflow-x-auto [&>a]:text-sky-600 dark:[&>a]:text-sky-400 hover:[&>a]:underline ml-4"
+                        className="font-sans text-[14px] text-stone-800 dark:text-[#d4d4d8] overflow-hidden break-words prose prose-stone dark:prose-invert max-w-none leading-[1.68] [&>p]:mb-2.5 [&>p:last-child]:mb-0 [&>pre]:bg-stone-200/60 dark:[&>pre]:bg-[#1a1a1e] [&>pre]:p-3 [&>pre]:rounded-lg [&>pre]:overflow-x-auto [&>a]:text-[#c85624] dark:[&>a]:text-[#eb7c49] hover:[&>a]:underline ml-4"
                         dangerouslySetInnerHTML={{ __html: comment.text }}
                     />
                 )}
 
                 {!isCollapsed && isReplying && (
-                    <div className="mt-2.5 ml-4 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/70 dark:border-slate-700/60 flex flex-col gap-2 cursor-default" onClick={e => e.stopPropagation()}>
+                    <div className="mt-2.5 ml-4 p-3 bg-stone-100/80 dark:bg-[#18181b] rounded-lg border border-stone-200 dark:border-white/[0.08] flex flex-col gap-2 cursor-default" onClick={e => e.stopPropagation()}>
                         <textarea
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
                             placeholder="Write a reply..."
                             rows={3}
                             autoFocus
-                            className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
+                            className="w-full text-[13px] p-2.5 rounded-md border border-stone-200 dark:border-zinc-800 bg-white dark:bg-[#121214] text-stone-900 dark:text-zinc-100 focus:border-stone-400 dark:focus:border-zinc-600 outline-none"
                         />
                         {replyError && (
-                            <div className="text-[10px] text-red-500 font-bold flex items-center gap-1">
+                            <div className="text-[11px] text-red-500 font-medium flex items-center gap-1">
                                 <AlertCircle size={12} />
                                 {replyError}
                             </div>
@@ -247,16 +247,16 @@ function CommentNode({ comment, comments, depth, activeCommentId, onFocusComment
                                     setReplyText('');
                                     setReplyError(null);
                                 }}
-                                className="px-3 py-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg transition-colors cursor-pointer"
+                                className="px-3 py-1 text-[12px] font-medium text-stone-500 dark:text-zinc-400 hover:text-stone-800 dark:hover:text-zinc-200 rounded-md transition-colors cursor-pointer"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleReplySubmit}
                                 disabled={replying || !replyText.trim()}
-                                className="px-3 py-1 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-40 rounded-lg transition-colors cursor-pointer"
+                                className="px-3 py-1 text-[12px] font-medium text-white bg-stone-900 dark:bg-zinc-100 dark:text-zinc-950 hover:opacity-90 disabled:opacity-40 rounded-md transition-opacity cursor-pointer"
                             >
-                                {replying ? 'Posting...' : 'Post Reply'}
+                                {replying ? 'Posting…' : 'Post Reply'}
                             </button>
                         </div>
                     </div>
@@ -288,21 +288,12 @@ export function CommentList({ comments, parentId, depth = 0, onCollapse, activeC
         return null;
     }
 
-    const lineColors = [
-        'bg-indigo-500/30 dark:bg-indigo-500/20',
-        'bg-emerald-500/30 dark:bg-emerald-500/20',
-        'bg-amber-500/30 dark:bg-amber-500/20',
-        'bg-rose-500/30 dark:bg-rose-500/20',
-        'bg-sky-500/30 dark:bg-sky-500/20',
-    ];
-    const lineColor = lineColors[(depth - 1) % lineColors.length];
-
     return (
-        <div className={`flex flex-col gap-3 relative ${depth > 0 ? (depth >= 5 ? 'pl-2.5' : 'pl-4') : 'divide-y divide-slate-200/60 dark:divide-slate-800/70 [&>*:not(:first-child)]:pt-3'}`}>
-            {/* Thread Line - Only for nested levels */}
+        <div className={`flex flex-col gap-3 relative ${depth > 0 ? (depth >= 5 ? 'pl-2.5' : 'pl-4') : 'divide-y divide-stone-200/75 dark:divide-white/[0.06] [&>*:not(:first-child)]:pt-3'}`}>
+            {/* Subtle Monochrome Thread Line */}
             {depth > 0 && (
                 <div
-                    className={`absolute left-0 top-0 bottom-0 w-px ${lineColor} hover:w-[2px] hover:bg-orange-400 dark:hover:bg-orange-500/80 cursor-pointer transition-all z-10 group/line`}
+                    className="absolute left-0 top-0 bottom-0 w-px bg-stone-300/75 dark:bg-white/[0.09] hover:w-[2px] hover:bg-[#e06834] cursor-pointer transition-all z-10 group/line"
                     onClick={(e) => {
                         e.stopPropagation();
                         onCollapse?.();

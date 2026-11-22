@@ -1,10 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import pkg from '../../package.json';
-import { RefreshCw, Home, Settings, X, Search, Layout, Zap, ChevronDown, Download, Sun, Moon, Github, Pin, Play, Layers, List } from 'lucide-react';
+import { RefreshCw, Home, Settings, X, Search, PanelRight, ChevronDown, Download, Sun, Moon, Github, Pin, Play, Layers, List } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { GroupedFeed } from '../components/GroupedFeed';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { getTagStyle } from '../utils/colors';
 import { ReaderPane } from '../components/ReaderPane';
 import { FilterSidebar } from '../components/FilterSidebar';
 import { AdminDashboard } from '../components/AdminDashboard';
@@ -12,11 +10,11 @@ import { SettingsModal } from '../components/SettingsModal';
 import { useGlobalKeyboardNav } from '../hooks/useGlobalKeyboardNav';
 import { KeyboardHelpModal } from '../components/KeyboardHelpModal';
 import { BriefingDeck, type BriefingStage } from '../components/BriefingDeck';
-import { StatusBar } from '../components/StatusBar';
+import { HeaderSyncStatus } from '../components/StatusBar';
 import { MODES, type Story } from '../types';
 import { isElectron as getIsElectron, isWebPreview } from '../utils/env';
 import { fetchWithAuth } from '../utils/api';
- 
+
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
         loading, mode, activeTopics,
@@ -39,11 +37,11 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
     const articlesMenuRef = useRef<HTMLDivElement>(null);
 
-    // Slideshow overlay state (opt-in via the Slideshow button; normal feed view is always default)
+    // Slideshow overlay state (opt-in via Slideshow button; feed view is always default)
     const [isBriefingOpen, setIsBriefingOpen] = useState<boolean>(false);
     const [briefingStage, setBriefingStage] = useState<BriefingStage>('postgres');
 
-    // Feed layout mode: Topic-Grouped (default on #ALL) vs flat ranked List
+    // Feed layout mode: Topic-Grouped (default on All) vs flat ranked List
     const [feedViewMode, setFeedViewMode] = useState<'grouped' | 'list'>(() => {
         try {
             const saved = localStorage.getItem('hn_feed_view_mode');
@@ -72,7 +70,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             setPrimaryTab('feed');
         }
     }, [activeTopics, setDisabledTopics, app, setPrimaryTab]);
-    
+
     // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -88,8 +86,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     // --- Sidebar Resizing State ---
     const [sidebarWidth, setSidebarWidth] = useState(() => {
         const saved = localStorage.getItem('hn_feed_sidebar_width');
-        if (saved) return parseInt(saved, 10);
-        return isWebPreview() ? Math.round(window.innerWidth * 0.7) : 320;
+        if (saved) return Math.max(parseInt(saved, 10), 280);
+        return isWebPreview() ? Math.round(window.innerWidth * 0.7) : 400;
     });
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
         return localStorage.getItem('hn_feed_sidebar_collapsed') === 'true';
@@ -112,19 +110,18 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
     const resize = useCallback((e: MouseEvent) => {
         if (!isResizing) return;
-        
+
         if (resizeRef.current) cancelAnimationFrame(resizeRef.current);
-        
+
         resizeRef.current = requestAnimationFrame(() => {
             const newWidth = window.innerWidth - e.clientX;
-            // Snap to collapse
-            if (newWidth < 100) {
+            if (newWidth < 120) {
                 setIsSidebarCollapsed(true);
                 localStorage.setItem('hn_feed_sidebar_collapsed', 'true');
                 setIsResizing(false);
             } else {
-                const minW = isWebPreview() ? Math.round(window.innerWidth * 0.3) : 200;
-                const maxW = isWebPreview() ? Math.round(window.innerWidth * 0.8) : 600;
+                const minW = isWebPreview() ? Math.round(window.innerWidth * 0.3) : 280;
+                const maxW = isWebPreview() ? Math.round(window.innerWidth * 0.8) : 640;
                 const clampedWidth = Math.min(Math.max(newWidth, minW), maxW);
                 setSidebarWidth(clampedWidth);
                 setIsSidebarCollapsed(false);
@@ -148,13 +145,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         };
     }, [isResizing, resize, stopResizing]);
 
-    // OS-aware installer download logic
+    // OS-aware installer download logic (web preview only)
     const { downloadUrl, downloadLabel, isDesktopOS } = (() => {
         const userAgent = typeof window !== 'undefined' ? window.navigator.userAgent : '';
         const platform = typeof window !== 'undefined' ? (window.navigator.platform || '') : '';
-        
+
         let os: 'Windows' | 'macOS' | 'Linux' | 'mobile' | 'unknown' = 'unknown';
-        
+
         if (/Mac|Macintosh|MacIntel|MacPPC|Mac68K/.test(platform) || /Macintosh|Mac OS X/.test(userAgent)) {
             os = 'macOS';
         } else if (/Win|Win32|Win64|Windows|WinCE/.test(platform) || /Windows/.test(userAgent)) {
@@ -164,11 +161,11 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         } else if (/Linux/.test(platform) || /Linux/.test(userAgent)) {
             os = 'Linux';
         }
-        
+
         let url = 'https://github.com/rajeshkumarblr/hn_station';
         let label = 'Get Desktop App';
         const isDesktop = os === 'Windows' || os === 'macOS' || os === 'Linux';
-        
+
         if (os === 'Windows') {
             url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/HN.Station.Setup.0.10.0.exe';
             label = 'Get for Windows';
@@ -179,7 +176,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             url = 'https://github.com/rajeshkumarblr/hn_station/releases/download/v0.10.0/hn-station_0.10.0_amd64.deb';
             label = 'Get for Linux';
         }
-        
+
         return { downloadUrl: url, downloadLabel: label, isDesktopOS: isDesktop };
     })();
 
@@ -188,8 +185,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const virtualizer = useVirtualizer({
         count: stories.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => isWebPreview() ? 72 : 94, // Estimated height of a StoryCard
-        overscan: 5,
+        estimateSize: () => isWebPreview() ? 76 : 96,
+        overscan: 6,
     });
 
     const virtualItems = virtualizer.getVirtualItems();
@@ -204,7 +201,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         }
     }, [virtualItems, stories.length, hasMore, fetchingMore, loading, fetchNextPage]);
 
-    // Resolve the story object for the highlighted (keyboard/hovered) card
+    // Resolve the story object for the highlighted (keyboard/hovered) row
     const highlightedStory =
         stories.find(s => s.id === highlightedStoryId) ??
         (highlightedStoryOverride && highlightedStoryOverride.id === highlightedStoryId ? highlightedStoryOverride : null);
@@ -256,18 +253,17 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         }).length;
     };
 
+    const noActiveTopics = activeTopics.filter(t => !disabledTopics.includes(t)).length === 0;
+
     return (
-        <div className="h-screen bg-slate-50 dark:bg-[#131824] text-slate-900 dark:text-slate-100 font-sans overflow-hidden flex flex-col transition-colors duration-200">
-            {/* ─── Zen Header ─── */}
-            <header 
-                className="bg-white/90 dark:bg-[#161d2e]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/90 h-[48px] flex items-center justify-between px-4 shrink-0 z-[100] relative select-none"
-            >
-                {/* Left Section: Modes & Global Filters */}
-                <div className="flex items-center h-full gap-3 flex-1 min-w-0">
-                    <nav className="h-full flex items-center gap-1.5 shrink-0">
+        <div className="h-screen bg-[#fafaf8] dark:bg-[#121214] text-stone-900 dark:text-[#ececef] font-sans overflow-hidden flex flex-col">
+            {/* ─── Primary Header (Slim, Calm, Native Mac Feel) ─── */}
+            <header className="bg-[#fafaf8] dark:bg-[#17171a] border-b border-stone-200/80 dark:border-white/[0.07] h-[44px] flex items-center justify-between px-4 shrink-0 z-[100] relative select-none">
+                {/* Left Section: Navigation */}
+                <div className="flex items-center h-full gap-2 flex-1 min-w-0">
+                    <nav className="h-full flex items-center gap-0.5 shrink-0">
                         {MODES.map((m) => {
-                            const isActiveInPrimary = (primaryTab === 'feed' && m.key === mode) || (primaryTab === 'bookmarks' && m.key === 'saved');
-                            const isSelected = isActiveInPrimary;
+                            const isSelected = (primaryTab === 'feed' && m.key === mode) || (primaryTab === 'bookmarks' && m.key === 'saved');
                             return (
                                 <button
                                     key={m.key}
@@ -275,7 +271,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         if (m.key === 'saved') setPrimaryTab('bookmarks');
                                         else {
                                             const modeKey = m.key as any;
-                                            // Update lastFeedMode BEFORE primaryTab change to prevent stale restore
                                             app.setLastFeedMode(modeKey);
                                             setPrimaryTab('feed');
                                             if (mode === modeKey && primaryTab === 'feed') handleRefresh();
@@ -283,42 +278,40 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         }
                                         setCurrentView('feed');
                                     }}
-                                    className={`text-[11px] font-bold tracking-tight transition-all outline-none px-3 py-1.5 rounded-full relative group cursor-pointer ${isSelected
-                                        ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
-                                        }`}
+                                    className={`text-[12.5px] transition-colors outline-none px-2.5 py-1 rounded-md cursor-pointer ${
+                                        isSelected
+                                            ? 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-950 dark:text-white font-medium'
+                                            : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05]'
+                                    }`}
                                 >
                                     {m.label}
-                                    {isSelected && (
-                                        <div className="absolute -bottom-[14px] left-1/2 -translate-x-1/2 w-4 h-1 bg-orange-500 rounded-full" />
-                                    )}
                                 </button>
                             );
                         })}
 
-                        {/* Articles Dropdown Menu (Relocated from Tab Bar) - Desktop only */}
-                        {!isWebPreview() && (
+                        {/* Open Articles Dropdown (only shown when tabs are open) */}
+                        {!isWebPreview() && tabs.length > 0 && (
                             <div className="relative h-full flex items-center ml-1" ref={articlesMenuRef}>
                                 <button
                                     onClick={() => setIsArticlesMenuOpen(!isArticlesMenuOpen)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${
-                                        isArticlesMenuOpen 
-                                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' 
-                                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white border-transparent'
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12.5px] transition-colors cursor-pointer ${
+                                        isArticlesMenuOpen
+                                            ? 'bg-stone-200 dark:bg-white/[0.12] text-stone-950 dark:text-white font-medium'
+                                            : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05]'
                                     }`}
                                 >
-                                    <span>Articles</span>
-                                    <div className="flex items-center justify-center bg-black/10 dark:bg-white/10 rounded-full w-4 h-4 text-[9px]">
+                                    <span>Open</span>
+                                    <span className="text-[11px] text-stone-400 dark:text-zinc-500 tabular-nums">
                                         {tabs.length}
-                                    </div>
-                                    <ChevronDown size={12} className={`transition-transform duration-200 ${isArticlesMenuOpen ? 'rotate-180' : ''}`} />
+                                    </span>
+                                    <ChevronDown size={12} className={`opacity-60 transition-transform duration-150 ${isArticlesMenuOpen ? 'rotate-180' : ''}`} />
                                 </button>
 
                                 {isArticlesMenuOpen && (
-                                    <div className="absolute left-0 top-[48px] w-[320px] max-h-[400px] bg-white dark:bg-[#1a2234] border border-slate-200 dark:border-slate-700/80 rounded-xl shadow-2xl z-[200] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
-                                        <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Open Articles</span>
-                                            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded-full">{tabs.length}</span>
+                                    <div className="absolute left-0 top-[42px] w-[320px] max-h-[400px] bg-white dark:bg-[#1c1c20] border border-stone-200 dark:border-zinc-800 rounded-lg shadow-xl z-[200] overflow-hidden flex flex-col">
+                                        <div className="px-3 py-2 border-b border-stone-200/80 dark:border-white/[0.07] flex items-center justify-between">
+                                            <span className="text-[11.5px] font-medium text-stone-500 dark:text-zinc-400">Open articles</span>
+                                            <span className="text-[11px] text-stone-400 dark:text-zinc-500 tabular-nums">{tabs.length}</span>
                                         </div>
                                         <div className="overflow-y-auto max-h-[350px] custom-scrollbar p-1">
                                             {tabs.map((t) => (
@@ -330,57 +323,55 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                         setCurrentView('reader');
                                                         setIsArticlesMenuOpen(false);
                                                     }}
-                                                    className={`w-full flex items-center gap-3 p-3 text-left rounded-lg transition-colors group ${
+                                                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-left rounded-md transition-colors cursor-pointer ${
                                                         activeTabId === t.id && currentView === 'reader'
-                                                        ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
-                                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100'
+                                                            ? 'bg-stone-100 dark:bg-white/[0.08] text-stone-900 dark:text-white font-medium'
+                                                            : 'hover:bg-stone-100/80 dark:hover:bg-white/[0.05] text-stone-600 dark:text-zinc-300'
                                                     }`}
                                                 >
-                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeTabId === t.id && currentView === 'reader' ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600 group-hover:bg-slate-400'}`} />
-                                                    <span className="text-[12px] font-medium truncate flex-1">{t.story.title}</span>
+                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeTabId === t.id && currentView === 'reader' ? 'bg-[#e06834]' : 'bg-stone-300 dark:bg-zinc-600'}`} />
+                                                    <span className="text-[12.5px] truncate flex-1">{t.story.title}</span>
                                                 </button>
                                             ))}
-                                            {tabs.length === 0 && (
-                                                <div className="p-8 text-center text-slate-400 text-[12px]">No open articles</div>
-                                            )}
                                         </div>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Opt-in Slideshow Button */}
+                        <div className="h-3.5 w-px bg-stone-200 dark:bg-white/[0.08] mx-1.5" />
+
+                        {/* Quiet Opt-in Slideshow Button */}
                         <button
                             onClick={() => {
                                 setBriefingStage('postgres');
                                 setIsBriefingOpen(true);
                             }}
                             title="Open Slideshow (Top 5 Postgres & Top 5 LLM/AI)"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700/80 ml-1 transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12.5px] text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
                         >
-                            <Play size={10} className="fill-current" />
+                            <Play size={10} className="fill-current opacity-75" />
                             <span>Slideshow</span>
                         </button>
                     </nav>
 
-                    <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 shrink-0" />
-
                     {/* Inline Filter toolbar for web preview */}
                     {isWebPreview() && (
                         <>
-                            <button 
-                                onClick={app.handleRefresh} 
-                                className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1e273d] shadow-sm"
-                                title="Refresh stories from Hacker News"
+                            <div className="h-4 w-px bg-stone-200 dark:bg-white/[0.08] mx-1 shrink-0" />
+                            <button
+                                onClick={app.handleRefresh}
+                                className="p-1.5 rounded-md text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/50 dark:hover:bg-white/[0.06] transition-colors shrink-0 cursor-pointer"
+                                title="Refresh stories"
                             >
-                                <RefreshCw size={12} className={loading ? 'animate-spin text-indigo-500' : ''} />
+                                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
                             </button>
 
-                            <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700/80 group focus-within:ring-2 focus-within:ring-indigo-500/45 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0" title="Quickly filter stories in the current list">
-                                <Search size={12} className="text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-400 transition-colors" />
+                            <div className="flex items-center bg-stone-200/50 dark:bg-white/[0.05] px-2.5 py-1 rounded-md border border-transparent focus-within:border-stone-300 dark:focus-within:border-zinc-700 transition-colors shrink-0">
+                                <Search size={12} className="text-stone-400 dark:text-zinc-500" />
                                 <input
                                     type="text"
-                                    placeholder="Quick filter..."
+                                    placeholder="Filter..."
                                     value={app.searchQuery}
                                     onChange={(e) => app.setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => {
@@ -399,139 +390,32 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                             (e.target as HTMLInputElement).blur();
                                         }
                                     }}
-                                    className="bg-transparent border-none outline-none text-[11px] font-bold ml-1.5 w-24 focus:w-36 transition-all placeholder:text-slate-500 dark:placeholder:text-slate-400 text-slate-800 dark:text-slate-100"
+                                    className="bg-transparent border-none outline-none text-[12px] ml-1.5 w-24 focus:w-36 transition-all placeholder:text-stone-400 dark:placeholder:text-zinc-500 text-stone-800 dark:text-zinc-100"
                                 />
                                 {app.searchQuery && (
                                     <button
                                         onClick={() => app.setSearchQuery('')}
-                                        className="ml-1 p-0.5 rounded-full text-slate-400 hover:text-red-500 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors"
+                                        className="ml-1 text-stone-400 hover:text-stone-700 dark:hover:text-zinc-200"
                                         title="Clear filter"
                                     >
                                         <X size={10} />
                                     </button>
                                 )}
                             </div>
-
-                            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 min-w-0">
-                                <div
-                                    onClick={() => {
-                                        setDisabledTopics([...activeTopics]);
-                                        app.setSearchQuery('');
-                                    }}
-                                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
-                                        activeTopics.filter(t => !disabledTopics.includes(t)).length === 0
-                                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-sm ring-1 ring-emerald-500/20' 
-                                            : 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
-                                    }`}
-                                >
-                                    <Zap size={9} className={activeTopics.filter(t => !disabledTopics.includes(t)).length === 0 ? "text-emerald-400" : "text-slate-500 dark:text-slate-400"} />
-                                    <span>#ALL</span>
-                                </div>
-
-                                {activeTopics.map(t => {
-                                    const isActive = !disabledTopics.includes(t);
-                                    const style = getTagStyle(t);
-                                    const matchCount = getTopicMatchCount(t);
-                                    return (
-                                        <div
-                                            key={`feed-tag-${t}`}
-                                            onClick={() => {
-                                                const noActiveTags = activeTopics.filter(x => !disabledTopics.includes(x)).length === 0;
-                                                if (app.topicMatch === 'exclusive') {
-                                                    if (isActive) {
-                                                        setDisabledTopics(activeTopics);
-                                                    } else {
-                                                        setDisabledTopics(activeTopics.filter(x => x !== t));
-                                                    }
-                                                    return;
-                                                }
-                                                if (noActiveTags) {
-                                                    setDisabledTopics(activeTopics.filter(x => x !== t));
-                                                } else {
-                                                    if (isActive) {
-                                                        setDisabledTopics(prev => [...prev, t]);
-                                                    } else {
-                                                        setDisabledTopics(prev => prev.filter(x => x !== t));
-                                                    }
-                                                }
-                                            }}
-                                            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${!isActive ? 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700/90 text-slate-700 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500' : 'shadow-sm'}`}
-                                            style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
-                                        >
-                                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: style.color }} />
-                                            <span>#{t}</span>
-                                            {matchCount > 0 && (
-                                                <span className="text-[9px] px-1 rounded-full bg-black/10 dark:bg-white/10 font-extrabold opacity-85">
-                                                    {matchCount}
-                                                </span>
-                                            )}
-                                            <X size={9} onClick={(e) => { 
-                                                e.stopPropagation(); 
-                                                setActiveTopics(prev => prev.filter(x => x !== t));
-                                                setDisabledTopics(prev => prev.filter(x => x !== t));
-                                            }} className="opacity-40 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer shrink-0" />
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                                <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] border border-slate-200 dark:border-slate-700/80 rounded-xl p-0.5 text-[9px] font-black uppercase tracking-widest shadow-inner shrink-0 ml-1.5" title="Topic Search Mode: Any = match any tag, All = match all tags, Excl = exclusive single-tag mode">
-                                    <button 
-                                        onClick={() => app.setTopicMatch('any')}
-                                        title="Show stories that contain ANY of the selected topics"
-                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'any' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                                    >
-                                        Any
-                                    </button>
-                                    <button 
-                                        onClick={() => app.setTopicMatch('all')}
-                                        title="Show stories that contain ALL selected topics (AND logic)"
-                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                                    >
-                                        All
-                                    </button>
-                                    <button 
-                                        onClick={() => app.setTopicMatch('exclusive')}
-                                        title="Exclusive mode: Selecting a topic clears others"
-                                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${app.topicMatch === 'exclusive' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm border border-slate-200/50 dark:border-slate-600/50 font-black' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                                    >
-                                        Excl
-                                    </button>
-                                </div>
                         </>
                     )}
                 </div>
 
-                {/* Center Branding - Desktop Only */}
-                {!isWebPreview() && (
-                    <div 
-                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none hidden lg:flex"
-                    >
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-orange-500" />
-                            <span className="text-[13px] font-black tracking-[0.2em] bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent uppercase leading-none">HN Station</span>
-                            <div className="flex items-center gap-1">
-                                <span className="text-[9px] font-bold text-blue-500 dark:text-blue-400/80 mt-0.5 tracking-normal lowercase">v{pkg.version}</span>
-                                <span className="bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[7px] font-black px-1 py-0.5 rounded ml-0.5 tracking-widest uppercase border border-orange-500/20">BETA</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {/* Right Section: Quiet Activity + Theme + Settings */}
+                <div className="flex items-center gap-1 h-full shrink-0">
+                    <HeaderSyncStatus />
 
-                {/* Right Section: Controls */}
-                <div className="flex items-center gap-1.5 h-full shrink-0">
-                    {isElectron && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/25 rounded-full mr-2 hidden md:flex">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Live Ingest</span>
-                        </div>
-                    )}
                     {!isElectron && isWebPreview() && (
                         <a
                             href="https://github.com/rajeshkumarblr/hn_station"
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300/50 dark:hover:bg-slate-700/50 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-full shadow-sm hover:shadow-md transition-all uppercase tracking-wider shrink-0 active:scale-[0.98] mr-1"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/50 dark:hover:bg-white/[0.06] transition-colors mr-1"
                             title="View source code on GitHub"
                         >
                             <Github size={13} />
@@ -543,51 +427,53 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             href={downloadUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-[10px] font-black rounded-full shadow-sm hover:shadow-lg transition-all uppercase tracking-wider shrink-0 active:scale-[0.98] mr-2"
-                            title="Desktop App has IDE like split pane view for articles and AI summary."
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[11.5px] font-medium rounded-md transition-opacity hover:opacity-90 shrink-0 mr-1"
                         >
                             <Download size={11} />
                             {downloadLabel}
                         </a>
                     )}
-                    <button 
-                        onClick={toggleTheme} 
-                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer mr-0.5" 
-                        title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                    <button
+                        onClick={toggleTheme}
+                        className="p-1.5 rounded-md hover:bg-stone-200/60 dark:hover:bg-white/[0.07] text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+                        title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                     >
-                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                        {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
                     </button>
-                    <button 
-                        onClick={() => setIsSettingsOpen(true)} 
-                        className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" 
-                        title="Application Settings"
+                    <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="p-1.5 rounded-md hover:bg-stone-200/60 dark:hover:bg-white/[0.07] text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
+                        title="Settings"
                     >
-                        <Settings size={18} />
+                        <Settings size={15} />
                     </button>
                 </div>
             </header>
 
-            {/* Global Filters Toolbar (swapped with Web Preview Banner) - Desktop Only */}
+            {/* ─── Secondary Filter Strip (Slim & Monochrome) — Feed View Only ─── */}
             {currentView === 'feed' && !isWebPreview() && (
-                <div className="h-[52px] flex items-center justify-between px-6 gap-4 z-[99] bg-white dark:bg-[#161d2e] border-b border-slate-200 dark:border-slate-800/90 shrink-0 select-none">
-                    {/* Left Fixed Controls */}
-                    <div className="flex items-center gap-3 shrink-0">
-                        <button 
+                <div className="h-[42px] flex items-center justify-between px-4 gap-3 z-[99] bg-[#fafaf8] dark:bg-[#141416] border-b border-stone-200/75 dark:border-white/[0.06] shrink-0 select-none">
+                    {/* Left: Refresh + Minimal Search */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
                             onClick={() => {
                                 app.handleRefresh();
                                 setGroupedRefreshKey(k => k + 1);
-                            }} 
-                            className="p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-[#1e273d] shadow-sm cursor-pointer"
-                            title="Refresh stories from Hacker News"
+                            }}
+                            className="p-1.5 rounded-md text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.06] transition-colors shrink-0 cursor-pointer"
+                            title="Refresh stories"
                         >
-                            <RefreshCw size={14} className={loading ? 'animate-spin text-indigo-500' : ''} />
+                            <RefreshCw size={13} className={loading ? 'animate-spin text-[#e06834]' : ''} />
                         </button>
 
-                        <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 group focus-within:ring-2 focus-within:ring-indigo-500/45 focus-within:border-indigo-500/50 transition-all shadow-inner shrink-0" title="Quickly filter stories in the current list, or press Enter to add a new #Topic chip">
-                            <Search size={13} className="text-slate-500 dark:text-slate-400 group-focus-within:text-indigo-400 transition-colors" />
+                        <div
+                            className="flex items-center bg-stone-200/50 dark:bg-white/[0.05] px-2.5 py-1 rounded-md border border-transparent focus-within:border-stone-300 dark:focus-within:border-zinc-700 transition-colors shrink-0"
+                            title="Filter stories or press Enter to add a topic"
+                        >
+                            <Search size={12} className="text-stone-400 dark:text-zinc-500" />
                             <input
                                 type="text"
-                                placeholder="Filter or +add #topic..."
+                                placeholder="Filter or +topic..."
                                 value={app.searchQuery}
                                 onChange={(e) => app.setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => {
@@ -595,15 +481,12 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         let term = app.searchQuery.trim();
                                         if (term.startsWith('#')) term = term.slice(1);
                                         const tag = term.charAt(0).toUpperCase() + term.slice(1);
-                                        
-                                        // Add to topics if not there
+
                                         if (!activeTopics.includes(tag)) {
                                             setActiveTopics(prev => [...prev, tag]);
                                         }
-                                        
-                                        // EXCLUSIVE: Enable ONLY this tag, disable all others
                                         setDisabledTopics(activeTopics.filter(t => t !== tag));
-                                        
+
                                         app.setSearchQuery('');
                                         (e.target as HTMLInputElement).blur();
                                     } else if (e.key === 'Escape') {
@@ -611,186 +494,194 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         (e.target as HTMLInputElement).blur();
                                     }
                                 }}
-                                className="bg-transparent border-none outline-none text-[11.5px] font-semibold ml-2 w-36 focus:w-52 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-400 text-slate-800 dark:text-slate-100"
+                                className="bg-transparent border-none outline-none text-[12px] ml-2 w-32 focus:w-48 transition-all placeholder:text-stone-400 dark:placeholder:text-zinc-500 text-stone-800 dark:text-zinc-100"
                             />
+                            {app.searchQuery && (
+                                <button
+                                    onClick={() => app.setSearchQuery('')}
+                                    className="ml-1 text-stone-400 hover:text-stone-700 dark:hover:text-zinc-200 cursor-pointer"
+                                    title="Clear filter"
+                                >
+                                    <X size={11} />
+                                </button>
+                            )}
                         </div>
                     </div>
 
-                    {/* Center Scrollable Tags */}
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-1">
-                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                            {/* Pinned #All Tag - Styled uniquely as a green global reset */}
-                            <div
-                                onClick={() => {
-                                    setDisabledTopics([...activeTopics]);
-                                    app.setSearchQuery('');
-                                }}
-                                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
-                                    activeTopics.filter(t => !disabledTopics.includes(t)).length === 0
-                                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 shadow-sm ring-1 ring-emerald-500/25' 
-                                        : 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700/90 text-slate-600 dark:text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30'
-                                }`}
-                            >
-                                <Zap size={10} className={activeTopics.filter(t => !disabledTopics.includes(t)).length === 0 ? "text-emerald-500 dark:text-emerald-400" : "text-slate-400"} />
-                                <span>#ALL</span>
-                            </div>
+                    {/* Center: Monochrome Topic Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 min-w-0">
+                        <button
+                            onClick={() => {
+                                setDisabledTopics([...activeTopics]);
+                                app.setSearchQuery('');
+                            }}
+                            className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors cursor-pointer shrink-0 ${
+                                noActiveTopics
+                                    ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                    : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.06]'
+                            }`}
+                        >
+                            All
+                        </button>
 
-                            {activeTopics.map(t => {
-                                    const isActive = !disabledTopics.includes(t);
-                                    const style = getTagStyle(t);
-                                    const matchCount = getTopicMatchCount(t);
-                                    
-                                    return (
-                                        <div
-                                            key={`feed-tag-${t}`}
-                                            onClick={() => {
-                                                const noActiveTags = activeTopics.filter(x => !disabledTopics.includes(x)).length === 0;
-                                                
-                                                if (app.topicMatch === 'exclusive') {
-                                                    if (isActive) {
-                                                        // Deselecting the only active tag returns to #ALL
-                                                        setDisabledTopics(activeTopics);
-                                                    } else {
-                                                        // Select ONLY this tag, disable all others
-                                                        setDisabledTopics(activeTopics.filter(x => x !== t));
-                                                    }
-                                                    return;
-                                                }
+                        {activeTopics.map(t => {
+                            const isActive = !disabledTopics.includes(t);
+                            const matchCount = getTopicMatchCount(t);
 
-                                                if (noActiveTags) {
-                                                    // If #All was active, select ONLY this tag
-                                                    setDisabledTopics(activeTopics.filter(x => x !== t));
-                                                } else {
-                                                    // Toggle this tag (multi-select for Any/Both modes)
-                                                    if (isActive) {
-                                                        setDisabledTopics(prev => [...prev, t]);
-                                                    } else {
-                                                        setDisabledTopics(prev => prev.filter(x => x !== t));
-                                                    }
-                                                }
-                                            }}
-                                            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border cursor-pointer hover:shadow-md transition-all group shrink-0 ${
-                                                !isActive
-                                                    ? 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700/90 text-slate-700 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500'
-                                                    : 'shadow-sm ring-1 ring-white/10'
-                                            }`}
-                                            style={isActive ? { backgroundColor: `${style.bg}`, color: style.color, borderColor: style.border } : {}}
-                                        >
-                                            <span
-                                                className="w-1.5 h-1.5 rounded-full shrink-0"
-                                                style={{ backgroundColor: style.color }}
-                                            />
-                                            <span>#{t}</span>
-                                            {matchCount > 0 && (
-                                                <span
-                                                    className={`text-[9.5px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                                                        isActive
-                                                            ? 'bg-black/15 dark:bg-white/15'
-                                                            : 'bg-slate-200/80 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300'
-                                                    }`}
-                                                >
-                                                    {matchCount}
-                                                </span>
-                                            )}
-                                            <X size={10} onClick={(e) => { 
-                                                e.stopPropagation(); 
-                                                setActiveTopics(prev => prev.filter(x => x !== t));
-                                                setDisabledTopics(prev => prev.filter(x => x !== t));
-                                            }} className="opacity-40 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all cursor-pointer shrink-0" />
-                                        </div>
-                                    );
-                                })}
-                        </div>
+                            return (
+                                <div
+                                    key={`feed-tag-${t}`}
+                                    onClick={() => {
+                                        const noActiveTags = activeTopics.filter(x => !disabledTopics.includes(x)).length === 0;
+
+                                        if (app.topicMatch === 'exclusive') {
+                                            if (isActive) {
+                                                setDisabledTopics(activeTopics);
+                                            } else {
+                                                setDisabledTopics(activeTopics.filter(x => x !== t));
+                                            }
+                                            return;
+                                        }
+
+                                        if (noActiveTags) {
+                                            setDisabledTopics(activeTopics.filter(x => x !== t));
+                                        } else if (isActive) {
+                                            setDisabledTopics(prev => [...prev, t]);
+                                        } else {
+                                            setDisabledTopics(prev => prev.filter(x => x !== t));
+                                        }
+                                    }}
+                                    className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium cursor-pointer transition-colors shrink-0 ${
+                                        isActive
+                                            ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                            : 'bg-stone-200/50 dark:bg-white/[0.04] text-stone-600 dark:text-zinc-400 hover:bg-stone-200/80 dark:hover:bg-white/[0.08] hover:text-stone-900 dark:hover:text-zinc-200'
+                                    }`}
+                                >
+                                    <span>{t}</span>
+                                    {matchCount > 0 && (
+                                        <span className={`text-[10.5px] tabular-nums ${isActive ? 'opacity-65' : 'text-stone-400 dark:text-zinc-500'}`}>
+                                            {matchCount}
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveTopics(prev => prev.filter(x => x !== t));
+                                            setDisabledTopics(prev => prev.filter(x => x !== t));
+                                        }}
+                                        title={`Remove ${t}`}
+                                        className={`opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity cursor-pointer shrink-0 -mr-0.5 ${
+                                            isActive ? 'text-white dark:text-zinc-900' : 'text-stone-400 dark:text-zinc-500'
+                                        }`}
+                                    >
+                                        <X size={10} />
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
 
-                    {/* Right Toolbar Actions */}
-                    <div className="flex items-center gap-2.5 shrink-0">
-                        {/* Grouped vs Flat List Toggle */}
-                        <div className="flex items-center bg-slate-100 dark:bg-[#1e273d] border border-slate-200 dark:border-slate-700/80 rounded-lg p-0.5 text-[10px] font-bold shadow-inner">
+                    {/* Right: Topics / List Segmented Control + Preview Pane Toggle */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center bg-stone-200/60 dark:bg-white/[0.05] rounded-md p-0.5 text-[11.5px] font-medium">
                             <button
                                 onClick={() => handleSetFeedViewMode('grouped')}
-                                title="Group stories by topic (Postgres, AI & LLMs, Systems, General HN)"
-                                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all cursor-pointer ${isGroupedActive ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                                title="Group stories by topic"
+                                className={`flex items-center gap-1 px-2 py-0.5 rounded-[5px] transition-colors cursor-pointer ${
+                                    isGroupedActive
+                                        ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm'
+                                        : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
+                                }`}
                             >
                                 <Layers size={11} />
                                 <span>Topics</span>
                             </button>
                             <button
                                 onClick={() => handleSetFeedViewMode('list')}
-                                title="Flat ranked list"
-                                className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all cursor-pointer ${!isGroupedActive ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                                title="Flat list"
+                                className={`flex items-center gap-1 px-2 py-0.5 rounded-[5px] transition-colors cursor-pointer ${
+                                    !isGroupedActive
+                                        ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm'
+                                        : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
+                                }`}
                             >
                                 <List size={11} />
                                 <span>List</span>
                             </button>
                         </div>
 
-                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/80" />
-
-                        <button 
+                        <button
                             onClick={() => {
                                 const newState = !isSidebarCollapsed;
                                 setIsSidebarCollapsed(newState);
                                 localStorage.setItem('hn_feed_sidebar_collapsed', newState.toString());
                             }}
-                            className={`p-2 rounded-lg transition-all border cursor-pointer ${isSidebarCollapsed ? 'bg-slate-100 dark:bg-[#1e273d] border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400' : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-600 dark:text-indigo-400'}`}
-                            title={isSidebarCollapsed ? "Expand Article Insight Sidebar (Ctrl+Q)" : "Collapse Article Insight Sidebar (Ctrl+Q)"}
+                            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                                isSidebarCollapsed
+                                    ? 'text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.06]'
+                                    : 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-800 dark:text-zinc-100'
+                            }`}
+                            title={isSidebarCollapsed ? 'Show Preview Pane (Ctrl+Q)' : 'Hide Preview Pane (Ctrl+Q)'}
                         >
-                            <Layout size={16} className={isSidebarCollapsed ? 'opacity-50' : 'opacity-100'} />
+                            <PanelRight size={15} />
                         </button>
                     </div>
                 </div>
             )}
 
-
-            {/* Global Tab Bar Container */}
+            {/* ─── Slim Tab Bar (Only when article tabs are open) ─── */}
             {tabs.length > 0 && !isWebPreview() && (
-                <div className="flex items-center bg-slate-100 dark:bg-[#131824] border-b border-slate-200 dark:border-slate-800/90 shrink-0 relative">
-                    <div className="flex flex-1 min-w-0 overflow-hidden gap-px">
+                <div className="flex items-center bg-stone-100/90 dark:bg-[#121214] border-b border-stone-200/80 dark:border-white/[0.07] shrink-0 relative">
+                    <div className="flex flex-1 min-w-0 overflow-hidden">
                         <button
                             onClick={() => { setPrimaryTab('feed'); setCurrentView('feed'); }}
-                            title="Back to News Feed"
-                            className={`group flex items-center justify-center gap-2 px-4 py-2 transition-all h-[38px] min-w-[110px] max-w-[140px] shrink-0 border-r border-slate-200 dark:border-slate-800 cursor-pointer ${currentView === 'feed'
-                                ? 'bg-white dark:bg-[#1a2234] text-orange-500 font-bold'
-                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-[#1a2234]/60'}`}
+                            title="Back to Feed"
+                            className={`flex items-center justify-center gap-1.5 px-3.5 h-[34px] shrink-0 border-r border-stone-200/80 dark:border-white/[0.07] transition-colors cursor-pointer text-[12px] ${
+                                currentView === 'feed'
+                                    ? 'bg-[#fafaf8] dark:bg-[#19191d] text-stone-900 dark:text-zinc-100 font-medium border-b-2 border-b-[#e06834]'
+                                    : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200 hover:bg-stone-200/50 dark:hover:bg-white/[0.04]'
+                            }`}
                         >
-                            <Home size={14} className={currentView === 'feed' ? 'text-orange-500' : 'text-slate-400'} /> 
-                            <span className="text-[12px] truncate">Feed</span>
+                            <Home size={13} />
+                            <span>Feed</span>
                         </button>
                         {tabs.map(t => {
                             const isPinned = Boolean(t.isPinned);
+                            const isActiveTab = currentView === 'reader' && activeTabId === t.id;
                             return (
                                 <div
                                     key={t.id}
                                     title={isPinned
-                                        ? `${t.story.title} (Pinned — stays open)`
-                                        : `${t.story.title} (Preview tab — double-click tab to keep open)`}
+                                        ? `${t.story.title} (Pinned)`
+                                        : `${t.story.title} (Double-click to pin tab)`}
                                     onDoubleClick={() => app.pinTab(t.id, true)}
-                                    className={`group flex min-w-[90px] max-w-[280px] flex-1 shrink items-center justify-between px-3 h-[38px] border-r border-slate-200 dark:border-slate-800 transition-all select-none ${currentView === 'reader' && activeTabId === t.id
-                                        ? 'bg-white dark:bg-[#1a2234] text-amber-500 dark:text-amber-400 font-bold border-b-2 border-b-amber-500'
-                                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-[#1a2234]/60'}`}
+                                    className={`group flex min-w-[100px] max-w-[260px] flex-1 shrink items-center justify-between px-3 h-[34px] border-r border-stone-200/80 dark:border-white/[0.07] transition-colors select-none ${
+                                        isActiveTab
+                                            ? 'bg-[#fafaf8] dark:bg-[#19191d] text-stone-900 dark:text-zinc-100 font-medium border-b-2 border-b-[#e06834]'
+                                            : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200 hover:bg-stone-200/50 dark:hover:bg-white/[0.04]'
+                                    }`}
                                 >
                                     <button
                                         onClick={() => { setIsBriefingOpen(false); app.handleStorySelect?.(t.storyId); setCurrentView('reader'); }}
-                                        className={`truncate text-[12px] flex-1 text-left cursor-pointer ${!isPinned ? 'italic opacity-90' : 'not-italic'}`}
+                                        className={`truncate text-[12px] flex-1 text-left cursor-pointer ${!isPinned ? 'italic' : ''}`}
                                     >
                                         {t.story.title}
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); app.pinTab(t.id); }}
-                                        title={isPinned ? "Unpin tab (allow auto-replace)" : "Keep tab open (or double-click tab)"}
-                                        className={`ml-1 p-1 rounded-md transition-all shrink-0 cursor-pointer ${
+                                        title={isPinned ? 'Unpin tab' : 'Pin tab'}
+                                        className={`ml-1 p-1 rounded transition-opacity shrink-0 cursor-pointer ${
                                             isPinned
-                                                ? 'text-amber-500 dark:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                                : 'opacity-0 group-hover:opacity-70 hover:!opacity-100 text-slate-400 hover:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                ? 'text-[#e06834]'
+                                                : 'opacity-0 group-hover:opacity-60 hover:!opacity-100 text-stone-400 dark:text-zinc-500'
                                         }`}
                                     >
                                         <Pin size={10} className={isPinned ? 'fill-current' : ''} />
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={(e) => { e.stopPropagation(); closeTab(t.id); }}
                                         title="Close tab"
-                                        className="ml-0.5 p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-red-500 transition-colors shrink-0 cursor-pointer"
+                                        className="ml-0.5 p-1 rounded text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/70 dark:hover:bg-white/[0.08] transition-colors shrink-0 cursor-pointer"
                                     >
                                         <X size={11} />
                                     </button>
@@ -801,10 +692,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 </div>
             )}
 
-            {/* Main Content Area */}
+            {/* ─── Main Workspace ─── */}
             <div className="flex-1 flex overflow-hidden relative">
-                <main 
-                    className="flex-1 overflow-hidden bg-slate-50 dark:bg-[#131824] flex flex-col" 
+                <main
+                    className="flex-1 overflow-hidden bg-[#fafaf8] dark:bg-[#121214] flex flex-col"
                     style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
                 >
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
@@ -838,78 +729,81 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 refreshKey={groupedRefreshKey}
                             />
                         ) : (
-                        <div 
-                            ref={parentRef}
-                            className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#f8fafc] dark:bg-[#131824]"
-                        >
-                            {loading && stories.length === 0 ? (
-                                <div className="p-20 text-center"><RefreshCw size={32} className="animate-spin text-indigo-500 mx-auto" /></div>
-                            ) : (
-                                <div 
-                                    className="relative w-full"
-                                    style={{ height: `${virtualizer.getTotalSize()}px` }}
-                                >
-                                    {virtualItems.map((virtualItem) => {
-                                        const story = stories[virtualItem.index];
-                                        if (!story) return null;
+                            <div
+                                ref={parentRef}
+                                className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[#fafaf8] dark:bg-[#121214]"
+                            >
+                                {loading && stories.length === 0 ? (
+                                    <div className="p-20 text-center">
+                                        <RefreshCw size={22} className="animate-spin text-stone-400 dark:text-zinc-500 mx-auto" />
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="relative w-full"
+                                        style={{ height: `${virtualizer.getTotalSize()}px` }}
+                                    >
+                                        {virtualItems.map((virtualItem) => {
+                                            const story = stories[virtualItem.index];
+                                            if (!story) return null;
 
-                                        const isSelected = selectedStoryId === story.id;
-                                        const isHighlighted = app.highlightedStoryId === story.id;
-                                        const isRead = readIds.has(story.id) || !!story.is_read;
+                                            const isSelected = selectedStoryId === story.id;
+                                            const isHighlighted = app.highlightedStoryId === story.id;
+                                            const isRead = readIds.has(story.id) || !!story.is_read;
 
-                                        return (
+                                            return (
+                                                <div
+                                                    key={story.id}
+                                                    data-index={virtualItem.index}
+                                                    ref={virtualizer.measureElement}
+                                                    className="absolute top-0 left-0 w-full"
+                                                    style={{
+                                                        transform: `translateY(${virtualItem.start}px)`,
+                                                    }}
+                                                >
+                                                    <StoryCard
+                                                        story={story}
+                                                        index={virtualItem.index}
+                                                        isSelected={isSelected}
+                                                        isHighlighted={isHighlighted}
+                                                        isRead={isRead}
+                                                        isEven={virtualItem.index % 2 === 0}
+                                                        onSelect={() => setHighlightedStoryId(story.id)}
+                                                        onOpenInTab={handleStorySelect}
+                                                        onToggleSave={(isWebPreview() || user) ? handleToggleSave : undefined}
+                                                        onHide={handleHideStory}
+                                                        activeTopics={activeTopics}
+                                                        selectedTopics={activeTopics.filter(t => !disabledTopics.includes(t))}
+                                                        topicMatch={app.topicMatch}
+                                                        hiddenTags={activeTopics.filter(t => !disabledTopics.includes(t))}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+
+                                        {fetchingMore && (
                                             <div
-                                                key={story.id}
-                                                data-index={virtualItem.index}
-                                                ref={virtualizer.measureElement}
-                                                className={`absolute top-0 left-0 w-full ${isWebPreview() ? 'px-3 py-1' : 'px-5 py-1.5'}`}
-                                                style={{
-                                                    transform: `translateY(${virtualItem.start}px)`,
-                                                }}
+                                                className="absolute left-0 w-full flex justify-center py-8"
+                                                style={{ transform: `translateY(${virtualizer.getTotalSize()}px)` }}
                                             >
-                                                <StoryCard
-                                                    story={story} 
-                                                    index={virtualItem.index} 
-                                                    isSelected={isSelected} 
-                                                    isHighlighted={isHighlighted} 
-                                                    isRead={isRead} 
-                                                    isEven={virtualItem.index % 2 === 0}
-                                                    onSelect={() => setHighlightedStoryId(story.id)}
-                                                    onOpenInTab={handleStorySelect}
-                                                    onToggleSave={(isWebPreview() || user) ? handleToggleSave : undefined} 
-                                                    onHide={handleHideStory}
-                                                    activeTopics={activeTopics}
-                                                    selectedTopics={activeTopics.filter(t => !disabledTopics.includes(t))}
-                                                    topicMatch={app.topicMatch}
-                                                    hiddenTags={activeTopics.filter(t => !disabledTopics.includes(t))}
-                                                />
+                                                <RefreshCw size={18} className="animate-spin text-stone-400 dark:text-zinc-500" />
                                             </div>
-                                        );
-                                    })}
-                                    
-                                    {/* Loading more spinner at the end of the list */}
-                                    {fetchingMore && (
-                                        <div 
-                                            className="absolute left-0 w-full flex justify-center py-8"
-                                            style={{ transform: `translateY(${virtualizer.getTotalSize()}px)` }}
-                                        >
-                                            <RefreshCw size={24} className="animate-spin text-indigo-500/50" />
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                        )}
+                                    </div>
+                                )}
 
-                            {!loading && stories.length === 0 && (
-                                <div className="flex-1 flex items-center justify-center p-20 text-slate-400 font-medium">No stories found in this view.</div>
-                            )}
-                        </div>
+                                {!loading && stories.length === 0 && (
+                                    <div className="flex-1 flex items-center justify-center p-20 text-[13px] text-stone-400 dark:text-zinc-500">
+                                        No stories match this filter.
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 </main>
 
                 {/* Reader View */}
                 {currentView === 'reader' && (
-                    <div className="flex-1 w-full bg-[#111d2e] relative">
+                    <div className="flex-1 w-full bg-[#fafaf8] dark:bg-[#121214] relative">
                         {tabs.filter(tab => activeTabId === tab.id).map(tab => (
                             <div key={tab.id} className="h-full">
                                 <ReaderPane
@@ -936,28 +830,31 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 />
                             </div>
                         ))}
-                        {!tabs.length && <div className="h-full flex items-center justify-center text-slate-500">Select a story</div>}
+                        {!tabs.length && (
+                            <div className="h-full flex items-center justify-center text-[13px] text-stone-400 dark:text-zinc-500">
+                                Select a story
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* Right Side Workspace Pane (Comments & AI Takeaways in Web, FilterSidebar in Desktop) */}
+                {/* Right Side Preview Pane */}
                 {isWebPreview() ? (
                     <>
-                        {/* Resizer Handle */}
                         {!isSidebarCollapsed && (
                             <div
                                 onMouseDown={startResizing}
-                                className={`w-1.5 h-full cursor-col-resize absolute right-0 top-0 z-50 hover:bg-indigo-500/30 transition-colors ${isResizing ? 'bg-indigo-500/50' : ''}`}
+                                className={`w-1 h-full cursor-col-resize absolute right-0 top-0 z-50 hover:bg-stone-400/40 dark:hover:bg-zinc-600/40 transition-colors ${isResizing ? 'bg-[#e06834]/50' : ''}`}
                                 style={{ right: `${sidebarWidth}px` }}
                             />
                         )}
 
-                        <div 
-                            className={`h-full transition-all duration-300 ease-in-out overflow-hidden flex shrink-0 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}
+                        <div
+                            className={`h-full transition-all duration-200 ease-out overflow-hidden flex shrink-0 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}
                             style={{ width: isSidebarCollapsed ? 0 : `${sidebarWidth}px` }}
                         >
                             {highlightedStory ? (
-                                <div className="flex-1 h-full overflow-hidden flex flex-col bg-white dark:bg-[#0b0f19]">
+                                <div className="flex-1 h-full overflow-hidden flex flex-col bg-[#fafaf8] dark:bg-[#121214]">
                                     <ReaderPane
                                         story={highlightedStory}
                                         isActive={true}
@@ -982,16 +879,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     />
                                 </div>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50 dark:bg-[#0a0f1d] text-slate-400 dark:text-slate-500 gap-4 h-full">
-                                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center text-indigo-500 dark:text-indigo-400 shadow-xl shadow-indigo-500/5">
-                                        <Layout size={28} />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Select a story</h3>
-                                        <p className="text-[11px] text-slate-500 max-w-[240px] leading-relaxed">
-                                            Single-click any story in the feed to view community discussion & AI summaries here. Double-click to read.
-                                        </p>
-                                    </div>
+                                <div className="flex-1 flex items-center justify-center text-center p-8 bg-[#f5f5f2] dark:bg-[#161619] text-stone-400 dark:text-zinc-500 h-full text-[13px]">
+                                    Select a story to view discussion and summary.
                                 </div>
                             )}
                         </div>
@@ -999,17 +888,16 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 ) : (
                     currentView === 'feed' && (
                         <>
-                            {/* Resizer Handle */}
                             {!isSidebarCollapsed && (
                                 <div
                                     onMouseDown={startResizing}
-                                    className={`w-1.5 h-full cursor-col-resize absolute right-0 top-0 z-50 hover:bg-indigo-500/30 transition-colors ${isResizing ? 'bg-indigo-500/50' : ''}`}
+                                    className={`w-1 h-full cursor-col-resize absolute right-0 top-0 z-50 hover:bg-stone-400/40 dark:hover:bg-zinc-600/40 transition-colors ${isResizing ? 'bg-[#e06834]/50' : ''}`}
                                     style={{ right: `${sidebarWidth}px` }}
                                 />
                             )}
 
-                            <div 
-                                className={`h-full transition-all duration-300 ease-in-out overflow-hidden flex shrink-0 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}
+                            <div
+                                className={`h-full transition-all duration-200 ease-out overflow-hidden flex shrink-0 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}
                                 style={{ width: isSidebarCollapsed ? 0 : `${sidebarWidth}px` }}
                             >
                                 <FilterSidebar
@@ -1019,6 +907,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     setDisabledTopics={app.setDisabledTopics}
                                     highlightedStory={highlightedStory}
                                     user={user}
+                                    apiBase={app.apiBase}
+                                    onOpenInTab={handleStorySelect}
                                     onSummarize={app.handleSummarizeStory}
                                     topicMatch={app.topicMatch}
                                 />
@@ -1043,9 +933,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
             {isAdminModalOpen && <AdminDashboard onClose={() => setIsAdminModalOpen(false)} />}
             {isSettingsOpen && <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} user={user} />}
             <KeyboardHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-
-            {/* Status Bar */}
-            <StatusBar />
         </div>
     );
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bookmark, Terminal, X, Sparkles, MessageSquare } from 'lucide-react';
-import { getTagStyle } from '../utils/colors';
+import { Bookmark, X, MessageSquare } from 'lucide-react';
 import { isWebPreview } from '../utils/env';
 import { getApiBase } from '../utils/apiBase';
 
@@ -39,7 +38,7 @@ interface StoryCardProps {
 }
 
 export function StoryCard({
-    story, index, onSelect, onToggleSave, onHide, onOpenInTab,
+    story, onSelect, onToggleSave, onHide, onOpenInTab,
     isSelected, isHighlighted, isRead, activeTopics = [], hiddenTags = [],
 }: StoryCardProps) {
     const hoverTimerRef = useRef<number | null>(null);
@@ -71,7 +70,7 @@ export function StoryCard({
                 }
             }
         }
-        return result.slice(0, 3);
+        return result.slice(0, 2);
     })();
 
     let domain = '';
@@ -154,13 +153,6 @@ export function StoryCard({
         return () => window.removeEventListener('click', closeMenu);
     }, [contextMenuPos]);
 
-    const cardBg = 'bg-white dark:bg-[#182032] border-slate-200/80 dark:border-slate-800/90';
-    const activeBg = isHighlighted
-        ? 'bg-amber-50/40 dark:bg-[#1f2940] border-l-[3px] border-l-amber-400 border-y border-r border-y-slate-200/80 border-r-slate-200/80 dark:border-y-slate-700/80 dark:border-r-slate-700/80 shadow-sm z-10'
-        : isSelected
-            ? 'bg-orange-500/5 dark:bg-[#1d273c] border-l-[3px] border-l-orange-500 border-y border-r border-slate-200 dark:border-slate-700/70'
-            : `${cardBg} border hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50/70 dark:hover:bg-[#1d273c]`;
-
     const timeAgo = (() => {
         const ts = (story as any).posted_at || story.time || story.created_at;
         if (!ts) return '';
@@ -176,12 +168,11 @@ export function StoryCard({
     const cleanSummaryLine = story.summary && story.summary.trim().length > 0
         ? story.summary
               .replace(/^([#\s\-*•]|\d+\.)+/, '')
-              .replace(/^\*\*|\*\*$/g, '')
+              .replace(/\*\*/g, '')
               .split('\n')[0]
               .replace(/^([#\s\-*•]|\d+\.)+/, '')
-              .replace(/^\*\*|\*\*$/g, '')
               .trim()
-              .slice(0, 150)
+              .slice(0, 160)
         : '';
 
     const handleCardClick = () => {
@@ -195,7 +186,7 @@ export function StoryCard({
         if (!onSelect || isHighlighted) return;
         hoverTimerRef.current = window.setTimeout(() => {
             onSelect(story.id);
-        }, 160);
+        }, 140);
     };
 
     const handleMouseLeave = () => {
@@ -205,81 +196,93 @@ export function StoryCard({
         }
     };
 
+    const isActiveRow = isHighlighted || isSelected;
+
     return (
         <div
             id={`story-${story.id}`}
-            className={`group transition-all duration-150 flex flex-col justify-center relative rounded-xl px-4 py-2.5 cursor-pointer ${activeBg}`}
-            style={{ animationDelay: `${(index !== undefined ? index % 10 : 0) * 0.03}s` }}
+            className={`group relative px-6 py-3.5 cursor-pointer transition-colors duration-100 border-b border-stone-200/75 dark:border-white/[0.06] ${
+                isActiveRow
+                    ? 'bg-stone-200/45 dark:bg-white/[0.045]'
+                    : 'hover:bg-stone-100/70 dark:hover:bg-white/[0.025]'
+            }`}
             onClick={handleCardClick}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             onContextMenu={handleContextMenu}
         >
-            <div className="relative z-10 pr-14">
+            {/* Subtle Left Accent Bar for Active Preview Row */}
+            {isActiveRow && (
+                <div className="absolute left-0 top-2.5 bottom-2.5 w-[2px] rounded-r-full bg-[#e06834]" />
+            )}
+
+            <div className="relative pr-14">
                 {/* Headline */}
-                <h3 className="text-[14.5px] leading-snug mb-1 font-semibold whitespace-normal">
+                <h3 className="text-[15px] leading-[1.38] tracking-[-0.012em] whitespace-normal">
                     <span
-                        className={`group-hover:text-sky-600 dark:group-hover:text-sky-300 transition-colors ${
-                            isHighlighted
-                                ? 'text-amber-600 dark:text-amber-300'
-                                : dimmed && !isSelected
-                                    ? 'text-slate-500 dark:text-slate-400 font-normal'
-                                    : 'text-slate-900 dark:text-slate-100'
+                        className={`transition-colors ${
+                            dimmed && !isActiveRow
+                                ? 'text-stone-400 dark:text-zinc-500 font-normal'
+                                : 'text-stone-900 dark:text-[#ececef] font-medium group-hover:text-black dark:group-hover:text-white'
                         }`}
                     >
                         {story.title}
                     </span>
                 </h3>
 
+                {/* Quiet 1-Line Takeaway Subtitle (no sparkle icon) */}
+                {cleanSummaryLine && !isWebPreview() && (
+                    <p className="text-[13px] text-stone-500 dark:text-zinc-400 mt-1 line-clamp-1 leading-[1.45] font-normal">
+                        {cleanSummaryLine}
+                    </p>
+                )}
+
                 {/* Quiet Single-Line Metadata */}
-                <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
+                <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1.5 text-[11.5px] text-stone-400 dark:text-zinc-500">
                     {domain ? (
-                        <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                        <span className="inline-flex items-center gap-1.5 text-stone-500 dark:text-zinc-400">
                             <img
-                                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
                                 alt=""
-                                className="w-3.5 h-3.5 rounded-sm opacity-75"
+                                className="w-3.5 h-3.5 rounded-[3px] opacity-70"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
-                            <span className="truncate max-w-[160px]">{domain}</span>
+                            <span className="truncate max-w-[180px]">{domain}</span>
                         </span>
                     ) : story.title.startsWith('Ask HN') ? (
-                        <span className="inline-flex items-center gap-1 text-indigo-500 dark:text-indigo-400 font-medium">
-                            <Terminal size={10} />
-                            <span>Ask HN</span>
-                        </span>
+                        <span className="text-stone-500 dark:text-zinc-400">Ask HN</span>
                     ) : null}
 
-                    {domain && <span className="text-slate-300 dark:text-slate-700">·</span>}
+                    {domain && <span className="opacity-45">·</span>}
 
                     {timeAgo && <span>{timeAgo}</span>}
 
                     {story.by && (
                         <>
-                            <span className="text-slate-300 dark:text-slate-700">·</span>
-                            <span className="text-slate-500 dark:text-slate-400">{story.by}</span>
+                            <span className="opacity-45">·</span>
+                            <span>{story.by}</span>
                         </>
                     )}
 
-                    <span className="text-slate-300 dark:text-slate-700">·</span>
+                    <span className="opacity-45">·</span>
 
-                    {/* Clean Plain Inline Upvote */}
+                    {/* Quiet Inline Upvote */}
                     <span className="relative inline-flex items-center">
                         <button
                             onClick={(e) => handleVote(e, 'up')}
                             disabled={voting}
                             title="Upvote story"
-                            className={`inline-flex items-center gap-0.5 font-semibold transition-colors cursor-pointer ${
+                            className={`inline-flex items-center gap-0.5 tabular-nums transition-colors cursor-pointer ${
                                 voted === 'up'
-                                    ? 'text-orange-500'
-                                    : 'text-amber-600/90 dark:text-amber-400/90 hover:text-orange-500'
+                                    ? 'text-[#e06834] font-medium'
+                                    : 'text-stone-500 dark:text-zinc-400 hover:text-[#e06834]'
                             }`}
                         >
-                            <span>▲</span>
+                            <span className="text-[9px]">▲</span>
                             <span>{localScore}</span>
                         </button>
                         {voteError && (
-                            <span className="absolute bottom-full mb-1 left-0 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-[100]">
+                            <span className="absolute bottom-full mb-1 left-0 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-[10px] font-medium px-2 py-0.5 rounded shadow-md whitespace-nowrap z-[100]">
                                 {voteError}
                             </span>
                         )}
@@ -296,51 +299,40 @@ export function StoryCard({
                             }
                         }}
                         title="Open discussion"
-                        className={`inline-flex items-center gap-1 transition-colors font-medium hover:text-orange-500 cursor-pointer ${
-                            story.descendants > 0 ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'
+                        className={`inline-flex items-center gap-1 tabular-nums transition-colors hover:text-stone-900 dark:hover:text-zinc-200 cursor-pointer ${
+                            story.descendants > 0 ? 'text-stone-500 dark:text-zinc-400' : 'text-stone-400 dark:text-zinc-600'
                         }`}
                     >
                         <MessageSquare size={11} />
                         <span>{story.descendants || 0}</span>
                     </button>
 
-                    {/* Quiet Muted Topic Tags (non-redundant only) */}
+                    {/* Subtle Monochrome Topic Labels */}
                     {displayTopics.length > 0 && (
-                        <div className="inline-flex items-center gap-1.5 ml-1">
-                            {displayTopics.map(label => {
-                                const style = getTagStyle(label);
-                                return (
-                                    <span
-                                        key={label}
-                                        className="text-[10.5px] font-medium opacity-75"
-                                        style={{ color: style.color }}
-                                    >
-                                        #{label}
+                        <>
+                            <span className="opacity-45">·</span>
+                            <span className="inline-flex items-center gap-1.5 text-[11px] text-stone-400 dark:text-zinc-500">
+                                {displayTopics.map((label, i) => (
+                                    <span key={label}>
+                                        {i > 0 && <span className="mr-1.5 opacity-40">/</span>}
+                                        {label}
                                     </span>
-                                );
-                            })}
-                        </div>
+                                ))}
+                            </span>
+                        </>
                     )}
                 </div>
-
-                {/* 1-Line AI Summary Preview */}
-                {cleanSummaryLine && !isWebPreview() && (
-                    <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-1 leading-snug">
-                        <Sparkles size={10} className="inline mr-1.5 text-amber-500/80 -mt-0.5" />
-                        {cleanSummaryLine}
-                    </p>
-                )}
             </div>
 
             {/* Minimal Hover-Only Actions: Bookmark & Hide */}
-            <div className={`absolute top-2.5 right-3 flex items-center gap-1 z-20 transition-opacity duration-150 ${saved ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+            <div className={`absolute top-3.5 right-4 flex items-center gap-0.5 z-20 transition-opacity duration-100 ${saved ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                 {onToggleSave && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onToggleSave(story.id, !saved); }}
                         className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                             saved
-                                ? 'text-amber-500 bg-amber-500/10'
-                                : 'text-slate-400 hover:text-amber-500 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                                ? 'text-[#e06834]'
+                                : 'text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-200 hover:bg-stone-200/70 dark:hover:bg-white/[0.08]'
                         }`}
                         title={saved ? 'Remove bookmark' : 'Bookmark story'}
                     >
@@ -350,7 +342,7 @@ export function StoryCard({
                 {onHide && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onHide(story.id); }}
-                        className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-md text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-200 hover:bg-stone-200/70 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
                         title="Hide story"
                     >
                         <X size={13} />
@@ -361,36 +353,36 @@ export function StoryCard({
             {/* Right-Click Context Menu */}
             {contextMenuPos && onOpenInTab && (
                 <div
-                    className="fixed z-[10000] w-64 bg-white dark:bg-[#171f30] border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl py-1 text-xs text-slate-700 dark:text-slate-200"
+                    className="fixed z-[10000] w-56 bg-white dark:bg-[#1c1c20] border border-stone-200 dark:border-zinc-800 rounded-lg shadow-xl py-1 text-[12.5px] text-stone-700 dark:text-zinc-200"
                     style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
                     onClick={e => e.stopPropagation()}
                 >
                     <button
                         onClick={() => { onOpenInTab(story.id, 'article', true, story); setContextMenuPos(null); }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-white/[0.07] font-medium cursor-pointer"
                     >
                         Open &amp; Pin Tab
                     </button>
                     <button
                         onClick={() => { onOpenInTab(story.id, 'discussion', false, story); setContextMenuPos(null); }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-white/[0.07] cursor-pointer"
                     >
                         Open Discussion
                     </button>
                     <button
                         onClick={() => { onOpenInTab(story.id, 'split', false, story); setContextMenuPos(null); }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-white/[0.07] cursor-pointer"
                     >
                         Open Side-by-Side Split
                     </button>
-                    <div className="my-1 border-t border-slate-200 dark:border-slate-800" />
+                    <div className="my-1 border-t border-stone-200 dark:border-zinc-800" />
                     <button
                         onClick={() => {
                             const url = story.url || `https://news.ycombinator.com/item?id=${story.id}`;
                             (window as any).electronAPI ? (window as any).electronAPI.openExternal(url) : window.open(url, '_blank');
                             setContextMenuPos(null);
                         }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-white/[0.07] cursor-pointer"
                     >
                         Open in Browser
                     </button>
@@ -399,7 +391,7 @@ export function StoryCard({
                             navigator.clipboard.writeText(story.url || `https://news.ycombinator.com/item?id=${story.id}`);
                             setContextMenuPos(null);
                         }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                        className="w-full text-left px-3 py-1.5 hover:bg-stone-100 dark:hover:bg-white/[0.07] cursor-pointer"
                     >
                         Copy Link
                     </button>
