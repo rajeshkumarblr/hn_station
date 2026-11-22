@@ -25,6 +25,7 @@ type GroupKey = 'postgres' | 'ai' | 'systems' | 'general';
 interface TopicGroup {
     key: GroupKey;
     label: string;
+    dotColor: string;
     hiddenTags: string[];
     filterTopics?: string[];
     stories: Story[];
@@ -174,6 +175,7 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
             {
                 key: 'postgres',
                 label: 'Postgres',
+                dotColor: '#5b9bd5',
                 hiddenTags: ['Postgres', 'PostgreSQL', 'Database'],
                 filterTopics: ['Postgres'],
                 stories: pgBucket,
@@ -181,6 +183,7 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
             {
                 key: 'ai',
                 label: 'AI & LLMs',
+                dotColor: '#9d8df1',
                 hiddenTags: ['AI', 'LLM'],
                 filterTopics: ['AI', 'LLM'],
                 stories: aiBucket,
@@ -188,6 +191,7 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
             {
                 key: 'systems',
                 label: 'Systems & Databases',
+                dotColor: '#4ea885',
                 hiddenTags: [],
                 filterTopics: ['Database'],
                 stories: sysBucket,
@@ -195,6 +199,7 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
             {
                 key: 'general',
                 label: 'General HN',
+                dotColor: '#e06834',
                 hiddenTags: [],
                 stories: genBucket,
             },
@@ -211,28 +216,32 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
     }, [highlightedStoryId, groups, onSelectStory]);
 
     return (
-        <div className="flex-1 overflow-y-auto custom-scrollbar py-5 space-y-7 bg-[#fafaf8] dark:bg-[#121214]">
-            {groups.map(group => {
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#fafaf8] dark:bg-[#121214]">
+            {groups.map((group) => {
                 const isCollapsed = Boolean(collapsedGroups[group.key]);
                 const isExpanded = Boolean(expandedCounts[group.key]);
                 const visibleStories = isExpanded ? group.stories : group.stories.slice(0, DEFAULT_VISIBLE_COUNT);
                 const hiddenCount = group.stories.length - visibleStories.length;
 
                 return (
-                    <section key={group.key}>
-                        {/* Quiet Editorial Section Header */}
-                        <div className="flex items-center justify-between px-6 pb-2 border-b border-stone-200/90 dark:border-white/[0.08] select-none">
+                    <section key={group.key} className="relative">
+                        {/* Distinct Elevated Sticky Section Band */}
+                        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-2.5 bg-[#f0f0ec]/95 dark:bg-[#19191d]/95 backdrop-blur-sm border-b border-stone-200/90 dark:border-white/[0.08] select-none">
                             <button
                                 onClick={() => toggleGroup(group.key)}
-                                className="flex items-center gap-2 group/hdr cursor-pointer focus:outline-none"
+                                className="flex items-center gap-2.5 group/hdr cursor-pointer focus:outline-none"
                             >
-                                <span className="text-stone-400 dark:text-zinc-500 group-hover/hdr:text-stone-700 dark:group-hover/hdr:text-zinc-300 transition-colors">
+                                <span className="text-stone-400 dark:text-zinc-500 group-hover/hdr:text-stone-800 dark:group-hover/hdr:text-zinc-200 transition-colors">
                                     {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
                                 </span>
-                                <h2 className="text-[12.5px] font-semibold tracking-[-0.01em] text-stone-800 dark:text-zinc-200">
+                                <span
+                                    className="w-2 h-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: group.dotColor }}
+                                />
+                                <h2 className="text-[13px] font-semibold tracking-[-0.01em] text-stone-900 dark:text-zinc-100">
                                     {group.label}
                                 </h2>
-                                <span className="text-[11.5px] text-stone-400 dark:text-zinc-500 tabular-nums">
+                                <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-stone-200/80 dark:bg-white/[0.07] text-stone-600 dark:text-zinc-400 tabular-nums leading-none">
                                     {group.stories.length}
                                 </span>
                             </button>
@@ -240,7 +249,7 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
                             {group.filterTopics && (
                                 <button
                                     onClick={() => onFilterTopic(group.filterTopics!)}
-                                    className="flex items-center gap-1 text-[11.5px] text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+                                    className="flex items-center gap-1 text-[11.5px] font-medium text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                                 >
                                     <span>View all</span>
                                     <ArrowRight size={11} />
@@ -248,14 +257,19 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
                             )}
                         </div>
 
-                        {/* Flat Hairline Story List */}
+                        {/* Indented Child Story List with Subtle Vertical Structural Guide */}
                         {!isCollapsed && (
-                            <div>
+                            <div className="relative pb-2">
+                                <div
+                                    className="pointer-events-none absolute left-[22px] top-0 bottom-2 w-px opacity-30 dark:opacity-25"
+                                    style={{ backgroundColor: group.dotColor }}
+                                />
                                 {visibleStories.map((story, idx) => (
                                     <StoryCard
                                         key={story.id}
                                         story={story}
                                         index={idx}
+                                        indented={true}
                                         isSelected={selectedStoryId === story.id}
                                         isHighlighted={highlightedStoryId === story.id}
                                         isRead={readIds.has(story.id) || !!story.is_read}
@@ -271,7 +285,7 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
                                 {hiddenCount > 0 && (
                                     <button
                                         onClick={() => setExpandedCounts(prev => ({ ...prev, [group.key]: true }))}
-                                        className="w-full text-left px-6 py-2.5 text-[12px] font-medium text-stone-400 dark:text-zinc-500 hover:text-stone-800 dark:hover:text-zinc-200 hover:bg-stone-100/60 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
+                                        className="w-full text-left pl-10 pr-6 py-2.5 text-[12px] font-medium text-stone-400 dark:text-zinc-500 hover:text-stone-800 dark:hover:text-zinc-200 hover:bg-stone-100/60 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
                                     >
                                         Show {hiddenCount} more in {group.label}
                                     </button>
@@ -280,7 +294,7 @@ export const GroupedFeed: React.FC<GroupedFeedProps> = ({
                                 {isExpanded && group.stories.length > DEFAULT_VISIBLE_COUNT && (
                                     <button
                                         onClick={() => setExpandedCounts(prev => ({ ...prev, [group.key]: false }))}
-                                        className="w-full text-left px-6 py-2 text-[12px] font-medium text-stone-400 dark:text-zinc-500 hover:text-stone-700 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+                                        className="w-full text-left pl-10 pr-6 py-2 text-[12px] font-medium text-stone-400 dark:text-zinc-500 hover:text-stone-700 dark:hover:text-zinc-300 transition-colors cursor-pointer"
                                     >
                                         Show less
                                     </button>

@@ -31,15 +31,22 @@ interface StoryCardProps {
     isHighlighted?: boolean;
     isRead?: boolean;
     isEven?: boolean;
+    indented?: boolean;
     activeTopics?: string[];
     selectedTopics?: string[];
     topicMatch?: 'any' | 'all' | 'exclusive';
     hiddenTags?: string[];
 }
 
+function matchesWholeWord(text: string, term: string): boolean {
+    if (!text || !term) return false;
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(text);
+}
+
 export function StoryCard({
     story, onSelect, onToggleSave, onHide, onOpenInTab,
-    isSelected, isHighlighted, isRead, activeTopics = [], hiddenTags = [],
+    isSelected, isHighlighted, isRead, indented = false, activeTopics = [], hiddenTags = [],
 }: StoryCardProps) {
     const hoverTimerRef = useRef<number | null>(null);
 
@@ -53,10 +60,10 @@ export function StoryCard({
     const displayTopics = (() => {
         const seen = new Set<string>();
         const result: string[] = [];
-        const titleLower = (story.title || '').toLowerCase();
+        const title = story.title || '';
         for (const t of activeTopics) {
             const lower = t?.toLowerCase();
-            if (t && lower && !hiddenLower.has(lower) && titleLower.includes(lower) && !seen.has(lower)) {
+            if (t && lower && !hiddenLower.has(lower) && matchesWholeWord(title, lower) && !seen.has(lower)) {
                 seen.add(lower);
                 result.push(t);
             }
@@ -201,7 +208,7 @@ export function StoryCard({
     return (
         <div
             id={`story-${story.id}`}
-            className={`group relative px-6 py-3.5 cursor-pointer transition-colors duration-100 border-b border-stone-200/75 dark:border-white/[0.06] ${
+            className={`group relative ${indented ? 'pl-10 pr-6' : 'px-6'} py-3.5 cursor-pointer transition-colors duration-100 border-b border-stone-200/75 dark:border-white/[0.06] ${
                 isActiveRow
                     ? 'bg-stone-200/45 dark:bg-white/[0.045]'
                     : 'hover:bg-stone-100/70 dark:hover:bg-white/[0.025]'
@@ -213,7 +220,7 @@ export function StoryCard({
         >
             {/* Subtle Left Accent Bar for Active Preview Row */}
             {isActiveRow && (
-                <div className="absolute left-0 top-2.5 bottom-2.5 w-[2px] rounded-r-full bg-[#e06834]" />
+                <div className={`absolute ${indented ? 'left-4' : 'left-0'} top-2.5 bottom-2.5 w-[2px] rounded-full bg-[#e06834]`} />
             )}
 
             <div className="relative pr-14">
@@ -222,7 +229,7 @@ export function StoryCard({
                     <span
                         className={`transition-colors ${
                             dimmed && !isActiveRow
-                                ? 'text-stone-400 dark:text-zinc-500 font-normal'
+                                ? 'text-stone-500 dark:text-zinc-400 font-normal'
                                 : 'text-stone-900 dark:text-[#ececef] font-medium group-hover:text-black dark:group-hover:text-white'
                         }`}
                     >
@@ -230,9 +237,15 @@ export function StoryCard({
                     </span>
                 </h3>
 
-                {/* Quiet 1-Line Takeaway Subtitle (no sparkle icon) */}
+                {/* Quiet 1-Line Takeaway Subtitle (always softer than headline, including when read) */}
                 {cleanSummaryLine && !isWebPreview() && (
-                    <p className="text-[13px] text-stone-500 dark:text-zinc-400 mt-1 line-clamp-1 leading-[1.45] font-normal">
+                    <p
+                        className={`text-[13px] mt-1 line-clamp-1 leading-[1.45] font-normal ${
+                            dimmed && !isActiveRow
+                                ? 'text-stone-400 dark:text-zinc-500'
+                                : 'text-stone-500 dark:text-zinc-400'
+                        }`}
+                    >
                         {cleanSummaryLine}
                     </p>
                 )}

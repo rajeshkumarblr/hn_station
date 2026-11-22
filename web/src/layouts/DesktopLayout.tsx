@@ -246,8 +246,10 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
 
     const getTopicMatchCount = (topic: string) => {
         const lower = topic.toLowerCase();
+        const escaped = lower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const wordRe = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i');
         return app.storyBuffer.filter(s => {
-            if (s.title?.toLowerCase().includes(lower)) return true;
+            if (s.title && wordRe.test(s.title)) return true;
             if (s.topics?.some(st => st?.toLowerCase() === lower)) return true;
             return false;
         }).length;
@@ -289,8 +291,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             );
                         })}
 
-                        {/* Open Articles Dropdown (only shown when tabs are open) */}
-                        {!isWebPreview() && tabs.length > 0 && (
+                        {/* Overflow Open Articles Dropdown (only shown when 5+ tabs are open) */}
+                        {!isWebPreview() && tabs.length > 4 && (
                             <div className="relative h-full flex items-center ml-1" ref={articlesMenuRef}>
                                 <button
                                     onClick={() => setIsArticlesMenuOpen(!isArticlesMenuOpen)}
@@ -509,7 +511,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     </div>
 
                     {/* Center: Monochrome Topic Pills */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 min-w-0 py-0.5">
                         <button
                             onClick={() => {
                                 setDisabledTopics([...activeTopics]);
@@ -517,7 +519,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             }}
                             className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors cursor-pointer shrink-0 ${
                                 noActiveTopics
-                                    ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                    ? 'bg-stone-900 text-white dark:bg-[#27272d] dark:text-zinc-100 dark:ring-1 dark:ring-[#e06834]/60'
                                     : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.06]'
                             }`}
                         >
@@ -553,13 +555,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     }}
                                     className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium cursor-pointer transition-colors shrink-0 ${
                                         isActive
-                                            ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                            ? 'bg-stone-900 text-white dark:bg-[#27272d] dark:text-zinc-100 dark:ring-1 dark:ring-[#e06834]/60'
                                             : 'bg-stone-200/50 dark:bg-white/[0.04] text-stone-600 dark:text-zinc-400 hover:bg-stone-200/80 dark:hover:bg-white/[0.08] hover:text-stone-900 dark:hover:text-zinc-200'
                                     }`}
                                 >
                                     <span>{t}</span>
                                     {matchCount > 0 && (
-                                        <span className={`text-[10.5px] tabular-nums ${isActive ? 'opacity-65' : 'text-stone-400 dark:text-zinc-500'}`}>
+                                        <span className={`text-[10.5px] tabular-nums ${isActive ? 'text-stone-300 dark:text-zinc-400' : 'text-stone-400 dark:text-zinc-500'}`}>
                                             {matchCount}
                                         </span>
                                     )}
@@ -571,7 +573,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                         }}
                                         title={`Remove ${t}`}
                                         className={`opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity cursor-pointer shrink-0 -mr-0.5 ${
-                                            isActive ? 'text-white dark:text-zinc-900' : 'text-stone-400 dark:text-zinc-500'
+                                            isActive ? 'text-stone-300 dark:text-zinc-400' : 'text-stone-400 dark:text-zinc-500'
                                         }`}
                                     >
                                         <X size={10} />

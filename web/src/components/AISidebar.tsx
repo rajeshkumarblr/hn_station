@@ -680,7 +680,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                                         }}
                                                         className={`px-2.5 py-1 rounded-md text-[11.5px] font-medium transition-colors cursor-pointer ${
                                                             isEnabled
-                                                                ? 'bg-stone-900 text-white dark:bg-zinc-100 dark:text-zinc-950'
+                                                                ? 'bg-stone-900 text-white dark:bg-[#27272d] dark:text-zinc-100 dark:ring-1 dark:ring-[#e06834]/60'
                                                                 : 'bg-stone-200/65 text-stone-600 hover:bg-stone-200 dark:bg-white/[0.06] dark:text-zinc-400 dark:hover:bg-white/[0.1] dark:hover:text-zinc-200'
                                                         }`}
                                                     >
@@ -782,7 +782,7 @@ Please generate a cohesive, insightful 3-paragraph summary of the main arguments
                                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[90%] rounded-xl px-4 py-3 ${
                                         msg.role === 'user' 
-                                            ? 'bg-stone-900 dark:bg-zinc-100 text-white dark:text-zinc-950 ml-auto' 
+                                            ? 'bg-stone-200/90 dark:bg-[#27272d] text-stone-900 dark:text-zinc-100 border border-stone-300/60 dark:border-white/[0.08] ml-auto' 
                                             : 'bg-stone-100 dark:bg-[#19191d] text-stone-800 dark:text-zinc-200 border border-stone-200/80 dark:border-white/[0.07] mr-auto'
                                     }`}>
                                         <div className="prose prose-sm dark:prose-invert max-w-none text-[13.5px] leading-relaxed break-words overflow-x-hidden select-text prose-code:before:content-none prose-code:after:content-none">
