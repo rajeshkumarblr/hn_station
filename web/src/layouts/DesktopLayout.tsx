@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Home, Settings, X, Search, PanelRight, ChevronDown, Download, Sun, Moon, Github, Pin, Play, Layers, List } from 'lucide-react';
+import { RefreshCw, Home, Settings, X, Search, PanelRight, ChevronDown, Download, Sun, Moon, Github, Pin, Play, Newspaper, Layers } from 'lucide-react';
 import { StoryCard } from '../components/StoryCard';
 import { GroupedFeed } from '../components/GroupedFeed';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -17,13 +17,13 @@ import { fetchWithAuth } from '../utils/api';
 
 export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks/useAppState').useAppState> }) {
     const {
-        loading, mode, activeTopics,
+        loading, mode, workspaceMode, focusSort, activeTopics,
         tabs, activeTabId,
         currentView, isAdminModalOpen, user,
         hasMore,
         selectedStoryId, stories,
         highlightedStoryId, isSettingsOpen,
-        setMode, setActiveTopics,
+        setMode, setWorkspaceMode, setFocusSort, setActiveTopics,
         setCurrentView, setIsAdminModalOpen, setIsSettingsOpen,
         handleRefresh, closeTab, handleHideStory,
         handleStorySelect, handleToggleSave,
@@ -37,41 +37,48 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     const [isArticlesMenuOpen, setIsArticlesMenuOpen] = useState(false);
     const articlesMenuRef = useRef<HTMLDivElement>(null);
 
-    // Slideshow overlay state (opt-in via Slideshow button; feed view is always default)
+    // Slideshow overlay state (opt-in via Slideshow button)
     const [isBriefingOpen, setIsBriefingOpen] = useState<boolean>(false);
     const [briefingStage, setBriefingStage] = useState<BriefingStage>('postgres');
 
-    // Feed layout mode: Topic-Grouped (default on All) vs flat ranked List
-    const [feedViewMode, setFeedViewMode] = useState<'grouped' | 'list'>(() => {
-        try {
-            const saved = localStorage.getItem('hn_feed_view_mode');
-            if (saved === 'list' || saved === 'grouped') return saved;
-        } catch { }
-        return 'grouped';
-    });
     const [groupedRefreshKey, setGroupedRefreshKey] = useState(0);
     const [highlightedStoryOverride, setHighlightedStoryOverride] = useState<Story | null>(null);
 
     const hasActiveTopicFilter = activeTopics.some(t => !disabledTopics.includes(t));
-    const isGroupedActive =
+    // Focus mode renders multi-topic GroupedFeed when viewing "All Topics" (no single topic solo-selected)
+    const isFocusGroupedActive =
         !isWebPreview() &&
-        feedViewMode === 'grouped' &&
+        workspaceMode === 'focus' &&
         primaryTab === 'feed' &&
-        (mode === 'default' || mode === 'latest' || mode === 'votes') &&
-        !hasActiveTopicFilter &&
-        app.searchQuery.trim() === '';
+        !hasActiveTopicFilter;
 
-    const handleSetFeedViewMode = useCallback((next: 'grouped' | 'list') => {
-        setFeedViewMode(next);
-        try { localStorage.setItem('hn_feed_view_mode', next); } catch { }
-        if (next === 'grouped') {
-            setDisabledTopics([...activeTopics]);
-            app.setSearchQuery('');
-            setPrimaryTab('feed');
+    const switchWorkspaceMode = useCallback((next: 'frontpage' | 'focus') => {
+        setWorkspaceMode(next);
+        setPrimaryTab('feed');
+        setCurrentView('feed');
+        if (next === 'frontpage' && mode === 'saved') {
+            setMode('default');
         }
-    }, [activeTopics, setDisabledTopics, app, setPrimaryTab]);
+    }, [setWorkspaceMode, setPrimaryTab, setCurrentView, mode, setMode]);
 
-    // Close menu when clicking outside
+    // Cmd+1 (Front Page) and Cmd+2 (Focus) quick mode switch when on feed
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+            if (currentView !== 'feed') return;
+            if (e.key === '1') {
+                e.preventDefault();
+                switchWorkspaceMode('frontpage');
+            } else if (e.key === '2') {
+                e.preventDefault();
+                switchWorkspaceMode('focus');
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [currentView, switchWorkspaceMode]);
+
+    // Close open-articles overflow menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (articlesMenuRef.current && !articlesMenuRef.current.contains(event.target as Node)) {
@@ -209,13 +216,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
     useGlobalKeyboardNav(app, (index) => virtualizer.scrollToIndex(index, { align: 'center' }));
 
     useEffect(() => {
-        if (!isGroupedActive && !loading && stories.length > 0) {
+        if (!isFocusGroupedActive && !loading && stories.length > 0) {
             const hasHighlighted = stories.some(s => s.id === highlightedStoryId);
             if (!hasHighlighted) {
                 setHighlightedStoryId(stories[0].id);
             }
         }
-    }, [stories, loading, highlightedStoryId, isGroupedActive]);
+    }, [stories, loading, highlightedStoryId, isFocusGroupedActive]);
 
     // Mark as read after 10s
     useEffect(() => {
@@ -244,52 +251,189 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
         return () => clearTimeout(timer);
     }, [highlightedStoryId, readIds, user, highlightedStory, app.apiBase]);
 
-    const getTopicMatchCount = (topic: string) => {
-        const lower = topic.toLowerCase();
-        const escaped = lower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const wordRe = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i');
-        return app.storyBuffer.filter(s => {
-            if (s.title && wordRe.test(s.title)) return true;
-            if (s.topics?.some(st => st?.toLowerCase() === lower)) return true;
-            return false;
-        }).length;
-    };
+    const handleTopicChipFromPreview = useCallback((topic: string) => {
+        const alreadyPresent = activeTopics.some(t => t.toLowerCase() === topic.toLowerCase());
+        const canonical = alreadyPresent
+            ? activeTopics.find(t => t.toLowerCase() === topic.toLowerCase())!
+            : topic;
+        const nextTopics = alreadyPresent ? activeTopics : [...activeTopics, canonical];
+        if (!alreadyPresent) setActiveTopics(nextTopics);
 
-    const noActiveTopics = activeTopics.filter(t => !disabledTopics.includes(t)).length === 0;
+        // Switch to Focus mode and solo-filter to this topic (or return to All Topics if already solo-selected)
+        const isAlreadySolo =
+            workspaceMode === 'focus' &&
+            activeTopics.filter(t => !disabledTopics.includes(t)).length === 1 &&
+            !disabledTopics.includes(canonical);
+
+        setWorkspaceMode('focus');
+        setPrimaryTab('feed');
+        setCurrentView('feed');
+        if (isAlreadySolo) {
+            setDisabledTopics(nextTopics);
+        } else {
+            setDisabledTopics(nextTopics.filter(t => t !== canonical));
+        }
+    }, [activeTopics, disabledTopics, workspaceMode, setActiveTopics, setDisabledTopics, setWorkspaceMode, setPrimaryTab, setCurrentView]);
+
+    const handleAddFocusTopic = useCallback((rawTopic: string) => {
+        let term = rawTopic.trim();
+        if (term.startsWith('#')) term = term.slice(1);
+        if (!term) return;
+        const tag = term.charAt(0).toUpperCase() + term.slice(1);
+        const existing = activeTopics.find(t => t.toLowerCase() === tag.toLowerCase());
+        if (!existing) {
+            const nextTopics = [...activeTopics, tag];
+            setActiveTopics(nextTopics);
+            // Keep in grouped "All Topics" view so the newly added topic appears as a section right away
+            if (!hasActiveTopicFilter) {
+                setDisabledTopics(nextTopics);
+            } else {
+                setDisabledTopics(nextTopics.filter(t => t !== tag));
+            }
+        }
+    }, [activeTopics, hasActiveTopicFilter, setActiveTopics, setDisabledTopics]);
+
+    const noActiveTopics = !hasActiveTopicFilter;
+    const isFocusMode = !isWebPreview() && workspaceMode === 'focus';
 
     return (
         <div className="h-screen bg-[#fafaf8] dark:bg-[#121214] text-stone-900 dark:text-[#ececef] font-sans overflow-hidden flex flex-col">
-            {/* ─── Primary Header (Slim, Calm, Native Mac Feel) ─── */}
-            <header className="bg-[#fafaf8] dark:bg-[#17171a] border-b border-stone-200/80 dark:border-white/[0.07] h-[44px] flex items-center justify-between px-4 shrink-0 z-[100] relative select-none">
-                {/* Left Section: Navigation */}
-                <div className="flex items-center h-full gap-2 flex-1 min-w-0">
-                    <nav className="h-full flex items-center gap-0.5 shrink-0">
-                        {MODES.map((m) => {
-                            const isSelected = (primaryTab === 'feed' && m.key === mode) || (primaryTab === 'bookmarks' && m.key === 'saved');
-                            return (
+            {/* ─── Primary Header (2-Mode Workspace: Front Page | Focus) ─── */}
+            <header className="bg-[#fafaf8] dark:bg-[#17171a] border-b border-stone-200/80 dark:border-white/[0.07] h-[44px] flex items-center justify-between px-4 gap-3 shrink-0 z-[100] relative select-none">
+                {/* Left Section: Mode Switcher + Context Navigation */}
+                <div className="flex items-center h-full gap-2.5 flex-1 min-w-0">
+                    {/* Primary 2-Mode Switcher: Front Page | Focus */}
+                    {!isWebPreview() && (
+                        <>
+                            <div
+                                className="flex items-center bg-stone-200/70 dark:bg-white/[0.06] rounded-lg p-0.5 text-[12px] font-medium shrink-0"
+                                role="tablist"
+                                aria-label="Reading mode"
+                            >
                                 <button
-                                    key={m.key}
+                                    role="tab"
+                                    aria-selected={workspaceMode === 'frontpage'}
+                                    onClick={() => switchWorkspaceMode('frontpage')}
+                                    title="Classic Hacker News front page (⌘1)"
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] transition-colors cursor-pointer ${
+                                        workspaceMode === 'frontpage'
+                                            ? 'bg-white dark:bg-zinc-800 text-stone-950 dark:text-zinc-100 shadow-sm'
+                                            : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
+                                    }`}
+                                >
+                                    <Newspaper size={12} className="opacity-80" />
+                                    <span>Front Page</span>
+                                </button>
+                                <button
+                                    role="tab"
+                                    aria-selected={workspaceMode === 'focus'}
+                                    onClick={() => switchWorkspaceMode('focus')}
+                                    title="Focused briefing on your selected topics only (⌘2)"
+                                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] transition-colors cursor-pointer ${
+                                        workspaceMode === 'focus'
+                                            ? 'bg-white dark:bg-zinc-800 text-stone-950 dark:text-zinc-100 shadow-sm'
+                                            : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
+                                    }`}
+                                >
+                                    <Layers size={12} className="opacity-80" />
+                                    <span>Focus</span>
+                                </button>
+                            </div>
+
+                            <div className="h-3.5 w-px bg-stone-200 dark:bg-white/[0.08] shrink-0" />
+                        </>
+                    )}
+
+                    {/* Context-Specific Navigation */}
+                    <nav className="h-full flex items-center gap-0.5 shrink-0">
+                        {isFocusMode ? (
+                            <>
+                                {/* Focus Mode: Latest | Top sort */}
+                                <button
                                     onClick={() => {
-                                        if (m.key === 'saved') setPrimaryTab('bookmarks');
-                                        else {
-                                            const modeKey = m.key as any;
-                                            app.setLastFeedMode(modeKey);
-                                            setPrimaryTab('feed');
-                                            if (mode === modeKey && primaryTab === 'feed') handleRefresh();
-                                            else { setMode(modeKey); }
-                                        }
+                                        setFocusSort('latest');
+                                        setPrimaryTab('feed');
                                         setCurrentView('feed');
                                     }}
                                     className={`text-[12.5px] transition-colors outline-none px-2.5 py-1 rounded-md cursor-pointer ${
-                                        isSelected
+                                        primaryTab === 'feed' && focusSort === 'latest'
                                             ? 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-950 dark:text-white font-medium'
                                             : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05]'
                                     }`}
                                 >
-                                    {m.label}
+                                    Latest
                                 </button>
-                            );
-                        })}
+                                <button
+                                    onClick={() => {
+                                        setFocusSort('votes');
+                                        setPrimaryTab('feed');
+                                        setCurrentView('feed');
+                                    }}
+                                    className={`text-[12.5px] transition-colors outline-none px-2.5 py-1 rounded-md cursor-pointer ${
+                                        primaryTab === 'feed' && focusSort === 'votes'
+                                            ? 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-950 dark:text-white font-medium'
+                                            : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05]'
+                                    }`}
+                                >
+                                    Top
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setPrimaryTab('bookmarks');
+                                        setCurrentView('feed');
+                                    }}
+                                    className={`text-[12.5px] transition-colors outline-none px-2.5 py-1 rounded-md cursor-pointer ${
+                                        primaryTab === 'bookmarks'
+                                            ? 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-950 dark:text-white font-medium'
+                                            : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05]'
+                                    }`}
+                                >
+                                    Bookmarks
+                                </button>
+
+                                <div className="h-3.5 w-px bg-stone-200 dark:bg-white/[0.08] mx-1.5" />
+
+                                <button
+                                    onClick={() => {
+                                        setBriefingStage('postgres');
+                                        setIsBriefingOpen(true);
+                                    }}
+                                    title="Open Slideshow (Top 5 Postgres & Top 5 LLM/AI)"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12.5px] text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
+                                >
+                                    <Play size={10} className="fill-current opacity-75" />
+                                    <span>Slideshow</span>
+                                </button>
+                            </>
+                        ) : (
+                            /* Front Page Mode (and Web Preview): Classic HN nav */
+                            MODES.map((m) => {
+                                const isSelected = (primaryTab === 'feed' && m.key === mode) || (primaryTab === 'bookmarks' && m.key === 'saved');
+                                return (
+                                    <button
+                                        key={m.key}
+                                        onClick={() => {
+                                            if (m.key === 'saved') setPrimaryTab('bookmarks');
+                                            else {
+                                                const modeKey = m.key as any;
+                                                app.setLastFeedMode(modeKey);
+                                                setPrimaryTab('feed');
+                                                if (mode === modeKey && primaryTab === 'feed') handleRefresh();
+                                                else { setMode(modeKey); }
+                                            }
+                                            setCurrentView('feed');
+                                        }}
+                                        className={`text-[12.5px] transition-colors outline-none px-2.5 py-1 rounded-md cursor-pointer ${
+                                            isSelected
+                                                ? 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-950 dark:text-white font-medium'
+                                                : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05]'
+                                        }`}
+                                    >
+                                        {m.label}
+                                    </button>
+                                );
+                            })
+                        )}
 
                         {/* Overflow Open Articles Dropdown (only shown when 5+ tabs are open) */}
                         {!isWebPreview() && tabs.length > 4 && (
@@ -340,77 +484,72 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 )}
                             </div>
                         )}
-
-                        <div className="h-3.5 w-px bg-stone-200 dark:bg-white/[0.08] mx-1.5" />
-
-                        {/* Quiet Opt-in Slideshow Button */}
-                        <button
-                            onClick={() => {
-                                setBriefingStage('postgres');
-                                setIsBriefingOpen(true);
-                            }}
-                            title="Open Slideshow (Top 5 Postgres & Top 5 LLM/AI)"
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12.5px] text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/40 dark:hover:bg-white/[0.05] transition-colors cursor-pointer"
-                        >
-                            <Play size={10} className="fill-current opacity-75" />
-                            <span>Slideshow</span>
-                        </button>
                     </nav>
-
-                    {/* Inline Filter toolbar for web preview */}
-                    {isWebPreview() && (
-                        <>
-                            <div className="h-4 w-px bg-stone-200 dark:bg-white/[0.08] mx-1 shrink-0" />
-                            <button
-                                onClick={app.handleRefresh}
-                                className="p-1.5 rounded-md text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/50 dark:hover:bg-white/[0.06] transition-colors shrink-0 cursor-pointer"
-                                title="Refresh stories"
-                            >
-                                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-                            </button>
-
-                            <div className="flex items-center bg-stone-200/50 dark:bg-white/[0.05] px-2.5 py-1 rounded-md border border-transparent focus-within:border-stone-300 dark:focus-within:border-zinc-700 transition-colors shrink-0">
-                                <Search size={12} className="text-stone-400 dark:text-zinc-500" />
-                                <input
-                                    type="text"
-                                    placeholder="Filter..."
-                                    value={app.searchQuery}
-                                    onChange={(e) => app.setSearchQuery(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && app.searchQuery.trim()) {
-                                            let term = app.searchQuery.trim();
-                                            if (term.startsWith('#')) term = term.slice(1);
-                                            const tag = term.charAt(0).toUpperCase() + term.slice(1);
-                                            if (!activeTopics.includes(tag)) {
-                                                setActiveTopics(prev => [...prev, tag]);
-                                            }
-                                            setDisabledTopics(activeTopics.filter(t => t !== tag));
-                                            app.setSearchQuery('');
-                                            (e.target as HTMLInputElement).blur();
-                                        } else if (e.key === 'Escape') {
-                                            app.setSearchQuery('');
-                                            (e.target as HTMLInputElement).blur();
-                                        }
-                                    }}
-                                    className="bg-transparent border-none outline-none text-[12px] ml-1.5 w-24 focus:w-36 transition-all placeholder:text-stone-400 dark:placeholder:text-zinc-500 text-stone-800 dark:text-zinc-100"
-                                />
-                                {app.searchQuery && (
-                                    <button
-                                        onClick={() => app.setSearchQuery('')}
-                                        className="ml-1 text-stone-400 hover:text-stone-700 dark:hover:text-zinc-200"
-                                        title="Clear filter"
-                                    >
-                                        <X size={10} />
-                                    </button>
-                                )}
-                            </div>
-                        </>
-                    )}
                 </div>
 
-                {/* Right Section: Quiet Activity + Theme + Settings */}
-                <div className="flex items-center gap-1 h-full shrink-0">
+                {/* Right Section: Inline Search (Front Page) + Quiet Activity + Refresh + Preview Toggle + Theme + Settings */}
+                <div className="flex items-center gap-1.5 h-full shrink-0">
                     <HeaderSyncStatus />
+
+                    {/* Compact Inline Search in Front Page Mode (eliminates second toolbar entirely!) */}
+                    {currentView === 'feed' && !isFocusMode && (
+                        <div className="flex items-center bg-stone-200/50 dark:bg-white/[0.05] px-2.5 py-1 rounded-md border border-transparent focus-within:border-stone-300 dark:focus-within:border-zinc-700 transition-colors shrink-0 mr-0.5">
+                            <Search size={12} className="text-stone-400 dark:text-zinc-500" />
+                            <input
+                                type="text"
+                                placeholder="Search HN..."
+                                value={app.searchQuery}
+                                onChange={(e) => app.setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                        app.setSearchQuery('');
+                                        (e.target as HTMLInputElement).blur();
+                                    }
+                                }}
+                                className="bg-transparent border-none outline-none text-[12px] ml-1.5 w-28 focus:w-44 transition-all placeholder:text-stone-400 dark:placeholder:text-zinc-500 text-stone-800 dark:text-zinc-100"
+                            />
+                            {app.searchQuery && (
+                                <button
+                                    onClick={() => app.setSearchQuery('')}
+                                    className="ml-1 text-stone-400 hover:text-stone-700 dark:hover:text-zinc-200 cursor-pointer"
+                                    title="Clear search"
+                                >
+                                    <X size={10} />
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {currentView === 'feed' && (
+                        <button
+                            onClick={() => {
+                                app.handleRefresh();
+                                setGroupedRefreshKey(k => k + 1);
+                            }}
+                            className="p-1.5 rounded-md text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.07] transition-colors shrink-0 cursor-pointer"
+                            title="Refresh stories"
+                        >
+                            <RefreshCw size={14} className={loading ? 'animate-spin text-[#e06834]' : ''} />
+                        </button>
+                    )}
+
+                    {currentView === 'feed' && !isWebPreview() && (
+                        <button
+                            onClick={() => {
+                                const newState = !isSidebarCollapsed;
+                                setIsSidebarCollapsed(newState);
+                                localStorage.setItem('hn_feed_sidebar_collapsed', newState.toString());
+                            }}
+                            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                                isSidebarCollapsed
+                                    ? 'text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.07]'
+                                    : 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-800 dark:text-zinc-100'
+                            }`}
+                            title={isSidebarCollapsed ? 'Show Preview Pane' : 'Hide Preview Pane'}
+                        >
+                            <PanelRight size={15} />
+                        </button>
+                    )}
 
                     {!isElectron && isWebPreview() && (
                         <a
@@ -452,65 +591,44 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                 </div>
             </header>
 
-            {/* ─── Secondary Filter Strip (Slim & Monochrome) — Feed View Only ─── */}
-            {currentView === 'feed' && !isWebPreview() && (
-                <div className="h-[42px] flex items-center justify-between px-4 gap-3 z-[99] bg-[#fafaf8] dark:bg-[#141416] border-b border-stone-200/75 dark:border-white/[0.06] shrink-0 select-none">
-                    {/* Left: Refresh + Minimal Search */}
-                    <div className="flex items-center gap-2 shrink-0">
-                        <button
-                            onClick={() => {
-                                app.handleRefresh();
-                                setGroupedRefreshKey(k => k + 1);
+            {/* ─── Focus Topic Strip (ONLY shown in Focus Mode) ─── */}
+            {currentView === 'feed' && isFocusMode && primaryTab === 'feed' && (
+                <div className="h-[40px] flex items-center justify-between px-4 gap-3 z-[99] bg-[#fafaf8] dark:bg-[#141416] border-b border-stone-200/75 dark:border-white/[0.06] shrink-0 select-none">
+                    {/* Left: Filter or +Add Focus Topic */}
+                    <div
+                        className="flex items-center bg-stone-200/50 dark:bg-white/[0.05] px-2.5 py-1 rounded-md border border-transparent focus-within:border-stone-300 dark:focus-within:border-zinc-700 transition-colors shrink-0"
+                        title="Filter focus stories or press Enter to add a new topic"
+                    >
+                        <Search size={12} className="text-stone-400 dark:text-zinc-500" />
+                        <input
+                            type="text"
+                            placeholder="Filter or +add topic..."
+                            value={app.searchQuery}
+                            onChange={(e) => app.setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && app.searchQuery.trim()) {
+                                    handleAddFocusTopic(app.searchQuery);
+                                    app.setSearchQuery('');
+                                    (e.target as HTMLInputElement).blur();
+                                } else if (e.key === 'Escape') {
+                                    app.setSearchQuery('');
+                                    (e.target as HTMLInputElement).blur();
+                                }
                             }}
-                            className="p-1.5 rounded-md text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.06] transition-colors shrink-0 cursor-pointer"
-                            title="Refresh stories"
-                        >
-                            <RefreshCw size={13} className={loading ? 'animate-spin text-[#e06834]' : ''} />
-                        </button>
-
-                        <div
-                            className="flex items-center bg-stone-200/50 dark:bg-white/[0.05] px-2.5 py-1 rounded-md border border-transparent focus-within:border-stone-300 dark:focus-within:border-zinc-700 transition-colors shrink-0"
-                            title="Filter stories or press Enter to add a topic"
-                        >
-                            <Search size={12} className="text-stone-400 dark:text-zinc-500" />
-                            <input
-                                type="text"
-                                placeholder="Filter or +topic..."
-                                value={app.searchQuery}
-                                onChange={(e) => app.setSearchQuery(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && app.searchQuery.trim()) {
-                                        let term = app.searchQuery.trim();
-                                        if (term.startsWith('#')) term = term.slice(1);
-                                        const tag = term.charAt(0).toUpperCase() + term.slice(1);
-
-                                        if (!activeTopics.includes(tag)) {
-                                            setActiveTopics(prev => [...prev, tag]);
-                                        }
-                                        setDisabledTopics(activeTopics.filter(t => t !== tag));
-
-                                        app.setSearchQuery('');
-                                        (e.target as HTMLInputElement).blur();
-                                    } else if (e.key === 'Escape') {
-                                        app.setSearchQuery('');
-                                        (e.target as HTMLInputElement).blur();
-                                    }
-                                }}
-                                className="bg-transparent border-none outline-none text-[12px] ml-2 w-32 focus:w-48 transition-all placeholder:text-stone-400 dark:placeholder:text-zinc-500 text-stone-800 dark:text-zinc-100"
-                            />
-                            {app.searchQuery && (
-                                <button
-                                    onClick={() => app.setSearchQuery('')}
-                                    className="ml-1 text-stone-400 hover:text-stone-700 dark:hover:text-zinc-200 cursor-pointer"
-                                    title="Clear filter"
-                                >
-                                    <X size={11} />
-                                </button>
-                            )}
-                        </div>
+                            className="bg-transparent border-none outline-none text-[12px] ml-2 w-36 focus:w-52 transition-all placeholder:text-stone-400 dark:placeholder:text-zinc-500 text-stone-800 dark:text-zinc-100"
+                        />
+                        {app.searchQuery && (
+                            <button
+                                onClick={() => app.setSearchQuery('')}
+                                className="ml-1 text-stone-400 hover:text-stone-700 dark:hover:text-zinc-200 cursor-pointer"
+                                title="Clear filter"
+                            >
+                                <X size={11} />
+                            </button>
+                        )}
                     </div>
 
-                    {/* Center: Monochrome Topic Pills */}
+                    {/* Focus Topic Pills: All Topics (Grouped) + Individual Topic Drill-Down */}
                     <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 min-w-0 py-0.5">
                         <button
                             onClick={() => {
@@ -523,34 +641,22 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.06]'
                             }`}
                         >
-                            All
+                            All Topics
                         </button>
 
                         {activeTopics.map(t => {
                             const isActive = !disabledTopics.includes(t);
-                            const matchCount = getTopicMatchCount(t);
 
                             return (
                                 <div
-                                    key={`feed-tag-${t}`}
+                                    key={`focus-tag-${t}`}
                                     onClick={() => {
-                                        const noActiveTags = activeTopics.filter(x => !disabledTopics.includes(x)).length === 0;
-
-                                        if (app.topicMatch === 'exclusive') {
-                                            if (isActive) {
-                                                setDisabledTopics(activeTopics);
-                                            } else {
-                                                setDisabledTopics(activeTopics.filter(x => x !== t));
-                                            }
-                                            return;
-                                        }
-
-                                        if (noActiveTags) {
-                                            setDisabledTopics(activeTopics.filter(x => x !== t));
-                                        } else if (isActive) {
-                                            setDisabledTopics(prev => [...prev, t]);
+                                        if (isActive) {
+                                            // Clicking the active solo topic returns to All Topics grouped view
+                                            setDisabledTopics([...activeTopics]);
                                         } else {
-                                            setDisabledTopics(prev => prev.filter(x => x !== t));
+                                            // Drill into just this topic
+                                            setDisabledTopics(activeTopics.filter(x => x !== t));
                                         }
                                     }}
                                     className={`group flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium cursor-pointer transition-colors shrink-0 ${
@@ -560,18 +666,13 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     }`}
                                 >
                                     <span>{t}</span>
-                                    {matchCount > 0 && (
-                                        <span className={`text-[10.5px] tabular-nums ${isActive ? 'text-stone-300 dark:text-zinc-400' : 'text-stone-400 dark:text-zinc-500'}`}>
-                                            {matchCount}
-                                        </span>
-                                    )}
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setActiveTopics(prev => prev.filter(x => x !== t));
                                             setDisabledTopics(prev => prev.filter(x => x !== t));
                                         }}
-                                        title={`Remove ${t}`}
+                                        title={`Remove ${t} from Focus`}
                                         className={`opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity cursor-pointer shrink-0 -mr-0.5 ${
                                             isActive ? 'text-stone-300 dark:text-zinc-400' : 'text-stone-400 dark:text-zinc-500'
                                         }`}
@@ -581,52 +682,6 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 </div>
                             );
                         })}
-                    </div>
-
-                    {/* Right: Topics / List Segmented Control + Preview Pane Toggle */}
-                    <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center bg-stone-200/60 dark:bg-white/[0.05] rounded-md p-0.5 text-[11.5px] font-medium">
-                            <button
-                                onClick={() => handleSetFeedViewMode('grouped')}
-                                title="Group stories by topic"
-                                className={`flex items-center gap-1 px-2 py-0.5 rounded-[5px] transition-colors cursor-pointer ${
-                                    isGroupedActive
-                                        ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm'
-                                        : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
-                                }`}
-                            >
-                                <Layers size={11} />
-                                <span>Topics</span>
-                            </button>
-                            <button
-                                onClick={() => handleSetFeedViewMode('list')}
-                                title="Flat list"
-                                className={`flex items-center gap-1 px-2 py-0.5 rounded-[5px] transition-colors cursor-pointer ${
-                                    !isGroupedActive
-                                        ? 'bg-white dark:bg-zinc-800 text-stone-900 dark:text-zinc-100 shadow-sm'
-                                        : 'text-stone-500 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-200'
-                                }`}
-                            >
-                                <List size={11} />
-                                <span>List</span>
-                            </button>
-                        </div>
-
-                        <button
-                            onClick={() => {
-                                const newState = !isSidebarCollapsed;
-                                setIsSidebarCollapsed(newState);
-                                localStorage.setItem('hn_feed_sidebar_collapsed', newState.toString());
-                            }}
-                            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                                isSidebarCollapsed
-                                    ? 'text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-zinc-100 hover:bg-stone-200/60 dark:hover:bg-white/[0.06]'
-                                    : 'bg-stone-200/80 dark:bg-white/[0.1] text-stone-800 dark:text-zinc-100'
-                            }`}
-                            title={isSidebarCollapsed ? 'Show Preview Pane (Ctrl+Q)' : 'Hide Preview Pane (Ctrl+Q)'}
-                        >
-                            <PanelRight size={15} />
-                        </button>
                     </div>
                 </div>
             )}
@@ -645,7 +700,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                             }`}
                         >
                             <Home size={13} />
-                            <span>Feed</span>
+                            <span>{workspaceMode === 'focus' ? 'Focus' : 'Front Page'}</span>
                         </button>
                         {tabs.map(t => {
                             const isPinned = Boolean(t.isPinned);
@@ -701,7 +756,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                     style={{ display: currentView === 'feed' ? 'flex' : 'none' }}
                 >
                     <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                        {isGroupedActive ? (
+                        {isFocusGroupedActive ? (
                             <GroupedFeed
                                 apiBase={app.apiBase}
                                 stories={stories}
@@ -710,6 +765,8 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                 readIds={readIds}
                                 hiddenIds={app.hiddenStories}
                                 activeTopics={activeTopics}
+                                focusSort={focusSort}
+                                searchQuery={app.searchQuery}
                                 onSelectStory={(story) => {
                                     setHighlightedStoryOverride(story);
                                     setHighlightedStoryId(story.id);
@@ -728,6 +785,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     });
                                     app.setTopicMatch(topics.length > 1 ? 'any' : 'exclusive');
                                 }}
+                                onAddTopic={handleAddFocusTopic}
                                 refreshKey={groupedRefreshKey}
                             />
                         ) : (
@@ -776,7 +834,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                                         activeTopics={activeTopics}
                                                         selectedTopics={activeTopics.filter(t => !disabledTopics.includes(t))}
                                                         topicMatch={app.topicMatch}
-                                                        hiddenTags={activeTopics.filter(t => !disabledTopics.includes(t))}
+                                                        hiddenTags={isFocusMode ? activeTopics.filter(t => !disabledTopics.includes(t)) : []}
                                                     />
                                                 </div>
                                             );
@@ -911,6 +969,7 @@ export function DesktopLayout({ app }: { app: ReturnType<typeof import('../hooks
                                     user={user}
                                     apiBase={app.apiBase}
                                     onOpenInTab={handleStorySelect}
+                                    onTopicChipClick={handleTopicChipFromPreview}
                                     onSummarize={app.handleSummarizeStory}
                                     topicMatch={app.topicMatch}
                                 />

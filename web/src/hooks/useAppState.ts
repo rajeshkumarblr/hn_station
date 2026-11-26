@@ -132,6 +132,22 @@ export function useAppState() {
     const [apiBase, setApiBase] = useState(getApiBase());
 
     const [mode, setMode] = useState<ModeKey>('default');
+    const [workspaceMode, setWorkspaceMode] = useState<'frontpage' | 'focus'>(() => {
+        try {
+            const saved = localStorage.getItem('hn_workspace_mode');
+            if (saved === 'frontpage' || saved === 'focus') return saved;
+            const legacy = localStorage.getItem('hn_feed_view_mode');
+            if (legacy === 'list') return 'frontpage';
+        } catch { }
+        return 'focus';
+    });
+    const [focusSort, setFocusSort] = useState<'latest' | 'votes'>(() => {
+        try {
+            const saved = localStorage.getItem('hn_focus_sort');
+            if (saved === 'latest' || saved === 'votes') return saved;
+        } catch { }
+        return 'latest';
+    });
     const [offset, setOffset] = useState(0);
     const [activeTopics, setActiveTopics] = useState<string[]>(loadTopicChips);
     const [searchQuery, setSearchQuery] = useState('');
@@ -141,7 +157,7 @@ export function useAppState() {
             const saved = localStorage.getItem('hn_disabled_topics');
             if (saved) return JSON.parse(saved);
         } catch { }
-        return [];
+        return loadTopicChips();
     });
     const [totalStories, setTotalStories] = useState(0);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -373,10 +389,22 @@ export function useAppState() {
         } catch { }
     }, [disabledTopics]);
 
-    // Reset offset when search queries or topics change
+    useEffect(() => {
+        try {
+            localStorage.setItem('hn_workspace_mode', workspaceMode);
+        } catch { }
+    }, [workspaceMode]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('hn_focus_sort', focusSort);
+        } catch { }
+    }, [focusSort]);
+
+    // Reset offset when search queries, topics, or workspace mode change
     useEffect(() => {
         setOffset(0);
-    }, [activeTopics, disabledTopics, searchQuery, topicMatch]);
+    }, [activeTopics, disabledTopics, searchQuery, topicMatch, workspaceMode, focusSort]);
 
     useEffect(() => {
         try {
@@ -529,8 +557,11 @@ export function useAppState() {
             if (searchQuery.trim() !== '' || loading || fetchingMore || currentView !== 'feed' || mode === 'saved') return;
 
             const baseUrl = getApiBase();
-            const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
-            let url = `${baseUrl}/api/stories?limit=10&offset=0&sort=${mode}&topic_match=${topicMatch}`;
+            const enabledTopics = workspaceMode === 'focus'
+                ? activeTopics.filter(t => !disabledTopics.includes(t))
+                : [];
+            const effectiveSort = workspaceMode === 'focus' ? focusSort : mode;
+            let url = `${baseUrl}/api/stories?limit=10&offset=0&sort=${effectiveSort}&topic_match=${topicMatch}`;
             enabledTopics.forEach(t => url += `&topic=${encodeURIComponent(t)}`);
 
             fetchWithAuth(url)
@@ -576,7 +607,7 @@ export function useAppState() {
         }, 60000);
 
         return () => clearInterval(autoRefreshInterval);
-    }, [apiBase, storyBuffer, searchQuery, loading, fetchingMore, currentView, mode, topicMatch, activeTopics, disabledTopics, handleStorySelect]);
+    }, [apiBase, storyBuffer, searchQuery, loading, fetchingMore, currentView, mode, workspaceMode, focusSort, topicMatch, activeTopics, disabledTopics, handleStorySelect]);
 
     const handleHideStory = useCallback((id: number) => {
         setStoryBuffer(prev => prev.filter(s => s.id !== id));
@@ -687,15 +718,18 @@ export function useAppState() {
     const buildUrl = useCallback((currentOffset: number, limit: number = PAGE_SIZE) => {
         const baseUrl = apiBase ?? '';
         if (mode === 'saved') return `${baseUrl}/api/stories/saved?limit=${limit}&offset=${currentOffset}&_t=${Date.now()}`;
-        let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${mode}`;
+        const effectiveSort = workspaceMode === 'focus' ? focusSort : mode;
+        let url = `${baseUrl}/api/stories?limit=${limit}&offset=${currentOffset}&sort=${effectiveSort}`;
         if (showHidden) url += `&show_hidden=true`;
 
-        const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
-        if (enabledTopics.length > 0) {
-            enabledTopics.forEach(t => {
-                url += `&topic=${encodeURIComponent(t)}`;
-            });
-            url += `&topic_match=${topicMatch}`;
+        if (workspaceMode === 'focus') {
+            const enabledTopics = activeTopics.filter(t => !disabledTopics.includes(t));
+            if (enabledTopics.length > 0) {
+                enabledTopics.forEach(t => {
+                    url += `&topic=${encodeURIComponent(t)}`;
+                });
+                url += `&topic_match=${topicMatch}`;
+            }
         }
         
         if (searchQuery.trim() !== '') {
@@ -703,7 +737,7 @@ export function useAppState() {
         }
 
         return url;
-    }, [mode, showHidden, apiBase, activeTopics, disabledTopics, topicMatch, searchQuery]);
+    }, [mode, workspaceMode, focusSort, showHidden, apiBase, activeTopics, disabledTopics, topicMatch, searchQuery]);
 
     // Consolidated fetcher
     const fetchPage = useCallback(async (currentOffset: number, isInitial: boolean = false) => {
@@ -826,7 +860,7 @@ export function useAppState() {
     useEffect(() => {
         if (isElectron() && !apiBase) return;
         fetchPage(0, true);
-    }, [mode, refreshKey, showHidden, activeTopics, disabledTopics, topicMatch, searchQuery, apiBase, isFilterActive]);
+    }, [mode, workspaceMode, focusSort, refreshKey, showHidden, activeTopics, disabledTopics, topicMatch, searchQuery, apiBase, isFilterActive]);
 
     useEffect(() => {
         if (!apiBase || storyBuffer.length === 0) return;
@@ -976,7 +1010,7 @@ export function useAppState() {
 
     const state = {
         // State
-        storyBuffer, loading, error, mode, activeTopics, disabledTopics, totalStories,
+        storyBuffer, loading, error, mode, workspaceMode, focusSort, activeTopics, disabledTopics, totalStories,
         hasMore, fetchingMore, readIds, theme, highlightedStoryId,
         tabs, activeTabId, showHidden,
         isSettingsOpen, currentView, isAdminModalOpen, user,
@@ -986,7 +1020,7 @@ export function useAppState() {
         activeTab, selectedStoryId, selectedStory, readerTab, stories, availableTags, apiBase,
         isWebMode,
         // Setters
-        setMode, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
+        setMode, setWorkspaceMode, setFocusSort, setOffset, setActiveTopics, setTheme, setShowHidden, setIsSettingsOpen,
         setCurrentView, setIsAdminModalOpen, setHighlightedStoryId, setReadIds,
         setDisabledTopics, setGlobalWarning, setPrimaryTab, setIsFilterActive,
         setSearchQuery, setTopicMatch, fetchNextPage, setLastFeedMode,

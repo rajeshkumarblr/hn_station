@@ -12,6 +12,7 @@ interface FilterSidebarProps {
     highlightedStory?: Story | null;
     onSummarize?: (id: number) => Promise<any>;
     onOpenInTab?: (id: number, mode?: 'article' | 'discussion' | 'split', keepOpen?: boolean, storyOverride?: Story) => void;
+    onTopicChipClick?: (topic: string) => void;
     apiBase?: string;
     user: any;
     topicMatch?: 'any' | 'all' | 'exclusive';
@@ -49,6 +50,7 @@ function extractCleanParagraphs(raw: string, contentType: string, title?: string
             .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
             .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
             .replace(/^#{1,6}\s+.*$/gm, '')
+            .replace(/^\s*[-=_*~+|]{3,}\s*$/gm, '')
             .replace(/[*_`~]/g, '');
 
         for (const block of stripped.split(/\n\s*\n/)) {
@@ -99,6 +101,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     highlightedStory,
     onSummarize,
     onOpenInTab,
+    onTopicChipClick,
     apiBase,
     user,
     topicMatch = 'any',
@@ -505,6 +508,10 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
                                     <button
                                         key={`article-topic-${topic}`}
                                         onClick={() => {
+                                            if (onTopicChipClick) {
+                                                onTopicChipClick(topic);
+                                                return;
+                                            }
                                             if (!isPresent) {
                                                 setActiveTopics(prev => [...new Set([...prev, topic])]);
                                                 if (topicMatch === 'exclusive') {
